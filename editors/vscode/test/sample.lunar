@@ -1,0 +1,19 @@
+<script>
+  props { title = "hello" }
+  local Card = import("./Card.lunar")
+  count = 0
+  local t = { a = 1 }
+</script>
+
+<h1 class="title {extra}" id={"t-" .. title} hidden>{title}</h1>
+<button on:click|prevent={function() count = count + 1 end} class:hot={count > 2}>+</button>
+{#if count > 1}<p>{count}</p>{:else if count < 0}<p>neg</p>{:else}<p>none</p>{/if}
+{#each items as item, i}<li>{i}: {item.name}</li>{/each}
+<Card title={title} {...rest}><slot /></Card>
+<p>{@html body} \{literal\} &amp;</p>
+<input bind:value={title} />
+<!-- a comment -->
+
+<style>
+  h1 { color: red }
+</style>

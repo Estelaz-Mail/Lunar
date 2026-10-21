@@ -1,0 +1,161 @@
+{
+  "name": "lunar-lang",
+  "displayName": "Lunar",
+  "description": "Syntax highlighting, diagnostics and commands for Lunar components (.lunar) — the web framework in Lua.",
+  "version": "0.1.0",
+  "icon": "images/icon.png",
+  "publisher": "glazastov",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Glazastyy/Lunar"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Snippets"
+  ],
+  "keywords": [
+    "lunar",
+    "lua",
+    "fengari",
+    "ssr",
+    "web framework"
+  ],
+  "main": "./src/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "lunar",
+        "aliases": [
+          "Lunar",
+          "lunar"
+        ],
+        "extensions": [
+          ".lunar"
+        ],
+        "icon": {
+          "light": "./images/lunar-file.png",
+          "dark": "./images/lunar-file.png"
+        },
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "lunar",
+        "scopeName": "source.lunar",
+        "path": "./syntaxes/lunar.tmLanguage.json",
+        "embeddedLanguages": {
+          "source.lua": "lua",
+          "source.css": "css",
+          "meta.embedded.block.lua": "lua",
+          "meta.embedded.block.css": "css"
+        }
+      }
+    ],
+    "snippets": [
+      {
+        "language": "lunar",
+        "path": "./snippets/lunar.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "lunar.check",
+        "title": "Lunar: Check current component",
+        "category": "Lunar"
+      },
+      {
+        "command": "lunar.compile",
+        "title": "Lunar: Show the Lua this component compiles to",
+        "category": "Lunar"
+      },
+      {
+        "command": "lunar.dev",
+        "title": "Lunar: Start the dev server",
+        "category": "Lunar"
+      },
+      {
+        "command": "lunar.build",
+        "title": "Lunar: Compile everything and report what failed",
+        "category": "Lunar"
+      },
+      {
+        "command": "lunar.routes",
+        "title": "Lunar: Show the orbit",
+        "category": "Lunar"
+      },
+      {
+        "command": "lunar.spec",
+        "title": "Lunar: Run the tests",
+        "category": "Lunar"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "lunar.compile",
+          "when": "resourceLangId == lunar",
+          "group": "lunar@1"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Lunar",
+      "properties": {
+        "lunar.path": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Path to the `lunar` CLI. When empty, the extension looks for `bin/lunar` in each workspace folder, then `lunar` on your `PATH`."
+        },
+        "lunar.app": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "The app directory `lunar dev` and `lunar map` are run against — a directory with an `orbit/` tree in it. When empty, the extension looks for one, preferring the nearest ancestor of the file you are editing."
+        },
+        "lunar.diagnostics.run": {
+          "type": "string",
+          "enum": [
+            "onType",
+            "onSave",
+            "off"
+          ],
+          "default": "onType",
+          "enumDescriptions": [
+            "Re-check the component as you type (debounced).",
+            "Re-check only when the file is saved.",
+            "Disable diagnostics."
+          ],
+          "description": "When to run the compiler for diagnostics."
+        },
+        "lunar.diagnostics.debounce": {
+          "type": "number",
+          "default": 300,
+          "description": "Milliseconds to wait after the last keystroke before re-checking (onType mode)."
+        },
+        "lunar.lua": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "The Lua interpreter the CLI runs under, passed as `LUA`. When empty, `lua5.4` is used, which is what `bin/lunar` defaults to."
+        }
+      }
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.75.0"
+  },
+  "scripts": {
+    "check": "node scripts/check-grammar.mjs && node scripts/check-extension.mjs && node scripts/check-tokens.mjs",
+    "icons": "sh scripts/icons.sh",
+    "package": "npx --yes @vscode/vsce package"
+  },
+  "dependencies": {
+    "vscode-oniguruma": "^2.0.1",
+    "vscode-textmate": "^9.3.2"
+  }
+}

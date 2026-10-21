@@ -1,0 +1,362 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "Lunar",
+	"scopeName": "source.lunar",
+	"patterns": [
+		{ "include": "#script-block" },
+		{ "include": "#style-block" },
+		{ "include": "#html-comment" },
+		{ "include": "#doctype" },
+		{ "include": "#block-tag" },
+		{ "include": "#escaped-brace" },
+		{ "include": "#mustache" },
+		{ "include": "#close-tag" },
+		{ "include": "#open-tag" },
+		{ "include": "#entity" }
+	],
+	"repository": {
+		"script-block": {
+			"comment": "The component's <script>, which is Lua.",
+			"begin": "(<)(script)\\b([^>]*)(>)",
+			"beginCaptures": {
+				"1": { "name": "punctuation.definition.tag.begin.lunar" },
+				"2": { "name": "entity.name.tag.script.lunar" },
+				"3": { "patterns": [{ "include": "#tag-attributes" }] },
+				"4": { "name": "punctuation.definition.tag.end.lunar" }
+			},
+			"end": "(</)(script)\\s*(>)",
+			"endCaptures": {
+				"1": { "name": "punctuation.definition.tag.begin.lunar" },
+				"2": { "name": "entity.name.tag.script.lunar" },
+				"3": { "name": "punctuation.definition.tag.end.lunar" }
+			},
+			"name": "meta.script.lunar",
+			"contentName": "meta.embedded.block.lua",
+			"patterns": [{ "include": "source.lua" }]
+		},
+
+		"style-block": {
+			"comment": "The component's <style>, which is CSS, scoped to this component by the compiler.",
+			"begin": "(<)(style)\\b([^>]*)(>)",
+			"beginCaptures": {
+				"1": { "name": "punctuation.definition.tag.begin.lunar" },
+				"2": { "name": "entity.name.tag.style.lunar" },
+				"3": { "patterns": [{ "include": "#tag-attributes" }] },
+				"4": { "name": "punctuation.definition.tag.end.lunar" }
+			},
+			"end": "(</)(style)\\s*(>)",
+			"endCaptures": {
+				"1": { "name": "punctuation.definition.tag.begin.lunar" },
+				"2": { "name": "entity.name.tag.style.lunar" },
+				"3": { "name": "punctuation.definition.tag.end.lunar" }
+			},
+			"name": "meta.style.lunar",
+			"contentName": "meta.embedded.block.css",
+			"patterns": [{ "include": "source.css" }]
+		},
+
+		"html-comment": {
+			"name": "comment.block.html.lunar",
+			"begin": "<!--",
+			"beginCaptures": { "0": { "name": "punctuation.definition.comment.begin.lunar" } },
+			"end": "-->",
+			"endCaptures": { "0": { "name": "punctuation.definition.comment.end.lunar" } }
+		},
+
+		"doctype": {
+			"name": "meta.tag.sgml.doctype.lunar",
+			"begin": "<!(?:[Dd][Oo][Cc][Tt][Yy][Pp][Ee])",
+			"end": ">",
+			"captures": { "0": { "name": "punctuation.definition.tag.lunar" } }
+		},
+
+		"escaped-brace": {
+			"comment": "\\{ is a literal brace, for a template that shows the syntax it is written in.",
+			"name": "constant.character.escape.lunar",
+			"match": "\\\\[{}]"
+		},
+
+		"block-tag": {
+			"patterns": [
+				{
+					"comment": "{#if expr} and {#each list as item, index}",
+					"begin": "(\\{)(#)(if|each)\\b",
+					"beginCaptures": {
+						"1": { "name": "punctuation.section.embedded.begin.lunar" },
+						"2": { "name": "punctuation.definition.keyword.lunar" },
+						"3": { "name": "keyword.control.conditional.lunar" }
+					},
+					"end": "\\}",
+					"endCaptures": { "0": { "name": "punctuation.section.embedded.end.lunar" } },
+					"name": "meta.block.start.lunar",
+					"contentName": "meta.embedded.expression.lua",
+					"patterns": [
+						{ "name": "keyword.operator.each.lunar", "match": "\\b(as)\\b" },
+						{ "include": "#nested-braces" },
+						{ "include": "source.lua" }
+					]
+				},
+				{
+					"comment": "{:else} and {:else if expr}",
+					"begin": "(\\{)(:)(else)\\b",
+					"beginCaptures": {
+						"1": { "name": "punctuation.section.embedded.begin.lunar" },
+						"2": { "name": "punctuation.definition.keyword.lunar" },
+						"3": { "name": "keyword.control.conditional.lunar" }
+					},
+					"end": "\\}",
+					"endCaptures": { "0": { "name": "punctuation.section.embedded.end.lunar" } },
+					"name": "meta.block.else.lunar",
+					"contentName": "meta.embedded.expression.lua",
+					"patterns": [
+						{ "name": "keyword.control.conditional.lunar", "match": "\\b(if)\\b" },
+						{ "include": "#nested-braces" },
+						{ "include": "source.lua" }
+					]
+				},
+				{
+					"comment": "{/if} and {/each}",
+					"match": "(\\{)(/)(if|each)(\\})",
+					"name": "meta.block.end.lunar",
+					"captures": {
+						"1": { "name": "punctuation.section.embedded.begin.lunar" },
+						"2": { "name": "punctuation.definition.keyword.lunar" },
+						"3": { "name": "keyword.control.conditional.lunar" },
+						"4": { "name": "punctuation.section.embedded.end.lunar" }
+					}
+				},
+				{
+					"comment": "{@html expr}: the one documented way past escaping.",
+					"begin": "(\\{)(@)(html)\\b",
+					"beginCaptures": {
+						"1": { "name": "punctuation.section.embedded.begin.lunar" },
+						"2": { "name": "punctuation.definition.keyword.lunar" },
+						"3": { "name": "keyword.other.unsafe.lunar" }
+					},
+					"end": "\\}",
+					"endCaptures": { "0": { "name": "punctuation.section.embedded.end.lunar" } },
+					"name": "meta.directive.html.lunar",
+					"contentName": "meta.embedded.expression.lua",
+					"patterns": [
+						{ "include": "#nested-braces" },
+						{ "include": "source.lua" }
+					]
+				}
+			]
+		},
+
+		"mustache": {
+			"comment": "{expr}: a Lua expression, escaped on the way out.",
+			"begin": "\\{",
+			"beginCaptures": { "0": { "name": "punctuation.section.embedded.begin.lunar" } },
+			"end": "\\}",
+			"endCaptures": { "0": { "name": "punctuation.section.embedded.end.lunar" } },
+			"name": "meta.embedded.expression.lunar",
+			"contentName": "meta.embedded.block.lua",
+			"patterns": [
+				{ "include": "#nested-braces" },
+				{ "include": "source.lua" }
+			]
+		},
+
+		"nested-braces": {
+			"comment": "A Lua table constructor inside an expression, so the outer } that closes the mustache is the right one.",
+			"begin": "\\{",
+			"end": "\\}",
+			"contentName": "meta.embedded.block.lua",
+			"patterns": [
+				{ "include": "#nested-braces" },
+				{ "include": "source.lua" }
+			]
+		},
+
+		"close-tag": {
+			"name": "meta.tag.end.lunar",
+			"match": "(</)([A-Z][A-Za-z0-9_.]*|[a-z][A-Za-z0-9_.:-]*)?\\s*(>)",
+			"captures": {
+				"1": { "name": "punctuation.definition.tag.begin.lunar" },
+				"2": { "patterns": [{ "include": "#tag-name" }] },
+				"3": { "name": "punctuation.definition.tag.end.lunar" }
+			}
+		},
+
+		"open-tag": {
+			"name": "meta.tag.start.lunar",
+			"begin": "(<)([A-Z][A-Za-z0-9_.]*|[a-z][A-Za-z0-9_.:-]*)",
+			"beginCaptures": {
+				"1": { "name": "punctuation.definition.tag.begin.lunar" },
+				"2": { "patterns": [{ "include": "#tag-name" }] }
+			},
+			"end": "(/?>)",
+			"endCaptures": { "1": { "name": "punctuation.definition.tag.end.lunar" } },
+			"patterns": [{ "include": "#tag-attributes" }]
+		},
+
+		"tag-name": {
+			"patterns": [
+				{
+					"comment": "A capitalised tag is a component, which is a value in scope.",
+					"name": "support.class.component.lunar",
+					"match": "\\b[A-Z][A-Za-z0-9_.]*\\b"
+				},
+				{
+					"comment": "<slot /> and <lunar:head> are the framework's own.",
+					"name": "keyword.control.special.lunar",
+					"match": "\\b(slot|lunar:head)\\b"
+				},
+				{
+					"name": "entity.name.tag.lunar",
+					"match": "[a-z][A-Za-z0-9_.:-]*"
+				}
+			]
+		},
+
+		"tag-attributes": {
+			"patterns": [
+				{ "include": "#directive" },
+				{ "include": "#spread-attribute" },
+				{ "include": "#shorthand-attribute" },
+				{ "include": "#attribute" }
+			]
+		},
+
+		"directive": {
+			"comment": "on:click, bind:value, class:active, style:color, with their modifiers.",
+			"begin": "\\b(on|bind|class|style|use)(:)([A-Za-z0-9_-]+)((?:\\|[A-Za-z0-9_-]+)*)",
+			"beginCaptures": {
+				"1": { "name": "keyword.control.directive.lunar" },
+				"2": { "name": "punctuation.separator.directive.lunar" },
+				"3": { "name": "entity.other.attribute-name.lunar" },
+				"4": { "name": "support.function.modifier.lunar" }
+			},
+			"end": "(?=\\s|/?>)",
+			"name": "meta.directive.lunar",
+			"patterns": [
+				{
+					"begin": "(=)(\\{)",
+					"beginCaptures": {
+						"1": { "name": "punctuation.separator.key-value.lunar" },
+						"2": { "name": "punctuation.section.embedded.begin.lunar" }
+					},
+					"end": "\\}",
+					"endCaptures": { "0": { "name": "punctuation.section.embedded.end.lunar" } },
+					"contentName": "meta.embedded.block.lua",
+					"patterns": [
+						{ "include": "#nested-braces" },
+						{ "include": "source.lua" }
+					]
+				}
+			]
+		},
+
+		"spread-attribute": {
+			"begin": "(\\{)(\\.\\.\\.)",
+			"beginCaptures": {
+				"1": { "name": "punctuation.section.embedded.begin.lunar" },
+				"2": { "name": "keyword.operator.spread.lunar" }
+			},
+			"end": "\\}",
+			"endCaptures": { "0": { "name": "punctuation.section.embedded.end.lunar" } },
+			"name": "meta.attribute.spread.lunar",
+			"contentName": "meta.embedded.block.lua",
+			"patterns": [
+				{ "include": "#nested-braces" },
+				{ "include": "source.lua" }
+			]
+		},
+
+		"shorthand-attribute": {
+			"comment": "{name} on its own, which is name={name}.",
+			"match": "(\\{)\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*(\\})",
+			"name": "meta.attribute.shorthand.lunar",
+			"captures": {
+				"1": { "name": "punctuation.section.embedded.begin.lunar" },
+				"2": { "name": "variable.other.lunar" },
+				"3": { "name": "punctuation.section.embedded.end.lunar" }
+			}
+		},
+
+		"attribute": {
+			"begin": "([A-Za-z_@:][A-Za-z0-9_.:-]*)",
+			"beginCaptures": { "1": { "name": "entity.other.attribute-name.lunar" } },
+			"end": "(?=\\s|/?>)",
+			"name": "meta.attribute.lunar",
+			"patterns": [
+				{
+					"comment": "attr={expr}",
+					"begin": "(=)(\\{)",
+					"beginCaptures": {
+						"1": { "name": "punctuation.separator.key-value.lunar" },
+						"2": { "name": "punctuation.section.embedded.begin.lunar" }
+					},
+					"end": "\\}",
+					"endCaptures": { "0": { "name": "punctuation.section.embedded.end.lunar" } },
+					"contentName": "meta.embedded.block.lua",
+					"patterns": [
+						{ "include": "#nested-braces" },
+						{ "include": "source.lua" }
+					]
+				},
+				{ "include": "#attribute-value" }
+			]
+		},
+
+		"attribute-value": {
+			"patterns": [
+				{
+					"begin": "(=)\\s*(\")",
+					"beginCaptures": {
+						"1": { "name": "punctuation.separator.key-value.lunar" },
+						"2": { "name": "punctuation.definition.string.begin.lunar" }
+					},
+					"end": "\"",
+					"endCaptures": { "0": { "name": "punctuation.definition.string.end.lunar" } },
+					"name": "string.quoted.double.lunar",
+					"patterns": [
+						{ "include": "#mustache" },
+						{ "include": "#entity" }
+					]
+				},
+				{
+					"begin": "(=)\\s*(')",
+					"beginCaptures": {
+						"1": { "name": "punctuation.separator.key-value.lunar" },
+						"2": { "name": "punctuation.definition.string.begin.lunar" }
+					},
+					"end": "'",
+					"endCaptures": { "0": { "name": "punctuation.definition.string.end.lunar" } },
+					"name": "string.quoted.single.lunar",
+					"patterns": [
+						{ "include": "#mustache" },
+						{ "include": "#entity" }
+					]
+				},
+				{
+					"comment": "An unquoted value, which HTML allows.",
+					"match": "(=)\\s*([^\\s\"'=<>`{}]+)",
+					"captures": {
+						"1": { "name": "punctuation.separator.key-value.lunar" },
+						"2": { "name": "string.unquoted.lunar" }
+					}
+				}
+			]
+		},
+
+		"entity": {
+			"patterns": [
+				{
+					"name": "constant.character.entity.html.lunar",
+					"match": "(&)([a-zA-Z][a-zA-Z0-9]*|#[0-9]+|#[xX][0-9a-fA-F]+)(;)",
+					"captures": {
+						"1": { "name": "punctuation.definition.entity.begin.lunar" },
+						"3": { "name": "punctuation.definition.entity.end.lunar" }
+					}
+				},
+				{
+					"name": "invalid.illegal.bad-ampersand.lunar",
+					"match": "&(?![a-zA-Z#])"
+				}
+			]
+		}
+	}
+}

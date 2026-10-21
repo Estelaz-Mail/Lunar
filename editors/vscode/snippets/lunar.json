@@ -1,0 +1,196 @@
+{
+	"Component scaffold": {
+		"prefix": "lunar",
+		"description": "A component: a script, a template, a style.",
+		"body": [
+			"<script>",
+			"\tprops { ${1:title} = ${2:\"\"} }",
+			"</script>",
+			"",
+			"<div class=\"${3:wrapper}\">",
+			"\t<h1>{${1:title}}</h1>",
+			"\t$0",
+			"</div>",
+			"",
+			"<style>",
+			"\t.${3:wrapper} { }",
+			"</style>"
+		]
+	},
+	"Page": {
+		"prefix": "page",
+		"description": "A page.lunar that takes the data its probe brought back.",
+		"body": [
+			"<script>",
+			"\tprops { data = {} }",
+			"</script>",
+			"",
+			"<h1>{data.title or \"${1:Untitled}\"}</h1>",
+			"$0"
+		]
+	},
+	"props": {
+		"prefix": "props",
+		"description": "Declare props and their defaults.",
+		"body": "props { ${1:name} = ${2:\"\"} }$0"
+	},
+	"derived": {
+		"prefix": "derived",
+		"description": "State computed from other state, kept up to date.",
+		"body": [
+			"derived(\"${1:total}\", function()",
+			"\treturn $0",
+			"end)"
+		]
+	},
+	"watch": {
+		"prefix": "watch",
+		"description": "Run now, and again whenever anything it read changes.",
+		"body": [
+			"watch(function()",
+			"\t$0",
+			"end)"
+		]
+	},
+	"on_rise": {
+		"prefix": "onrise",
+		"description": "Moonrise: the component is in the document. Browser only.",
+		"body": [
+			"on_rise(function()",
+			"\t$0",
+			"end)"
+		]
+	},
+	"import a component": {
+		"prefix": "import",
+		"description": "Another component, resolved relative to this file.",
+		"body": "local ${1:Card} = import(\"${2:./${1:Card}.lunar}\")$0"
+	},
+	"if block": {
+		"prefix": "if",
+		"description": "{#if} … {/if}",
+		"body": [
+			"{#if ${1:condition}}",
+			"\t$0",
+			"{/if}"
+		]
+	},
+	"if else block": {
+		"prefix": "ifelse",
+		"description": "{#if} … {:else} … {/if}",
+		"body": [
+			"{#if ${1:condition}}",
+			"\t$2",
+			"{:else}",
+			"\t$0",
+			"{/if}"
+		]
+	},
+	"each block": {
+		"prefix": "each",
+		"description": "{#each list as item, index} … {:else} … {/each}",
+		"body": [
+			"{#each ${1:items} as ${2:item}, ${3:index}}",
+			"\t$0",
+			"{:else}",
+			"\t${4:<p>nothing yet</p>}",
+			"{/each}"
+		]
+	},
+	"html": {
+		"prefix": "html",
+		"description": "{@html} — markup, not escaped. The one way past escaping.",
+		"body": "{@html ${1:value}}$0"
+	},
+	"head": {
+		"prefix": "head",
+		"description": "Content hoisted into the document head.",
+		"body": [
+			"<lunar:head>",
+			"\t<title>${1:Title}</title>",
+			"</lunar:head>",
+			"$0"
+		]
+	},
+	"slot": {
+		"prefix": "slot",
+		"description": "Where a component's children go, with a fallback.",
+		"body": "<slot>${1:<em>nothing here</em>}</slot>$0"
+	},
+	"click handler": {
+		"prefix": "onclick",
+		"description": "An inline handler.",
+		"body": "on:click={function() $0 end}"
+	},
+	"bind": {
+		"prefix": "bind",
+		"description": "Two-way binding on a form control.",
+		"body": "bind:${1|value,checked,group|}={${2:name}}$0"
+	},
+	"Shell": {
+		"prefix": "shell",
+		"description": "A shell.lunar: what wraps a page, around a <slot />.",
+		"body": [
+			"<script>",
+			"\tprops { data = {} }",
+			"</script>",
+			"",
+			"<div class=\"shell\">",
+			"\t$1",
+			"\t<main><slot /></main>",
+			"</div>",
+			"$0"
+		]
+	},
+	"Probe": {
+		"prefix": "probe",
+		"description": "A page.lua or shell.lua probe: the data a page sends ahead for.",
+		"body": [
+			"return {",
+			"\tprobe = function(event)",
+			"\t\treturn {",
+			"\t\t\t$0",
+			"\t\t}",
+			"\tend,",
+			"}"
+		]
+	},
+	"Endpoint": {
+		"prefix": "api",
+		"description": "An api.lua endpoint: one function per method.",
+		"body": [
+			"return {",
+			"\tGET = function(event)",
+			"\t\treturn { $0 }",
+			"\tend,",
+			"}"
+		]
+	},
+	"Eclipse": {
+		"prefix": "eclipse",
+		"description": "An eclipse.lunar: what renders when the light goes out.",
+		"body": [
+			"<script>",
+			"\tprops { data = {} }",
+			"</script>",
+			"",
+			"<h1 class=\"status\">{data.status or 500}</h1>",
+			"<p>{data.message or \"Something went wrong.\"}</p>",
+			"$0"
+		]
+	},
+	"fail": {
+		"prefix": "fail",
+		"description": "Stop the render and show the nearest eclipse.",
+		"body": "event.fail(${1:404}, ${2:\"Not found.\"})$0"
+	},
+	"on_set": {
+		"prefix": "onset",
+		"description": "Moonset: the component is about to be removed.",
+		"body": [
+			"on_set(function()",
+			"\t$0",
+			"end)"
+		]
+	}
+}
