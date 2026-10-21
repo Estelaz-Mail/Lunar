@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="Logo%20Lunar.png" alt="Lunar" width="180">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="brand/lunar-blue.png">
+    <img src="brand/lunar-violet.png" alt="Lunar" width="190">
+  </picture>
 </p>
 
 # Lunar
@@ -287,6 +290,7 @@ npx @vscode/vsce package && code --install-extension lunar-lang-0.1.0.vsix
 | `examples/`          | an app that uses every feature, which is also a test fixture |
 | `spec/`              | the tests, one file per module, `name_spec.lua`              |
 | `editors/vscode/`    | the VS Code extension                                        |
+| `brand/`             | the logo, and the one script that derives the rest of it     |
 
 ## Commands
 
