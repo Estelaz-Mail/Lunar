@@ -1,0 +1,32 @@
+# Locally built Lua dependencies. LuaSocket is installed system-wide in a
+# container; `bin/lunar` points at this tree instead so the framework runs on a
+# dev machine without touching the system Lua.
+.dev/
+
+# Compiled modules, wherever a build drops them.
+*.so
+*.o
+*.a
+luarocks/
+.luarocks/
+lua_modules/
+.rocks/
+
+# There is no build step, so none of these should ever exist. They are listed
+# so that if one appears, it is not committed by accident.
+dist/
+build/
+out/
+node_modules/
+
+# Editors and systems.
+.DS_Store
+*.swp
+*~
+.idea/
+.vscode/
+
+# Local configuration.
+.env
+.env.*
+!.env.example
