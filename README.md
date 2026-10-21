@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="brand/lunar-blue.png">
-    <img src="brand/lunar-violet.png" alt="Lunar" width="190">
+    <source media="(prefers-color-scheme: dark)" srcset="brand/lunar-blue.svg">
+    <img src="brand/lunar-violet.svg" alt="Lunar" width="190">
   </picture>
 </p>
 
