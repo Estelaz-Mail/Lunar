@@ -1,0 +1,12 @@
+<script>
+  props { data = {} }
+</script>
+
+<h1 class="status">{data.status or 500}</h1>
+<p class="message">{data.message or "Something went wrong."}</p>
+<p><a href="/">← home</a></p>
+
+<style>
+  .status { font-size: 4rem; margin: 0; }
+  .message { font-size: 1.1rem; }
+</style>

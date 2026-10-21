@@ -1,0 +1,39 @@
+<script>
+  props { data = {} }
+
+  local Counter = import("/lib/Counter.lunar")
+
+  name = ""
+  derived("greeting", function()
+    if name == "" then return "Hello, whoever you are." end
+    return "Hello, " .. name .. "."
+  end)
+</script>
+
+<h1>A framework in Lua</h1>
+
+<p>
+  This page was rendered on the server and is now running in your browser,
+  from the same source. Both halves are Lua; the browser's copy runs under
+  Fengari.
+</p>
+
+<h2>State is a global in a component script</h2>
+<Counter start={data.start or 0} />
+
+<h2>Two-way binding</h2>
+<p><input class="name" placeholder="your name" bind:value={name} /></p>
+<p class="greeting">{greeting}</p>
+
+<h2>What the server loaded</h2>
+<ul class="loaded">
+  {#each data.facts or {} as fact}
+    <li><strong>{fact.name}</strong>: {fact.value}</li>
+  {/each}
+</ul>
+
+<style>
+  h2 { margin-top: 2rem; font-size: 1.1rem; }
+  .greeting { font-size: 1.2rem; }
+  .loaded { line-height: 1.7; }
+</style>

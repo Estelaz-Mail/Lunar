@@ -1,0 +1,38 @@
+<script>
+  props { data = {} }
+
+  local Nav = import("/lib/Nav.lunar")
+  theme = "day"
+
+  local function toggle()
+    theme = theme == "day" and "night" or "day"
+  end
+</script>
+
+<lunar:head>
+  <title>{data.site or "Lunar"}</title>
+  <meta name="description" content="A framework in Lua, demonstrating itself." />
+</lunar:head>
+
+<div class="shell" data-theme={theme}>
+  <header>
+    <a class="brand" href="/">{data.site or "Lunar"}</a>
+    <Nav links={data.links or {}} />
+    <button class="theme" on:click={toggle}>{theme == "day" and "☾" or "☀"}</button>
+  </header>
+
+  <main><slot /></main>
+
+  <footer>
+    <p>Rendered by Lunar {data.version or ""} — the same Lua on both sides.</p>
+  </footer>
+</div>
+
+<style>
+  .shell { max-width: 46rem; margin: 0 auto; padding: 2rem 1rem; }
+  header { display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; }
+  .brand { font-weight: 700; font-size: 1.1rem; text-decoration: none; }
+  .theme { margin-left: auto; }
+  footer { margin-top: 3rem; opacity: 0.7; font-size: 0.9rem; }
+  main { min-height: 50vh; }
+</style>

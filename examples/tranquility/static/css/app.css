@@ -1,0 +1,45 @@
+/* The app's own stylesheet. A component's <style> is scoped to it and arrives
+   inline with the page; this is for what is genuinely global. */
+
+:root {
+	color-scheme: light dark;
+	--ink: #16161a;
+	--paper: #fbfbfd;
+	--accent: #4c5bd4;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--ink: #e8e8ee;
+		--paper: #121216;
+		--accent: #93a0ff;
+	}
+}
+
+* { box-sizing: border-box; }
+
+body {
+	margin: 0;
+	background: var(--paper);
+	color: var(--ink);
+	font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+a { color: var(--accent); }
+
+h1 { font-size: 1.8rem; line-height: 1.2; }
+
+button, input {
+	font: inherit;
+	color: inherit;
+	background: transparent;
+	border: 1px solid currentColor;
+	border-radius: 0.4rem;
+	padding: 0.3rem 0.6rem;
+}
+
+button { cursor: pointer; }
+
+input { border-color: rgba(127, 127, 127, 0.5); }
+
+[data-theme="night"] { filter: invert(1) hue-rotate(180deg); }

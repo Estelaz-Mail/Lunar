@@ -1,0 +1,34 @@
+<script>
+  props { data = {} }
+  query = ""
+  derived("shown", function()
+    local out = {}
+    for _, post in ipairs(data.posts or {}) do
+      if query == "" or post.title:lower():find(query:lower(), 1, true) then
+        out[#out + 1] = post
+      end
+    end
+    return out
+  end)
+</script>
+
+<h1>Blog</h1>
+
+<p><input class="filter" placeholder="filter" bind:value={query} /></p>
+
+<ul class="posts">
+  {#each shown as post}
+    <li>
+      <a href={"/blog/" .. post.slug}>{post.title}</a>
+      <time>{post.date}</time>
+    </li>
+  {:else}
+    <li class="none">Nothing matches “{query}”.</li>
+  {/each}
+</ul>
+
+<style>
+  .posts { list-style: none; padding: 0; }
+  .posts li { display: flex; gap: 1rem; padding: 0.4rem 0; }
+  time { margin-left: auto; opacity: 0.6; }
+</style>

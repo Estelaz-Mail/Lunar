@@ -1,0 +1,34 @@
+<script>
+  props { start = 0, step = 1 }
+
+  count = start
+  derived("parity", function() return count % 2 == 0 and "even" or "odd" end)
+
+  local function by(amount)
+    return function() count = count + amount end
+  end
+
+  up = by(step)
+  down = by(-step)
+</script>
+
+<div class="counter">
+  <button class="down" on:click={down}>−</button>
+  <output class:zero={count == 0} class:negative={count < 0}>{count}</output>
+  <button class="up" on:click={up}>+</button>
+  <span class="parity">{parity}</span>
+</div>
+
+{#if count >= 10}
+  <p class="note">Ten already. The effect that patched that number never
+  touched the rest of this page.</p>
+{/if}
+
+<style>
+  .counter { display: flex; align-items: center; gap: 0.5rem; }
+  output { min-width: 3ch; text-align: center; font-variant-numeric: tabular-nums; }
+  output.zero { opacity: 0.5; }
+  output.negative { color: crimson; }
+  .parity { opacity: 0.6; font-size: 0.9rem; }
+  .note { margin-top: 0.5rem; font-style: italic; }
+</style>

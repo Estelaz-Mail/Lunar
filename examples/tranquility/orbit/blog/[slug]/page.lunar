@@ -1,0 +1,15 @@
+<script>
+  props { data = {} }
+</script>
+
+<article>
+  <h1>{data.post.title}</h1>
+  <time>{data.post.date}</time>
+  <div class="body">{@html data.post.body}</div>
+  <p><a href="/blog">← every post</a></p>
+</article>
+
+<style>
+  article time { opacity: 0.6; }
+  .body { margin: 1.5rem 0; line-height: 1.7; }
+</style>

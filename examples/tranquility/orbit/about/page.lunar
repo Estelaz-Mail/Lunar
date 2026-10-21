@@ -1,0 +1,28 @@
+<script>
+  props { data = {} }
+  shown = false
+</script>
+
+<h1>About</h1>
+
+<p>
+  Lunar is a component compiler and a filesystem-routed server, in Lua 5.4,
+  with LuaSocket for the sockets and nothing else.
+</p>
+
+<button on:click={function() shown = not shown end}>
+  {shown and "hide" or "show"} the parts
+</button>
+
+{#if shown}
+  <ul class="parts">
+    {#each data.parts or {} as part}
+      <li><code>{part.path}</code> — {part.what}</li>
+    {/each}
+  </ul>
+{/if}
+
+<style>
+  .parts { line-height: 1.8; }
+  code { background: rgba(127, 127, 127, 0.15); padding: 0 0.25rem; }
+</style>
