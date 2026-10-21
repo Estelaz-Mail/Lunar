@@ -1,0 +1,24 @@
+<script>
+  props { start = 0, label = "clicks" }
+  count = start
+  derived("doubled", function() return count * 2 end)
+
+  local function step(by)
+    return function() count = count + by end
+  end
+
+  up = step(1)
+  down = step(-1)
+</script>
+
+<div class="counter" data-count={count}>
+  <button class="down" on:click={down}>-</button>
+  <output class:zero={count == 0} class:negative={count < 0}>{count} {label}</output>
+  <button class="up" on:click={up}>+</button>
+  {#if count > 2}<p class="note">{doubled} halves</p>{:else if count < 0}<p class="note">below zero</p>{/if}
+</div>
+
+<style>
+  .counter { display: flex }
+  output.zero { opacity: 0.5 }
+</style>

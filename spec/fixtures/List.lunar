@@ -1,0 +1,11 @@
+<script>
+  props { items = {}, empty = "nothing here" }
+</script>
+
+<ul>
+  {#each items as item, index}
+    <li value={index}>{index}: {item.name}{#if item.done} ✓{/if}</li>
+  {:else}
+    <li class="empty">{empty}</li>
+  {/each}
+</ul>

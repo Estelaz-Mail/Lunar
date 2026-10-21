@@ -1,0 +1,24 @@
+<script>
+  local Card = import("./Card.lunar")
+  local Counter = import("./Counter.lunar")
+
+  props { heading = "Lunar" }
+  name = "world"
+  markup = "<b>bold</b> & <i>italic</i>"
+  attributes = { ["data-role"] = "demo", title = "spread" }
+  agreed = false
+</script>
+
+<lunar:head><title>{heading}</title></lunar:head>
+
+<main {...attributes} id="app">
+  <h1>{heading}</h1>
+  <Card title={"Hello " .. name} tone="warn">
+    <p>{@html markup}</p>
+    <Counter start={2} label="taps" />
+  </Card>
+  <Card />
+  <label><input type="checkbox" bind:checked={agreed} /> agreed: {agreed and "yes" or "no"}</label>
+  <input class="name" bind:value={name} />
+  <p class="greeting">Hi {name}, 5 &lt; 6 \{literal\}</p>
+</main>

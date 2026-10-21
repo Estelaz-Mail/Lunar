@@ -1,0 +1,5 @@
+<script>
+  props { value = "", markup = "" }
+</script>
+<p title={value}>{value}</p>
+<div>{@html markup}</div>

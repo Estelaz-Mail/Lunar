@@ -1,0 +1,14 @@
+<script>
+  props { title = "untitled", tone = "plain" }
+</script>
+
+<section class="card" style:border-color={tone == "warn" and "orange" or nil}>
+  <h2>{title}</h2>
+  <div class="body"><slot><em>no content</em></slot></div>
+</section>
+
+<style>
+  .card { padding: 1rem }
+  .card h2, .card .body { margin: 0 }
+  :global(body) { margin: 0 }
+</style>
