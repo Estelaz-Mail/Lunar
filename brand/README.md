@@ -43,55 +43,34 @@ The wordmark is white in the blue colourway, so `lunar-blue.*` disappears on a
 white page; that is what the violet colourway is for. The README picks between
 them with `prefers-color-scheme`.
 
-## Which files are the originals
+## Where these came from
 
-Two, and only two:
+Two of them are the designer's: `lunar-blue.png`, which has real
+transparency, and `lunar-violet-on-white.png`, which does not. The rest were
+derived from those two, and three things are worth knowing about how.
 
-- `lunar-blue.png` — the blue colourway, with real transparency.
-- `lunar-violet-on-white.png` — the violet colourway, as it was exported.
-
-Everything else is written by the two scripts:
-
-```sh
-python3 brand/make.py       # the PNGs; needs Pillow
-python3 brand/svg.py        # the SVGs;  needs Pillow and vtracer
-```
-
-### `make.py`, and the violet one's transparency
-
-The violet colourway had never been exported with transparency, so it is
+**The violet colourway had never been exported with transparency.** It was
 recovered rather than redrawn: the silhouette of the violet art matches the
 blue file's alpha channel exactly — the same drawing in two colourways — so
 that alpha is the real one, and with it the white it was flattened onto can be
-divided back out of every pixel.
+divided back out of every pixel. Flattening the result back onto black gives
+the designer's own black export again, to within a few units on an antialiased
+edge, which is the rounding in that division.
 
-The script checks itself. Flattening what it recovered has to give back the
-designer's own black exports, and it does, to within a few units on an
-antialiased edge — which is the rounding in that division.
+**The SVGs are not traced from the PNG.** Tracing the whole logo gives nine
+hundred paths and a file larger than the PNG, because every band of every
+gradient becomes a shape of its own. So the drawing was taken apart first: the
+planet is a circle, the orbiting moon is a circle, and only Brazil, the star,
+the orbit and the wordmark are really drawings. Those four are traced; the two
+circles are circles. Ten paths, no transforms, thirty kilobytes.
 
-### `svg.py`, and why it does not trace the logo
+**The ribbon of the orbit is flat, and so is everything else except the
+globe.** The artwork paints the ribbon with a gradient along its length, which
+is why it had to be cut out of the PNG with a threshold measured against the
+local brightness rather than a fixed one: a fixed threshold takes a wide band
+where the ribbon is bright and a narrow one where it is dim, which is a ring
+that alternates fat and thin and ends bluntly where it should taper to a
+point. In the SVG the ribbon is simply white.
 
-Tracing the whole logo produces nine hundred paths and a file larger than the
-PNG, because every band of every gradient becomes a shape of its own. So the
-drawing is taken apart first: the planet is a circle, the orbiting moon is a
-circle, and only Brazil, the star, the orbit and the wordmark are really
-drawings. Those four are traced; the two circles are circles; each is filled
-with a gradient read off the original.
-
-The parts are found by connected components, and sorted by **where their
-pixels are** rather than by how big their bounding boxes are: a blob more than
-half of which lies outside the disc is orbit, and what is left on the disc is
-Brazil and the star. The orbit arrives in three pieces — the ring, and the two
-slivers the disc cuts off at the top and the left — and a rule about box sizes
-puts those slivers somewhere else, which is how the left of the orbit ends up
-filled with Brazil's colour.
-
-The colours are measured off the artwork band by band, not guessed at. That is
-how it came out that Brazil, the star and the wordmark are flat — what looks
-like a fade on them is the antialiased edge against the body — and that the
-globe is lit from the upper right, where the moon is, rather than from the top.
-
-The result is six shapes and about thirty-five kilobytes. Rendered back at full
-size and compared with the artwork, the average difference is 3.5 of 255 per
-channel: the rest is the coastline, where a traced curve is smoother than the
-original's pixels.
+The globe is the one thing that is shaded, with a radial gradient centred on
+the highlight in its upper right — which is where the moon is.
