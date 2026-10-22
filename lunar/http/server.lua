@@ -443,7 +443,15 @@ function server.listener(options)
       end
     end
 
-    local readable, writable = socket.select(read_set, write_set, timeout or 0.5)
+    local polled, readable, writable = pcall(socket.select, read_set, write_set, timeout or 0.5)
+    if not polled then
+      if tostring(readable):find("interrupted", 1, true) then
+        listener.running = false
+        listener.interrupted = true
+        return 0
+      end
+      error(readable, 0)
+    end
     local resumed = 0
 
     for _, ready in ipairs(readable) do
@@ -511,6 +519,10 @@ function server.serve(options)
   end
   while listener.running do listener.step(0.5) end
   listener.close()
+  if listener.interrupted and listener.options.on_interrupt then
+    listener.options.on_interrupt()
+  end
+  return listener.interrupted and "interrupted" or "stopped"
 end
 
 server.defaults = DEFAULTS

@@ -2,7 +2,6 @@ local server = require("lunar.http.server")
 
 local T = {}
 
-
 local function new_socket_library()
   local lib = { time = 1000, pending = {}, closed = 0 }
 
@@ -60,6 +59,8 @@ local function new_socket_library()
   function lib.bind() return lib.master end
 
   function lib.select(read_set, write_set, _)
+    if lib.interrupt then error("interrupted!") end
+    if lib.failure then error(lib.failure) end
     local readable, writable = {}, {}
     for _, candidate in ipairs(read_set or {}) do
       if candidate.is_master then
@@ -266,6 +267,36 @@ function T.writes_a_response_across_as_many_turns_as_it_takes()
   run(listener, 2000)
   assert(slow.outbox:sub(-#body) == body, "and it got the whole body in the end")
   assert(quick.outbox:sub(-#body) == body, "while the other one was served too")
+  listener.close()
+end
+
+function T.stops_quietly_when_it_is_interrupted()
+  local socket = new_socket_library()
+  local handler, calls = counting_handler()
+  local listener = listener_for(handler, socket)
+
+  socket.connect(request_for("/before"))
+  run(listener)
+  assert(calls.n == 1, "it served before the interrupt")
+
+  socket.interrupt = true
+  local resumed = listener.step(0)
+  assert(resumed == 0, "the interrupted step did nothing")
+  assert(listener.running == false, "and the loop stopped")
+  assert(listener.interrupted == true, "and said why")
+  listener.close()
+end
+
+function T.raises_anything_other_than_an_interrupt()
+  local socket = new_socket_library()
+  local handler = counting_handler()
+  local listener = listener_for(handler, socket)
+
+  socket.failure = "bad file descriptor"
+  local ok, err = pcall(listener.step, 0)
+  assert(ok == false, "the failure was not raised")
+  assert(tostring(err):find("bad file descriptor", 1, true), tostring(err))
+  assert(listener.running == true, "and the loop was not stopped by it")
   listener.close()
 end
 
