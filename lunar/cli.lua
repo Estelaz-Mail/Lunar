@@ -17,6 +17,7 @@ lunar ]] .. lunar.VERSION .. [[ — a framework in Lua
   lunar build [app]        compile everything once and report what failed
   lunar map [app]          print the route table as it was discovered
   lunar compile <file>     print the Lua a component compiles to
+  lunar wasm <file...>     compile Lua functions into wasm parts
   lunar bench [app]        measure compiling, rendering, the takeover, the download
   lunar bench --http <url> measure a running server over keep-alive sockets
   lunar workers [app]      generate a Cloudflare Workers deploy directory
@@ -179,6 +180,47 @@ function cli.compile(path)
   local ok, generated = pcall(compiler.compile, source, { path = path })
   if not ok then fail(tostring(generated)) end
   io.write(generated, "\n")
+end
+
+function cli.wasm(path, extra)
+  if not path then fail("wasm needs a file: lunar wasm hot.lua") end
+  local fs = require("lunar.core.fs")
+  local parts_lib = require("lunar.wasm.parts")
+  local util = require("lunar.core.util")
+
+  local units = {}
+  for _, candidate in ipairs({ path, extra }) do
+    if candidate then
+      local source = util.read_file(candidate)
+      if not source then fail(candidate .. ": no such file") end
+      units[#units + 1] = {
+        name = (fs.basename(candidate):gsub("%.lua$", "")),
+        source = source,
+        filename = candidate,
+      }
+    end
+  end
+
+  local ok, manifest = pcall(parts_lib.build, units)
+  if not ok then fail(tostring(manifest)) end
+
+  local out = os.getenv("WASM_OUT")
+  for _, name in ipairs(manifest.order) do
+    local part = manifest.parts[name]
+    io.write(string.format("%-16s %6d bytes  exports %s%s\n", name .. ".wasm", #part.bytes,
+      table.concat(part.exports, " "),
+      #part.needs > 0 and ("  needs " .. table.concat(part.needs, " ")) or ""))
+    if out then
+      fs.mkdirp(out)
+      local target = fs.join(out, name .. ".wasm")
+      local handle = assert(io.open(target, "wb"))
+      handle:write(part.bytes)
+      handle:close()
+    end
+  end
+  if not out then
+    io.write("\nset WASM_OUT=dir to write the parts to disk\n")
+  end
 end
 
 local command = ...
