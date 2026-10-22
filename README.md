@@ -164,7 +164,17 @@ function basel(count)
 end
 ```
 
-A `function` is exported from its part; a `local function` stays inside it. Every value is a Lua float, which is one `f64`: the subset covers arithmetic with `+ - * / // % ^`, comparisons, `and`, `or`, `not`, `if`, `while`, a numeric `for` with a literal step, `break`, `local`, assignment, calls, and `math.abs`, `math.ceil`, `math.floor`, `math.max`, `math.min`, `math.sqrt` and `math.trunc`. `//` and `%` floor the way Lua does, so `-7 % 3` is `2` and not `-1`. A function returns exactly one number, and falling off the end returns zero. Everything else — strings, tables, closures, varargs, coroutines, metatables — is not in the subset and is refused at compile time, with the file and the line. `^` is the one thing with no instruction behind it, so a part that raises a power imports `pow` from the host.
+A `function` is exported from its part; a `local function` stays inside it. The subset covers arithmetic with `+ - * / // % ^`, comparisons, `and`, `or`, `not`, `if`, `while`, a numeric `for` with a literal step, `break`, `local`, assignment, calls, `..`, `#`, table constructors, indexing with `t[k]` and `t.k`, and `math.abs`, `math.ceil`, `math.floor`, `math.max`, `math.min`, `math.sqrt` and `math.trunc`. `//` and `%` floor the way Lua does, so `-7 % 3` is `2` and not `-1`. A function returns exactly one value, and falling off the end returns zero. Closures, varargs, coroutines, metatables, methods and multiple returns are not in the subset and are refused at compile time, with the file and the line. `^` is the one thing with no instruction behind it, so a part that raises a power imports `pow` from the host.
+
+Every value is one `f64`, because a Lua number already is one. The others ride in the quiet NaNs a double is not otherwise using: a tag and a 32-bit payload, which is `nil`, a boolean, or an address in the memory. Arithmetic therefore costs nothing extra, and `if v then` is false for exactly `nil` and `false`, as in Lua. A comparison used as a value becomes a real boolean rather than a `1`.
+
+Strings are bytes in that memory with their length in front. A literal is written into the module's data section at compile time, so reaching for it costs no allocation, and the same literal appears once however often it is written. `..` allocates and copies, and coerces an integer the way Lua does, so `"key" .. 3` is `"key3"`; a fractional number has no formatting yet and traps. `==` compares strings by content, `#` is the length. Ordering with `<` stays numeric.
+
+A table has an array part for the keys `1..n` and an open-addressed hash part for the rest, which grows and rehashes as it fills. `{ 1, 2, name = "lunar" }`, `t[k]`, `t.k`, `t[k] = v` and `#t` all work. Assigning `nil` to a key stores the nothing but keeps the slot.
+
+**There is no garbage collector.** The allocator moves a pointer forward and never moves it back, so memory a part allocates is held until the page is gone. The subset is for work that computes, not for a long-lived heap of objects.
+
+The memory itself comes from the host: the loader makes one `WebAssembly.Memory`, hands it to every part, and the heap grows into it. A part that needs strings or tables imports Lunar's own runtime part, which carries the allocator, the string and the table operations, and is itself compiled from Lua by the same compiler. It is emitted only when something needs it, loaded before the parts that do, and its exports are not names an application can ask for.
 
 **Every file is its own part, and a part is fetched only when something calls into it.** A part that calls a function another part exports imports it by name, which makes the dependency real rather than declared: `lunar wasm` prints it, and the browser loads the chain in order. A part nothing has asked for is never downloaded.
 
@@ -176,7 +186,7 @@ series.wasm         265 bytes  exports basel rings  needs geometry
 
 The server compiles the parts on demand and serves them from `/_lunar/wasm/`, with `index.json` saying which part exports what and what each one needs. An app frozen for Workers writes the same files into `public/`, where the platform serves them: the Worker never compiles WebAssembly, the browser does, so the two targets load the identical bytes.
 
-In a component, `wasm(name, on_ready)` asks for a function and is handed it once its part has arrived. Loading is a fetch, so the answer comes in a callback rather than in place, and a page renders on the server without any of it.
+In a component, `wasm(name, on_ready)` asks for a function and is handed it once its part has arrived. What comes back is read for you: a number stays a number, and `nil`, a boolean or a string arrives as itself. Loading is a fetch, so the answer comes in a callback rather than in place, and a page renders on the server without any of it.
 
 ```lunar
 <script>
@@ -318,7 +328,7 @@ The number is read the way Lua's own is. `1.0` is the series and the last number
 
 ## Testing and development status
 
-The test suite contains 184 tests. It compares the HTML generated by the server renderer with the markup serialized from the Lua-based DOM renderer, checks the browser bundle against data produced by the server, and tests the packaged Workers application without filesystem access. It also parses the server's own markup the way a browser would and runs the takeover against it, for every route of the example application, asserting that each element afterwards is the one the server sent. The connection scheduling is tested by driving concurrent connections through the real server loop.
+The test suite contains 188 tests. It compares the HTML generated by the server renderer with the markup serialized from the Lua-based DOM renderer, checks the browser bundle against data produced by the server, and tests the packaged Workers application without filesystem access. It also parses the server's own markup the way a browser would and runs the takeover against it, for every route of the example application, asserting that each element afterwards is the one the server sent. The connection scheduling is tested by driving concurrent connections through the real server loop.
 
 The compiler, component model, reactivity, routing, HTTP server, hydration, browser navigation, security defaults, keyed iteration, named slots, Workers target, and VS Code extension are implemented. An endpoint can stream a chunked response. `{#await}` and built-in form actions are not supported, and a page is always sent with a `Content-Length`: the runtime has no asynchronous primitive to await, and a page's `<head>` is only known once its body has rendered. Server-side form handling can be implemented through `api.lua` endpoints.
 

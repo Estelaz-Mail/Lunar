@@ -12,6 +12,12 @@
   local function stack()
     wasm("rings", function(rings) rings_of = rings(3, radius) end)
   end
+
+  label_of = nil
+
+  local function name_them()
+    wasm("label", function(label) label_of = label(3) end)
+  end
 </script>
 
 <h1>{data.title or "Lua in wasm"}</h1>
@@ -36,6 +42,11 @@
 <p class="row">
   <button wasm:preload={"rings"} on:click={stack}>three rings</button>
   <output>{rings_of or "—"}</output>
+</p>
+
+<p class="row">
+  <button wasm:preload={"label"} on:click={name_them}>name them</button>
+  <output>{label_of or "—"}</output>
 </p>
 
 <style>
