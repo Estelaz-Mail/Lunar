@@ -41,6 +41,41 @@ jobs:
       - name: Measure
         run: bin/lunar bench examples/tranquility
 
+  install:
+    name: Installer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lua, without LuaSocket
+        run: sudo apt-get update && sudo apt-get install -y lua5.4 liblua5.4-dev
+      - name: Install from this checkout
+        run: |
+          sh install.sh --from . --prefix "$RUNNER_TEMP/lunar" \
+            --bin-dir "$RUNNER_TEMP/bin" --no-modify-path
+      - name: The launcher runs
+        run: |
+          "$RUNNER_TEMP/bin/lunar" help
+      - name: The suite passes through it
+        working-directory: ${{ runner.temp }}/lunar/current
+        run: |
+          "$RUNNER_TEMP/bin/lunar" spec
+      - name: And it serves, which is what LuaSocket was for
+        working-directory: ${{ runner.temp }}/lunar/current
+        run: |
+          PORT=3123 "$RUNNER_TEMP/bin/lunar" dev examples/tranquility &
+          server=$!
+          for _ in $(seq 1 40); do
+            curl -fsS -o /dev/null http://127.0.0.1:3123/ && break
+            sleep 0.25
+          done
+          curl -fsS http://127.0.0.1:3123/ | grep -q "A framework in Lua"
+          curl -fsS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:3123/blog/why-lua | grep -q 200
+          kill "$server"
+      - name: And it comes out again
+        run: |
+          sh install.sh --uninstall --prefix "$RUNNER_TEMP/lunar" --bin-dir "$RUNNER_TEMP/bin"
+          test ! -e "$RUNNER_TEMP/lunar"
+
   format:
     name: Formatting
     runs-on: ubuntu-latest
