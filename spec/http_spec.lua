@@ -1,5 +1,3 @@
---- The HTTP layer: the protocol's sharp edges, the router, and the headers.
-
 local ratelimit = require("lunar.http.ratelimit")
 local request = require("lunar.http.request")
 local response = require("lunar.http.response")
@@ -18,11 +16,7 @@ local function make(method, target, headers, options)
     options or {})
 end
 
--- The protocol ------------------------------------------------------------------
 
---- The path reaches a handler percent-decoded, so a CRLF that arrives encoded
--- would otherwise end up in a response header. This is the last place that can
--- answer 400.
 function T.refuses_a_target_carrying_a_control_byte()
   assert(server.target_is_safe("/a/b?c=1"))
   assert(server.target_is_safe("/a%20b"))
@@ -33,9 +27,6 @@ function T.refuses_a_target_carrying_a_control_byte()
   assert(not server.target_is_safe("/a%7f"))
 end
 
---- A request whose body length is ambiguous is refused rather than guessed
--- at: a server that guesses differently from the proxy in front of it is how a
--- request gets smuggled past that proxy.
 function T.refuses_an_ambiguous_message_length()
   assert(server.check_framing({}) == nil)
   assert(server.check_framing({ ["content-length"] = "12" }) == nil)
@@ -44,13 +35,11 @@ function T.refuses_an_ambiguous_message_length()
   assert(server.check_framing({ ["transfer-encoding"] = "chunked",
     ["content-length"] = "1" }) == 400)
   assert(server.check_framing({ ["transfer-encoding"] = "gzip" }) == 501)
-  -- Two Content-Lengths arrive joined with ", ".
   assert(server.check_framing({ ["content-length"] = "1, 2" }) == 400)
   assert(server.check_framing({ ["content-length"] = "0x10" }) == 400)
   assert(server.check_framing({ ["content-length"] = "-1" }) == 400)
 end
 
---- Whatever a handler puts in a header, the response cannot be split.
 function T.cannot_be_made_to_split_a_response()
   local sent = {}
   local client = {
@@ -68,8 +57,6 @@ function T.cannot_be_made_to_split_a_response()
   }, { server_header = false, chunk_bytes = 1024 }, 10, false, socket)
 
   local text = table.concat(sent)
-  -- The CR and LF are dropped, so what was meant to be a second header is
-  -- just more of the first one's value.
   assert(not text:find("\r\nX-Evil", 1, true))
   assert(text:find("X-Ok: fineX-Evil: yes", 1, true))
   assert(not text:find("Bad Name", 1, true))
@@ -77,7 +64,6 @@ function T.cannot_be_made_to_split_a_response()
   assert(text:find("Content-Length: 2", 1, true))
 end
 
--- Requests and URLs ----------------------------------------------------------------
 
 function T.splits_a_target_into_its_parts()
   local req = make("GET", "/blog/a%20b?tag=lua&tag=web&q=1#here")
@@ -95,7 +81,6 @@ function T.normalises_a_path_without_letting_it_climb_out()
   assert(url.normalize("/a/./b") == "/a/b")
 end
 
---- A Host header is attacker-controlled in shape, if not in value.
 function T.replaces_a_host_that_is_not_a_host()
   assert(make("GET", "/", { host = "example.test:8080" }).host == "example.test:8080")
   local bad = make("GET", "/", { host = "evil.test/path" }, { default_host = "safe.test" })
@@ -120,7 +105,6 @@ function T.honours_the_forwarded_headers_only_when_told_to()
   assert(trusted.scheme == "https")
   assert(trusted.host == "public.test")
   assert(trusted.origin == "https://public.test")
-  -- One hop from the right is the address the proxy saw.
   assert(trusted.ip == "10.0.0.1")
 end
 
@@ -136,7 +120,6 @@ function T.reads_a_form_or_a_json_body()
   assert(json_body:json().a == 1)
 end
 
--- The router -----------------------------------------------------------------------
 
 function T.matches_in_declaration_order_and_declining_passes_on()
   local router = router_lib.new()
@@ -163,7 +146,6 @@ function T.answers_405_with_the_methods_there_are()
   local res = router:dispatch(make("DELETE", "/thing"))
   assert(res.status == 405)
   assert(res.headers["Allow"] == "GET, HEAD, POST")
-  -- HEAD is served by the GET route.
   assert(router:dispatch(make("HEAD", "/thing")).status == 200)
 end
 
@@ -183,21 +165,17 @@ function T.turns_what_a_handler_returned_into_a_response()
   assert(response.coerce(nil) == nil)
 end
 
--- Static files ---------------------------------------------------------------------
 
 function T.will_not_serve_a_file_outside_its_root()
   local static = static_lib.new({ root = "examples/tranquility/static", version = "v1" })
   assert(static:resolve("/css/app.css"))
   assert(static:resolve("/") == nil)
-  -- A `..` is normalised away rather than followed, encoded or not.
   assert(static:serve(make("GET", "/../../lunar/init.lua"), "/../../lunar/init.lua") == nil)
   assert(static:serve(make("GET", "/%2e%2e/%2e%2e/etc/passwd"), "/%2e%2e/%2e%2e/etc/passwd") == nil)
-  -- A dotfile is never served.
   assert(static:resolve("/.env") == nil)
   assert(static:resolve("/a/.git/config") == nil)
 end
 
--- The headers ----------------------------------------------------------------------
 
 function T.hashes_an_inline_script_the_way_a_browser_does()
   assert(security.hash_source("abc")
@@ -249,7 +227,6 @@ function T.never_overwrites_a_header_a_handler_set()
   assert(res.headers["Content-Security-Policy"] == "default-src 'self'")
 end
 
--- Rate limiting --------------------------------------------------------------------
 
 local function limiter(classes, extra)
   local clock = { now = 1000 }
@@ -285,8 +262,6 @@ function T.keeps_addresses_and_classes_apart()
   assert(limit:take("1.2.3.4", "asset"), "and so does another class")
 end
 
---- The table must not grow with the number of addresses seen: a flood from a
--- wide range is exactly what this is for.
 function T.bounds_what_it_remembers()
   local limit, clock = limiter({ page = { capacity = 2, per_second = 0.001 } },
     { max_keys = 16, idle_seconds = 5 })

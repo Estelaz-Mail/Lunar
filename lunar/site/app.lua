@@ -1,11 +1,3 @@
---- An app: a directory with an `orbit/` in it, served.
---
--- This is the half that turns a directory into a website. It discovers the
--- orbit, compiles what a request needs, runs the probes, renders the page
--- inside its shells, and wraps the result in the document. Nothing is built
--- ahead of time: in development the compiler cache notices a changed file and
--- recompiles it, and in production it compiles each component once.
-
 local errors = require("lunar.site.errors")
 local fs = require("lunar.core.fs")
 local html = require("lunar.core.html")
@@ -22,24 +14,14 @@ local app = {}
 local App = {}
 App.__index = App
 
--- The compiler and the bundler are required where they are used, not here.
--- An app built by `app.frozen` — one running on a platform with no filesystem
--- — never compiles anything, and making these lazy is what keeps the compiler
--- out of the bundle it ships in.
 local function compiler_lib() return require("lunar.compiler") end
 local function bundle_lib() return require("lunar.site.bundle") end
 
---- Where the framework itself lives, for the files it serves of its own
--- (Fengari, the moonlight bundle). Derived from this file's path, because a
--- framework that has to be told where it is installed is a framework with a
--- configuration step.
 local function framework_root()
   local source = debug.getinfo(1, "S").source:sub(2)
   return (source:match("^(.*)/lunar/site/app%.lua$")) or "."
 end
 
---- `options` is `{ root, dev, version, name, lang, client, security, rate_limit,
--- stylesheets }`.
 function app.new(options)
   options = options or {}
   local root = (options.root or "."):gsub("/+$", "")
@@ -55,10 +37,6 @@ function app.new(options)
     modules = {},
   }, App)
 
-  -- An app's own Lua — the `lib/` a probe requires — is found the
-  -- ordinary way, by `package.path`. The app's root is prepended rather than
-  -- appended, so a module of the app's shadows one of the framework's and not
-  -- the other way round.
   package.path = table.concat({
     fs.join(root, "lib") .. "/?.lua",
     fs.join(root, "lib") .. "/?/init.lua",
@@ -70,9 +48,6 @@ function app.new(options)
   self.cache:install()
   self.routes = routes_lib.discover(fs.join(root, "orbit"))
 
-  -- The version goes in every asset URL and in the ETag of every file, so one
-  -- deploy cannot serve another's bytes from a cache. In development it is the
-  -- boot time, which is as good as a build id and needs no build.
   self.version = tostring(options.version or os.time())
 
   self.shell = util.read_file(fs.join(root, "app.html"))
@@ -93,13 +68,7 @@ function app.new(options)
   return self
 end
 
---- A `.lua` file in a route directory: a probe or an endpoint.
---
--- Loaded with the same watch rule as a component, so editing a probe in
--- development takes effect on the next request and nothing is cached twice.
 function App:module(path)
-  -- A frozen app — one built for a platform with no filesystem — carries its
-  -- modules in the bundle instead of on disk.
   local frozen = self.frozen and self.frozen.modules[path]
   if frozen then
     local module = require(frozen)
@@ -138,9 +107,7 @@ function App:component(path)
   return def
 end
 
--- Rendering --------------------------------------------------------------------
 
---- Renders a page route. Returns a response.
 function App:render_page(req, route, params)
   local event = render.event(req, route, params)
   local levels = render.probe_chain(self, route, event)
@@ -154,8 +121,6 @@ function App:render_page(req, route, params)
     data[index] = level.data
   end
 
-  -- The client router asks for the same URL with `Accept: application/json`
-  -- and gets the data it needs to render the route itself.
   if req:wants_json() then
     return response.json({ route = route.id, params = params, data = data }, 200,
       { ["Vary"] = "Accept", ["Cache-Control"] = "no-store" })
@@ -176,7 +141,6 @@ function App:render_page(req, route, params)
   })
 end
 
---- Renders the eclipse, or a plain body when the app has none.
 function App:render_error(req, status, message)
   local path = routes_lib.eclipse_for(self.routes, req.path)
   if path then
@@ -227,13 +191,10 @@ function App:run_endpoint(req, route, params)
   return response.coerce(value) or response.no_content()
 end
 
--- The framework's own URLs --------------------------------------------------------
 
 function App:framework_response(req)
   local path = req.path
 
-  -- A frozen app does not serve these: the moonlight bundle and Fengari were
-  -- published as static files when it was built, and the platform serves them.
   if self.frozen then return nil end
 
   if path == "/_lunar/moonlight.lua" then
@@ -244,8 +205,6 @@ function App:framework_response(req)
     end
     return response.new(200, source, {
       ["Content-Type"] = "text/x-lua; charset=utf-8",
-      -- The bundle is assembled from source and changes with the app, so it
-      -- is versioned in its URL and immutable at that version.
       ["Cache-Control"] = self.dev and "no-store" or "public, max-age=31536000, immutable",
     })
   end
@@ -262,9 +221,7 @@ function App:framework_response(req)
   return nil
 end
 
--- Dispatch ------------------------------------------------------------------------
 
---- Serves one request. This is the whole decision tree, in order.
 function App:handle(req)
   local limited = self.limiter_middleware or self.limiter:middleware()
   self.limiter_middleware = limited
@@ -281,15 +238,10 @@ function App:handle(req)
       return self:run_endpoint(req, route, params)
     end
     if route and route.endpoint and route.page and req.method ~= "GET" and req.method ~= "HEAD" then
-      -- A directory with both answers pages on GET and the endpoint on
-      -- anything else, which is what a page with a form wants.
       return self:run_endpoint(req, route, params)
     end
     if route and route.page then
       if req.method ~= "GET" and req.method ~= "HEAD" then
-        -- A page with no `api.lua` next to it answers GET and nothing
-        -- else. Rendering it for a POST would turn a stray form into a page
-        -- that looks like it worked.
         return response.text("405 Method Not Allowed\n", 405, { ["Allow"] = "GET, HEAD" })
       end
       return self:render_page(req, route, params)
@@ -313,9 +265,6 @@ function App:handle(req)
     return result
   end
 
-  -- Not a route: the app's own files, then the error page. The order is what
-  -- lets a page route sit in front of the static files. A frozen app has no
-  -- files of its own — the platform served them before the request got here.
   local file = self.static and self.static:serve(req, req.path)
   if file then
     if req:is_head() then return response.strip_body(file) end
@@ -328,18 +277,10 @@ function App:handle(req)
   return self:render_error(req, 404, "Not found")
 end
 
---- The handler to hand to `http.server`, with the security headers wrapped
--- around everything it produces.
 function App:handler()
   return self.security:wrap(function(req) return self:handle(req) end)
 end
 
---- An app with no filesystem under it.
---
--- Everything `app.new` would read at boot — the route tree, the components,
--- the probes, the document shell — is in the manifest the bundle
--- carries, because the platform this is for has no directory to walk and no
--- file to open. Serving a request is otherwise exactly the same code.
 function app.frozen(manifest)
   local self = setmetatable({
     root = manifest.root or "",
@@ -361,8 +302,6 @@ function app.frozen(manifest)
   self.security = security_lib.new(manifest.security or {})
   self.limiter = ratelimit.new(manifest.rate_limit or {})
 
-  -- `import()` inside a component looks in the bundle, by the same path
-  -- arithmetic the compiler used when it was on a disk.
   require("lunar.runtime.component").resolver =
     require("lunar.compiler.resolve").registry_resolver({
       root = self.root, components = self.frozen.components,

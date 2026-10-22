@@ -1,10 +1,3 @@
---- A route table, for the endpoints an app adds next to its pages.
---
--- The filesystem routes are `kit.routes`; this is the plain router underneath,
--- and the one an app uses directly when it wants a URL that is not a page.
--- `:name` is one segment, `*name` is the rest of the path, and routes are
--- matched in declaration order, so a literal route declared first wins.
-
 local util = require("lunar.core.util")
 
 local router = {}
@@ -22,7 +15,6 @@ local function compile(path)
       local name = path:match("^([%w_]+)", position + 1)
       if not name then error("router: ':' with no name in " .. path) end
       names[#names + 1] = name
-      -- Non-greedy, so a literal suffix in the same segment still matches.
       pattern[#pattern + 1] = "([^/]-)"
       position = position + 1 + #name
     elseif char == "*" then
@@ -43,8 +35,6 @@ function router.new()
   return setmetatable({ routes = {}, middleware = {} }, Router)
 end
 
---- Middleware runs before the table, in the order it was added. Returning a
--- response stops the request there; returning nothing passes it on.
 function Router:use(handler)
   self.middleware[#self.middleware + 1] = handler
   return self
@@ -77,11 +67,6 @@ local function matches_method(route, method)
   return false
 end
 
---- Dispatches, and returns nil when nothing answered.
---
--- A handler that returns nil *declines* the request, and the next matching
--- route gets it. That is how a page route can sit in front of the static files
--- without knowing what is on disk.
 function Router:dispatch(req)
   for _, middleware in ipairs(self.middleware) do
     local res = middleware(req)
@@ -107,8 +92,6 @@ function Router:dispatch(req)
     end
   end
 
-  -- A path that exists for another method is a 405, not a 404: the difference
-  -- is the whole reason a client gets told which methods there are.
   if next(allowed) then
     local methods = util.keys(allowed)
     if allowed.GET then methods[#methods + 1] = "HEAD" end

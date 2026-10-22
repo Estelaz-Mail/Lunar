@@ -18,6 +18,7 @@ dist/
 build/
 out/
 node_modules/
+.lunar/
 
 # Editors and systems.
 .DS_Store

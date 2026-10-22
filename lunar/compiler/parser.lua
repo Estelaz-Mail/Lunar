@@ -1,27 +1,3 @@
---- The template parser.
---
--- Markup in, a tree out. The tree is what both code generators walk: the one
--- that writes a string on the server and the one that builds nodes in the
--- browser. Keeping a single tree for both is what makes the two renderings the
--- same page by construction rather than by discipline.
---
--- The syntax, in full. Every expression in it is a Lua expression, checked at
--- compile time, which is why there is no separate expression language here to
--- learn or to get wrong:
---
---   {expr}                     text, escaped
---   {@html expr}               markup, not escaped
---   {#if expr} {:else if expr} {:else} {/if}
---   {#each list as item, index} {:else} {/each}
---   <tag attr="static" attr={expr} attr="mixed {expr}">
---   <tag {name}>               shorthand for name={name}
---   <tag on:click={fn}> <tag on:click|prevent={fn}>
---   <tag class:active={expr}> <tag style:color={expr}>
---   <tag bind:value={target}>
---   <Component prop={expr}>children</Component>
---   <slot />                   where a component's children go
---   <lunar:head>               hoisted into the document head
-
 local html = require("lunar.core.html")
 local util = require("lunar.core.util")
 
@@ -40,7 +16,6 @@ function Parser:fail(message, line)
   error(string.format("lunar: %s:%d: %s", self.filename, line or self.line, message), 0)
 end
 
---- Advances past `count` bytes, keeping the line number current.
 function Parser:advance(count)
   local chunk = self.source:sub(self.position, self.position + count - 1)
   for _ in chunk:gmatch("\n") do self.line = self.line + 1 end
@@ -55,9 +30,6 @@ function Parser:eof()
   return self.position > #self.source
 end
 
---- Reads a `{...}` expression, stopping at the brace that closes the one it
--- started on. Braces inside a string, a long bracket or a comment do not
--- count, which is what lets a template hold `{ { a = 1 } }` or `{ s:find("}") }`.
 function Parser:read_braced()
   local start_line = self.line
   if self:peek() ~= "{" then self:fail("expected '{'") end
@@ -128,7 +100,6 @@ function Parser:read_lua_comment()
   self:advance(stop - self.position)
 end
 
--- Mustaches -------------------------------------------------------------------
 
 local function expression_error(code, filename, line, what)
   local chunk, message = load("return (" .. code .. "\n)", "=expression")
@@ -137,8 +108,6 @@ local function expression_error(code, filename, line, what)
     filename, line, what, tostring(message):gsub("^.-:%d+:%s*", "")), 0)
 end
 
---- Checks an expression at compile time, so a typo is a build error with a
--- line number rather than a page that renders half of itself.
 function Parser:check_expression(code, line, what)
   expression_error(code, self.filename, line, what or "an expression")
 end
@@ -168,9 +137,6 @@ function Parser:parse_mustache(children)
   children[#children + 1] = { kind = "expr", code = trimmed, line = line }
 end
 
---- `{#if}`, `{:else}` and `{/if}` and their `each` counterparts. Blocks live on
--- the same stack as elements so a block closed inside an element, or the other
--- way round, is caught where it happens.
 function Parser:parse_block_tag(trimmed, line, children)
   local marker = trimmed:sub(1, 1)
   local body = util.trim(trimmed:sub(2))
@@ -218,7 +184,6 @@ function Parser:parse_block_tag(trimmed, line, children)
     self:fail("unknown {:" .. tostring(keyword) .. "}", line)
   end
 
-  -- marker == "/"
   if not top or top.kind ~= "block" then
     self:fail("{/" .. body .. "} with no block open", line)
   end
@@ -229,9 +194,6 @@ function Parser:parse_block_tag(trimmed, line, children)
   self.stack[#self.stack] = nil
 end
 
---- `list as item`, `list as item, index`. The names become real Lua locals in
--- the generated code, so an expression inside the block sees them by ordinary
--- scoping and not through the component's state.
 function Parser:parse_each_head(rest, line)
   if rest:find("%(") and rest:find("%)%s*$") then
     self:fail("a keyed {#each ... (key)} is not part of Lunar: the block "
@@ -251,7 +213,6 @@ function Parser:parse_each_head(rest, line)
     children = {}, else_children = nil, line = line }
 end
 
--- Elements ---------------------------------------------------------------------
 
 local MODIFIERS = { prevent = true, stop = true, once = true, self_ = true,
   capture = true, passive = true, trusted = true }
@@ -259,7 +220,6 @@ local MODIFIERS = { prevent = true, stop = true, once = true, self_ = true,
 function Parser:parse_attribute(attributes, tag)
   local source = self.source
 
-  -- `{name}` on its own is `name={name}`; `{...rest}` is a spread.
   if self:peek() == "{" then
     local code, line = self:read_braced()
     local trimmed = util.trim(code)
@@ -295,7 +255,6 @@ function Parser:parse_attribute(attributes, tag)
     elseif char == '"' or char == "'" then
       raw_value, value_line = self:read_quoted(char)
     else
-      -- An unquoted value, which HTML allows and this accepts for `type=text`.
       local unquoted = source:match("^[^%s>/]+", self.position)
       if not unquoted then self:fail("an attribute with no value") end
       raw_value = { { kind = "text", value = html.decode(unquoted) } }
@@ -329,8 +288,6 @@ function Parser:parse_attribute(attributes, tag)
     return
   end
   if directive and directive ~= "data" and directive ~= "aria" and name:find(":") then
-    -- `xml:lang` and friends are real attribute names; anything else that
-    -- looks like a directive and is not one is a typo worth catching.
     if directive ~= "xml" and directive ~= "xlink" and directive ~= "lunar" then
       self:fail("unknown directive " .. name, line)
     end
@@ -361,7 +318,6 @@ function Parser:split_modifiers(argument)
   return event, modifiers
 end
 
---- A quoted attribute value, which may mix text and expressions.
 function Parser:read_quoted(quote)
   local line = self.line
   self:advance(1)
@@ -399,7 +355,6 @@ function Parser:skip_space()
   if #space > 0 then self:advance(#space) end
 end
 
---- Reads the text of an element whose content is not markup, verbatim.
 function Parser:read_raw_text(tag)
   local close = self.source:find("</" .. tag .. "%s*>", self.position)
   if not close then self:fail("<" .. tag .. "> is never closed") end
@@ -412,7 +367,7 @@ end
 
 function Parser:parse_element(children)
   local line = self.line
-  self:advance(1) -- "<"
+  self:advance(1)
 
   if self:peek(3) == "!--" then
     local stop = self.source:find("-->", self.position, true)
@@ -440,7 +395,6 @@ function Parser:parse_element(children)
 
   local tag = self.source:match("^([%a][%w_%-%.:]*)", self.position)
   if not tag then
-    -- A bare `<` that is not a tag is text, which is what a browser does too.
     children[#children + 1] = { kind = "text", value = "<" }
     return
   end
@@ -498,8 +452,6 @@ function Parser:parse_element(children)
   self.stack[#self.stack + 1] = { kind = "element", node = node, line = line }
 end
 
---- Where the next child goes: the innermost open element, or the branch of the
--- innermost open block.
 function Parser:current_children()
   local top = self.stack[#self.stack]
   if not top then return self.root end
@@ -525,8 +477,6 @@ function parser.parse(source, options)
   local function flush()
     if #buffer > 0 then
       local children = self:current_children()
-      -- Decoded here, once: the generators escape it again on the way out,
-      -- each in the form its own renderer needs.
       children[#children + 1] = { kind = "text", value = html.decode(table.concat(buffer)) }
       buffer = {}
     end
@@ -541,8 +491,6 @@ function parser.parse(source, options)
       flush()
       self:parse_mustache(self:current_children())
     elseif char == "\\" and (self:peek(2) == "\\{" or self:peek(2) == "\\}") then
-      -- An escaped brace is a literal brace, for a template that has to show
-      -- the syntax it is written in.
       buffer[#buffer + 1] = self:peek(2):sub(2)
       self:advance(2)
     else

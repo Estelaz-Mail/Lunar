@@ -1,9 +1,3 @@
---- Base64.
---
--- Here because the Content Security Policy needs it: a CSP hash is the base64
--- of a digest, and a framework that pulled in a dependency for sixty lines of
--- bit shifting would not be this framework.
-
 local base64 = {}
 
 local ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
@@ -38,8 +32,6 @@ function base64.encode(bytes)
   return table.concat(parts)
 end
 
---- Decodes, ignoring whitespace. Returns nil on an invalid character, so a
--- malformed input is a failure and not a wrong answer.
 function base64.decode(text)
   local bits, count = 0, 0
   local out = {}

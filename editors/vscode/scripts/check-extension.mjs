@@ -1,12 +1,3 @@
-// Checks the extension against itself.
-//
-// An extension fails in quiet ways: a command in the manifest that nothing
-// registers is a palette entry that does nothing, a setting nothing reads is a
-// setting that does nothing, and a path in the manifest that is not on disk
-// stops the extension loading at all. None of that needs VS Code to catch.
-//
-//   node scripts/check-extension.mjs
-
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -46,8 +37,6 @@ for (const snippets of manifest.contributes.snippets ?? []) {
   }
 }
 
-// Every contributed command has to be registered, and every registered command
-// has to be contributed, or it is unreachable from the palette.
 const contributed = new Set((manifest.contributes.commands ?? []).map((c) => c.command));
 const registered = new Set(
   [...source.matchAll(/registerCommand\(\s*"([^"]+)"/g)].map((m) => m[1])
@@ -65,7 +54,6 @@ for (const item of manifest.contributes.menus?.["editor/context"] ?? []) {
   }
 }
 
-// Every setting has to be read by something.
 const prefix = `${manifest.contributes.configuration.title.toLowerCase()}.`;
 for (const key of Object.keys(manifest.contributes.configuration.properties ?? {})) {
   const name = key.startsWith(prefix) ? key.slice(prefix.length) : key;

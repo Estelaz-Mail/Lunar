@@ -1,9 +1,3 @@
---- SHA-256.
---
--- One use: the Content Security Policy hash of an inline script. Lua 5.4 has
--- 64-bit integers and the bitwise operators, so the whole thing is sixty lines
--- and needs nothing from outside.
-
 local sha256 = {}
 
 local MASK = 0xffffffff
@@ -31,7 +25,6 @@ function sha256.digest(message)
               0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 }
 
   local length = #message
-  -- The padding: a 1 bit, then zeroes, then the length in bits as 64 bits.
   local padding = (56 - (length + 1) % 64) % 64
   local padded = message .. "\128" .. string.rep("\0", padding)
     .. string.pack(">I8", length * 8)

@@ -1,5 +1,3 @@
---- The CLI. `bin/lunar` sets the module path and calls this.
-
 package.path = (debug.getinfo(1, "S").source:sub(2):match("^(.*)/lunar/cli%.lua$") or ".")
   .. "/?.lua;" .. package.path
 
@@ -19,6 +17,8 @@ lunar ]] .. lunar.VERSION .. [[ — a framework in Lua
   lunar build [app]        compile everything once and report what failed
   lunar map [app]          print the route table as it was discovered
   lunar compile <file>     print the Lua a component compiles to
+  lunar bench [app]        measure compiling, rendering, the takeover, the download
+  lunar bench --http <url> measure a running server over keep-alive sockets
   lunar workers [app]      generate a Cloudflare Workers deploy directory
   lunar spec [name...]     run the tests
 
@@ -34,8 +34,6 @@ local function app_root(argument)
   local root = argument or os.getenv("LUNAR_APP") or "."
   local fs = require("lunar.core.fs")
   if not fs.is_directory(require("lunar.core.fs").join(root, "orbit")) then
-    -- `is_directory` is a guess on some systems; a missing tree is reported
-    -- when the routes come back empty instead.
   end
   return (root:gsub("/+$", ""))
 end
@@ -66,9 +64,6 @@ function cli.serve(argument)
   })
 end
 
---- There is nothing to build, which is the point: this compiles everything so
--- a mistake is found now rather than on the first request, and assembles the
--- moonlight bundle so its size is known.
 function cli.build(argument)
   local root = app_root(argument)
   local fs = require("lunar.core.fs")
@@ -131,12 +126,6 @@ function cli.map(argument)
   end
 end
 
---- Freezes the app into a directory `wrangler` can deploy.
---
--- The app becomes one Lua file with no filesystem access, next to the
--- JavaScript entry point that runs it on Fengari. The same shape a Rust Worker
--- has — an artifact the edge runtime executes and a small entry that hands it
--- the request — with no WebAssembly toolchain in the way.
 function cli.workers(argument)
   local root = app_root(argument)
   local workers = require("lunar.site.targets.workers")
@@ -168,6 +157,18 @@ function cli.workers(argument)
 ]], #app.routes, total / 1024, result.out, result.out))
 end
 
+function cli.bench(argument, extra)
+  local bench = require("lunar.bench")
+  local seconds = tonumber(os.getenv("BENCH_SECONDS"))
+  if argument == "--http" then
+    return bench.http(extra or "http://127.0.0.1:3000/", {
+      seconds = seconds or 5,
+      connections = tonumber(os.getenv("BENCH_CONNECTIONS")) or 32,
+    })
+  end
+  bench.run(app_root(argument), { seconds = seconds })
+end
+
 function cli.compile(path)
   if not path then fail("compile needs a file: lunar compile orbit/page.lunar") end
   local compiler = require("lunar.compiler")
@@ -181,6 +182,7 @@ end
 
 local command = ...
 local argument = select(2, ...)
+local extra = select(3, ...)
 
 local handler = cli[command]
 if not handler or command == "help" then
@@ -188,4 +190,4 @@ if not handler or command == "help" then
   os.exit(command == "help" and 0 or 1)
 end
 
-handler(argument)
+handler(argument, extra)

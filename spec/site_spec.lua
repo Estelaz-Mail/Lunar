@@ -1,8 +1,3 @@
---- The server half: routing, loads, endpoints, errors, files, headers.
---
--- Everything here goes through `App:handler()`, which is the same function the
--- HTTP server calls, so these are real requests in everything but the socket.
-
 local json = require("lunar.core.json")
 local lunar = require("lunar")
 local request = require("lunar.http.request")
@@ -34,11 +29,6 @@ local function get(path, headers, instance)
   return send(instance or shared, "GET", path, headers)
 end
 
---- Replaces a probe with one of the spec's own.
---
--- The module cache is keyed by the file's own bytes, because that is how
--- development notices an edit, so the stub carries them: anything else and the
--- next request would read the real file back.
 local function stub_probe(instance, path, probe)
   local util = require("lunar.core.util")
   instance.modules[path] = {
@@ -47,7 +37,6 @@ local function stub_probe(instance, path, probe)
   }
 end
 
--- Routing ---------------------------------------------------------------------
 
 function T.matches_a_literal_route_before_a_dynamic_one()
   local list = {
@@ -57,7 +46,6 @@ function T.matches_a_literal_route_before_a_dynamic_one()
   }
   table.sort(list, function(a, b) return #a.id > #b.id end)
 
-  -- Discovery sorts; this checks the matcher against the sorted shape.
   local discovered = app().routes
   local route = routes_lib.match(discovered, "/blog")
   assert(route.id == "/blog")
@@ -72,8 +60,6 @@ function T.matches_a_catch_all_and_hands_over_the_rest_of_the_path()
   local segments = routes_lib.compile("/files/[...path]")
   local params = routes_lib.match_segments(segments, { "files", "a", "b", "c.txt" })
   assert(params.path == "a/b/c.txt")
-  -- A catch-all matches no segments too, which is what makes `/files` itself
-  -- reachable through it.
   assert(routes_lib.match_segments(segments, { "files" }).path == "")
   assert(routes_lib.match_segments(segments, { "other" }) == nil)
 end
@@ -84,26 +70,20 @@ function T.a_group_directory_contributes_no_segment()
   assert(routes_lib.route_id("blog/[slug]") == "/blog/[slug]")
 end
 
--- Pages -----------------------------------------------------------------------
 
 function T.renders_a_page_inside_its_shell()
   local res = get("/")
   assert(res.status == 200)
   assert(res.headers["Content-Type"] == "text/html; charset=utf-8")
-  -- The shell.
   assert(res.body:find('class="brand', 1, true))
   assert(res.body:find("Rendered by Lunar", 1, true))
-  -- The page, inside it.
   assert(res.body:find("A framework in Lua", 1, true))
-  -- The component the page imported.
   assert(res.body:find('class="counter', 1, true))
-  -- The app's own shell, not the default one.
   assert(res.body:find('href="/css/app.css"', 1, true))
 end
 
 function T.gives_a_page_the_data_of_the_shells_above_it()
   local res = get("/blog")
-  -- `site` comes from the shell's probe, `posts` from the page's.
   assert(res.body:find("Why Lua, for both halves", 1, true))
   local payload = json.decode(res.body:match('id="lunar%-data">(.-)</script>'))
   assert(payload.data[1].site == "Lunar", "the shell's level has its own data")
@@ -114,7 +94,6 @@ end
 
 function T.puts_the_title_from_the_head_in_the_document()
   assert(get("/").body:find("<title>Lunar</title>", 1, true))
-  -- A `<lunar:head>` is hoisted out of the body into the head.
   local body = get("/").body:match("<body>(.*)</body>")
   assert(not body:find("<title", 1, true))
 end
@@ -147,11 +126,9 @@ function T.passes_the_parameters_of_a_dynamic_route()
   local res = get("/blog/globals-are-state")
   assert(res.status == 200)
   assert(res.body:find("A global in a component script is state", 1, true))
-  -- `{@html}` in the page, which is the one way past escaping.
   assert(res.body:find("<code>function(_ENV) … end</code>", 1, true))
 end
 
--- Failures --------------------------------------------------------------------
 
 function T.shows_the_eclipse_when_a_probe_fails_the_request()
   local res = get("/blog/not-a-post")
@@ -169,7 +146,6 @@ end
 
 function T.turns_a_crash_in_a_probe_into_a_500()
   local instance = app()
-  -- A probe that raises an ordinary Lua error, not a controlled failure.
   stub_probe(instance, APP .. "/orbit/about/page.lua", function()
     error("the database is on fire")
   end)
@@ -202,7 +178,6 @@ function T.redirects_when_a_probe_says_to()
   assert(res.headers["Location"] == "/elsewhere")
 end
 
--- Endpoints -------------------------------------------------------------------
 
 function T.serves_an_endpoint_and_turns_a_table_into_json()
   local res = get("/api/time")
@@ -237,7 +212,6 @@ function T.refuses_a_write_to_a_page()
   assert(res.headers["Allow"] == "GET, HEAD")
 end
 
--- Files and the framework's own URLs -------------------------------------------
 
 function T.serves_the_apps_static_files()
   local res = get("/css/app.css")
@@ -278,7 +252,6 @@ function T.a_head_request_has_the_length_but_no_body()
   assert(tonumber(res.headers["Content-Length"]) > 0)
 end
 
--- The headers ------------------------------------------------------------------
 
 function T.sends_the_security_headers_on_every_response()
   for _, path in ipairs({ "/", "/api/time", "/css/app.css", "/nothing" }) do
@@ -292,15 +265,11 @@ function T.sends_the_security_headers_on_every_response()
   assert(page.headers["Content-Security-Policy"]:find("default-src 'none'", 1, true))
   assert(page.headers["Permissions-Policy"]:find("camera=()", 1, true))
 
-  -- Anything that is not a document is locked down further.
   local file = get("/css/app.css")
   assert(file.headers["Content-Security-Policy"]:find("sandbox", 1, true))
   assert(file.headers["Permissions-Policy"] == nil)
 end
 
---- The policy has no `'unsafe-inline'` for scripts and no nonce, so the
--- document must not contain an executable inline script. The data block is
--- `type="application/json"`, which a browser does not run.
 function T.the_document_needs_no_exception_to_its_own_policy()
   local res = get("/")
   local policy = res.headers["Content-Security-Policy"]
@@ -330,8 +299,6 @@ function T.rate_limits_a_flood_from_one_address()
   local refused = send(instance, "GET", "/")
   assert(refused.status == 429)
   assert(refused.headers["Retry-After"] == "1")
-  -- The classes are separate, so a page view does not spend the budget of the
-  -- files it pulls.
   assert(send(instance, "GET", "/css/app.css").status == 200)
 end
 

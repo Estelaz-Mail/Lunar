@@ -1,12 +1,3 @@
---- The moonlight bundle: that it carries everything the browser needs, and
---- that what it mounts is what the server sent.
---
--- The bundle is loaded in this Lua state — `package.preload` is saved and put
--- back afterwards — and then driven against the mock DOM with the very
--- payload the server serialised into the document. If the two agree, the
--- browser half of a real page agrees too: nothing in between is mocked except
--- the DOM itself.
-
 local bundle = require("lunar.site.bundle")
 local json = require("lunar.core.json")
 local lunar = require("lunar")
@@ -29,8 +20,6 @@ local function get(instance, path, headers)
   return instance:handler()(req)
 end
 
---- Loads the bundle, keeping this state's modules out of its way and putting
--- them back afterwards, and returns its registry.
 local function with_bundle(fn)
   local source, err = bundle.build(app())
   assert(source, err)
@@ -42,8 +31,6 @@ local function with_bundle(fn)
   local chunk, message = load(source, "@moonlight.lua")
   assert(chunk, message)
 
-  -- The runtime modules in the bundle must be the ones the bundle carries,
-  -- not the ones this process already loaded from disk.
   for _, relative in ipairs(bundle.MODULES) do
     package.loaded[(relative:gsub("%.lua$", ""):gsub("/", "."))] = nil
   end
@@ -91,7 +78,6 @@ function T.carries_every_module_the_browser_half_needs()
   end
 end
 
---- The test this whole arrangement exists for.
 function T.mounts_what_the_server_rendered()
   local instance = app()
 
@@ -124,7 +110,6 @@ function T.takes_over_and_then_updates()
     local dom = mock.new()
     local session = moonlight.start(registry, payload, dom, dom.body)
 
-    -- The counter's `+`, found the way a visitor would: by its class.
     local function find(tag, class)
       local found
       local function walk(node)
@@ -150,9 +135,44 @@ function T.takes_over_and_then_updates()
   assert(markup:find("Hello, Ada.", 1, true), "the binding reached the derived greeting")
 end
 
---- A client-side navigation is a swap of the chain, so the previous route's
--- effects have to stop: if they did not, they would keep patching nodes that
--- are no longer in the document.
+function T.the_takeover_claims_the_page_the_server_sent()
+  local instance = app()
+
+  for _, path in ipairs({ "/", "/blog", "/about", "/blog/why-lua" }) do
+    local document = get(instance, path).body
+    local container = document:match('<div id="lunar">(.*)</div>\n<script type="application/json"')
+    assert(container, path .. " has no container")
+    local payload = json.decode(document:match('id="lunar%-data">(.-)</script>'))
+
+    with_bundle(function(registry)
+      local moonlight = require("lunar.site.moonlight")
+      local dom = mock.parse(container)
+      local function elements(node, found)
+        found = found or {}
+        if node.kind == "element" then found[#found + 1] = node end
+        for _, child in ipairs(node.children) do elements(child, found) end
+        return found
+      end
+
+      local sent = {}
+      for _, node in ipairs(elements(dom.body)) do sent[node] = true end
+      local parsed = mock.serialize(dom.body)
+
+      local session = moonlight.start(registry, payload, dom, dom.body, {
+        on_rebuild = function(why) error(path .. " was rebuilt: " .. tostring(why)) end,
+      })
+
+      assert(session.hydrated, path .. " did not claim the server's nodes")
+      assert(mock.serialize(dom.body) == parsed, path .. " changed when it was claimed")
+      local claimed = elements(dom.body)
+      assert(#claimed > 0, path .. " has elements")
+      for _, node in ipairs(claimed) do
+        assert(sent[node], path .. ": a <" .. node.tag .. "> was built rather than claimed")
+      end
+    end)
+  end
+end
+
 function T.navigating_replaces_the_page_and_stops_the_old_one()
   local instance = app()
   local home = json.decode(get(instance, "/").body:match('id="lunar%-data">(.-)</script>'))
@@ -170,11 +190,41 @@ function T.navigating_replaces_the_page_and_stops_the_old_one()
     assert(markup:find("Why Lua, for both halves", 1, true), "the blog list rendered")
     assert(not markup:find("A framework in Lua", 1, true), "the home page is gone")
 
-    -- Writing to the old page's state must not raise and must not touch the
-    -- document.
     first.scope.name = "nobody"
     assert(mock.serialize(dom.body) == markup, "the old page's effects are stopped")
     assert(session.route == "/blog")
+  end)
+end
+
+function T.a_slow_navigation_does_not_overwrite_a_newer_one()
+  local instance = app()
+  local home = json.decode(get(instance, "/").body:match('id="lunar%-data">(.-)</script>'))
+  local blog = json.decode(get(instance, "/blog").body:match('id="lunar%-data">(.-)</script>'))
+  local about = json.decode(get(instance, "/about").body:match('id="lunar%-data">(.-)</script>'))
+
+  with_bundle(function(registry)
+    local moonlight = require("lunar.site.moonlight")
+    local dom = mock.new()
+    local session = moonlight.start(registry, home, dom, dom.body)
+
+    local first = session:begin_navigation("/blog")
+    local second = session:begin_navigation("/about")
+
+    assert(session:apply(second, about) == true)
+    assert(mock.serialize(dom.body):find("About", 1, true))
+
+    local applied, why = session:apply(first, blog)
+    assert(applied == false, "the stale navigation was applied")
+    assert(why == "superseded")
+    local markup = mock.serialize(dom.body)
+    assert(markup:find("About", 1, true), "the newer page is still there")
+    assert(not markup:find("Why Lua, for both halves", 1, true))
+    assert(session.route == "/about")
+
+    local third = session:begin_navigation("/blog")
+    session:cancel()
+    assert(session:apply(third, blog) == false)
+    assert(session.route == "/about")
   end)
 end
 

@@ -10,8 +10,6 @@ function T.round_trips_a_document()
   assert(decoded.nested.ok == true)
 end
 
---- The data of a page is embedded in a script element, so a string that
--- contains a closing tag must not be able to end it.
 function T.cannot_close_the_script_it_is_embedded_in()
   local encoded = json.encode({ evil = "</script><script>alert(1)</script>" })
   assert(not encoded:find("<", 1, true))

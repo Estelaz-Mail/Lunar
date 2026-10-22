@@ -1,8 +1,3 @@
---- A probe is what a page sends ahead of itself: it runs on the server, on
---- every request, before anything is drawn. What it brings back is the page's
---- `data` prop, and it is serialised into the document so the browser half
---- starts from the same values rather than fetching them all over again.
-
 return {
   probe = function(event)
     return {

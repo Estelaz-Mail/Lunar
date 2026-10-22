@@ -1,9 +1,3 @@
---- Content types, by extension.
---
--- Short on purpose: the list is what a web app actually serves. Anything not
--- on it is `application/octet-stream`, which is the safe answer — a browser
--- will not execute or render what it was not told to.
-
 local mime = {}
 
 local TYPES = {

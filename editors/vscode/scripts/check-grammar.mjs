@@ -1,13 +1,3 @@
-// Checks the grammar without opening an editor.
-//
-// There is no way to assert on colours from a script, but the two ways a
-// TextMate grammar actually breaks are checkable: a regular expression that
-// does not compile, and an `include` that points at a rule which is not there.
-// Both make the grammar fail silently in VS Code — the file simply stops being
-// highlighted — so they are worth a script.
-//
-//   node scripts/check-grammar.mjs
-
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -20,8 +10,6 @@ const problems = [];
 let patterns = 0;
 let includes = 0;
 
-// Oniguruma accepts a few things JavaScript does not. These are the ones this
-// grammar uses on purpose; anything else that fails to compile is a mistake.
 const ONIGURUMA_ONLY = [/\(\?<[=!]/, /\\h/, /\(\?i:/, /\\p\{/];
 
 const checkRegex = (source, where) => {
@@ -55,8 +43,6 @@ const walk = (node, where) => {
         problems.push(`${where}.include: no rule named ${target}`);
       }
     } else if (target !== "$self" && target !== "$base") {
-      // An external scope (source.lua, source.css). It cannot be verified
-      // from here, but it can be spelled wrong in a recognisable way.
       if (!/^[a-z]+(\.[a-z0-9-]+)+$/.test(target)) {
         problems.push(`${where}.include: ${target} is not a scope name`);
       }
@@ -79,8 +65,6 @@ if (grammar.scopeName !== "source.lunar") {
   problems.push(`scopeName is ${grammar.scopeName}, not source.lunar`);
 }
 
-// Every rule in the repository should be reachable, or it is dead weight that
-// looks like it is doing something.
 const serialized = JSON.stringify(grammar);
 for (const name of names) {
   if (!serialized.includes(`"#${name}"`)) {

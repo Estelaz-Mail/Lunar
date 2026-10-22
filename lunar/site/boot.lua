@@ -1,35 +1,21 @@
---- The browser entry point, and the only file here that needs a browser.
---
--- Fengari runs this: the document shell links it as
--- `<script type="application/lua" src="/_lunar/moonlight.lua">`, and the bundle
--- that URL serves ends by calling `start`.
-
 local moonlight = require("lunar.site.moonlight")
 local dom_lib = require("lunar.runtime.dom")
 local json = require("lunar.core.json")
 
 local boot = {}
 
---- A plain JS object. Never `eval`: the Content Security Policy this framework
--- ships forbids it, and a framework that needs an exception to its own policy
--- has the wrong policy or the wrong code.
 local function js_object(js, window, fields)
   local object = js.new(window.Object)
   for key, value in pairs(fields or {}) do object[key] = value end
   return object
 end
 
---- `then` is a Lua keyword, so a promise is chained through indexing.
 local function chain(promise, on_resolved, on_rejected)
   local next_promise = promise["then"](promise, on_resolved)
   if on_rejected then return next_promise["catch"](next_promise, on_rejected) end
   return next_promise
 end
 
---- Starts the browser half. Outside a browser there is no `js` module, and
--- this is a no-op that says so rather than an error: the bundle is loaded by
--- `spec/bundle_spec.lua` in a plain Lua state, where everything above this
--- function is exactly what runs in a page.
 function boot.start(registry)
   local has_interop, js = pcall(require, "js")
   if not has_interop then return nil, "lunar: not running in a browser" end
@@ -55,40 +41,50 @@ function boot.start(registry)
   end
 
   local dom = dom_lib.browser(window, js)
-  local session = moonlight.start(registry, payload, dom, target)
+  local session = moonlight.start(registry, payload, dom, target, {
+    on_rebuild = function(reason)
+      window.console:warn("lunar: the page was rebuilt rather than claimed: " .. tostring(reason))
+    end,
+  })
 
-  -- Client-side navigation. One delegated listener on the document rather
-  -- than one per link, because the links change as the page does.
   local function navigate(path, push)
+    local generation = session:begin_navigation(path)
+
+    local function give_up()
+      if not session:is_current(generation) then return end
+      window.location.href = path
+    end
+
     local options = js_object(js, window, {
       headers = js_object(js, window, { Accept = "application/json" }),
       credentials = "same-origin",
     })
+
     chain(chain(window:fetch(path, options), function(res)
+      if not session:is_current(generation) then return nil end
       if not res.ok then
-        -- A route the client cannot render is a route the server can: let the
-        -- browser do what it would have done without any of this.
-        window.location.href = path
+        give_up()
         return nil
       end
       return res:text()
     end), function(text)
       if text == nil then return end
+      if not session:is_current(generation) then return end
+
       local next_payload = json.decode(text)
       if type(next_payload) ~= "table" then
-        window.location.href = path
+        give_up()
         return
       end
-      local ok = session:swap(next_payload)
+
+      local ok = session:apply(generation, next_payload)
       if not ok then
-        window.location.href = path
+        give_up()
         return
       end
       if push then window.history:pushState(nil, "", path) end
       window:scrollTo(0, 0)
-    end, function()
-      window.location.href = path
-    end)
+    end, give_up)
   end
 
   document:addEventListener("click", function(event)
@@ -105,7 +101,6 @@ function boot.start(registry)
     if not href or href == nil then return end
     local url = js.new(window.URL, node.href)
     if url.origin ~= window.location.origin then return end
-    -- A fragment on this page is the browser's job, not the router's.
     if url.pathname == window.location.pathname and url.hash ~= "" then return end
 
     event:preventDefault()

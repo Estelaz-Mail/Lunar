@@ -4,11 +4,8 @@ local T = {}
 
 function T.splits_on_a_separator()
   assert(table.concat(util.split("a/b/c", "/"), "|") == "a|b|c")
-  -- An empty string has no segments, which is what the route splitter wants.
   assert(#util.split("", "/") == 0)
   assert(table.concat(util.split("a//b", "/"), "|") == "a||b")
-  -- A trailing separator adds no empty segment, so `/a/b/` and `/a/b` are the
-  -- same path to the router.
   assert(table.concat(util.split("a/b/", "/"), "|") == "a|b")
   assert(table.concat(util.split("/a", "/"), "|") == "|a")
 end

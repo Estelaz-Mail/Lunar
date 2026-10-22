@@ -1,21 +1,3 @@
---- The code generator.
---
--- One tree in, two functions out: `ssr`, which appends strings to a table, and
--- `client`, which builds nodes through a DOM adapter. They are written side by
--- side, from the same walk, so a feature cannot exist in one renderer and not
--- the other — and `spec/render_spec.lua` renders every fixture both ways and
--- compares the markup.
---
--- The generated module is plain Lua, meant to be read: `bin/lunar compile`
--- prints it. Every name the generator introduces starts with `__`, so it
--- cannot collide with a name from the component.
---
--- Line numbers: the module pads itself so the `<script>` body lands on the
--- line it occupies in the `.lunar` file. A runtime error in a script therefore
--- points at the component. The generated template code comes after and has
--- line numbers of its own, which is why template *expressions* are checked at
--- compile time instead.
-
 local html = require("lunar.core.html")
 local util = require("lunar.core.util")
 
@@ -44,8 +26,6 @@ function Writer:line(code)
   self.lines[#self.lines + 1] = string.rep("  ", self.indent) .. code
 end
 
---- Static markup is buffered and written as one assignment, so a template of
--- plain HTML compiles to one string and not forty.
 function Writer:static(text)
   if text == "" then return end
   self.pending[#self.pending + 1] = text
@@ -73,9 +53,7 @@ function Writer:body()
   return table.concat(self.lines, "\n")
 end
 
--- Attributes --------------------------------------------------------------------
 
---- The Lua expression for an attribute value written as `"a {b} c"`.
 local function parts_expression(parts)
   if #parts == 1 and parts[1].kind == "text" then
     return string.format("%q", parts[1].value)
@@ -91,8 +69,6 @@ local function parts_expression(parts)
   return "(" .. table.concat(pieces, " .. ") .. ")"
 end
 
---- Splits an element's attributes into the shapes the generators need. `class`
--- and `style` are pulled out because the directives have to merge into them.
 local function sort_attributes(node, scope_class)
   local plain, events, binds, spreads = {}, {}, {}, {}
   local class_conditions, style_declarations = {}, {}
@@ -167,7 +143,6 @@ local function declarations_table(declarations)
   return "{" .. table.concat(pieces, ", ") .. "}"
 end
 
--- The server renderer -------------------------------------------------------------
 
 local ssr_nodes
 
@@ -218,8 +193,6 @@ local function ssr_element(node, w, options)
     end
   end
 
-  -- A binding's value is the element's value on the server; the two-way half
-  -- only exists in a browser.
   for _, bind in ipairs(parts.binds) do
     if bind.name == "checked" then
       w:dynamic(string.format("__attr(%q, (%s) and true or false)", "checked", bind.code))
@@ -235,7 +208,6 @@ local function ssr_element(node, w, options)
   if node.self_closing then return end
 
   if node.raw_text then
-    -- `<script>` and `<style>` inside a template keep their text verbatim.
     w:static(node.children[1] and node.children[1].value or "")
   else
     ssr_nodes(node.children, w, options)
@@ -316,9 +288,6 @@ local function ssr_each(node, w, options)
   end
 end
 
---- `<lunar:head>`. Its children are hoisted into the document head, where a
--- component's scoping class would be meaningless — nothing styles a `<title>`
--- — so they are generated without one.
 local function head_options(options)
   local out = {}
   for key, value in pairs(options) do out[key] = value end
@@ -341,9 +310,6 @@ ssr_nodes = function(nodes, w, options)
   for _, node in ipairs(nodes) do
     local kind = node.kind
     if kind == "text" then
-      -- The text was decoded at parse time, so it is escaped here. A `<` an
-      -- author wrote as `&lt;` therefore comes back out as `&lt;`, and the
-      -- browser renderer's text node holds the one character it stands for.
       w:static(html.escape(node.value))
     elseif kind == "expr" then
       w:dynamic(string.format(node.raw and "__raw(%s)" or "__text(%s)", node.code))
@@ -370,7 +336,6 @@ ssr_nodes = function(nodes, w, options)
   end
 end
 
--- The browser renderer --------------------------------------------------------------
 
 local client_nodes
 
@@ -463,8 +428,6 @@ local function client_element(node, w, options)
   w:line(string.format("__d:append(%s, %s)", w.parent, target))
 end
 
---- A builder is the body of a block: a function that fills whatever parent it
--- is given, so the same code can build into a fragment or into the document.
 local function builder(nodes, w, options, extra_args)
   local inner = writer({ indent = w.indent + 1, counter = w.counter })
   inner.parent = "__parent"
@@ -551,8 +514,6 @@ client_nodes = function(nodes, w, options)
     elseif kind == "each" then
       client_each(node, w, options)
     elseif kind == "head" then
-      -- The head is the server's: what is already in the document stays, and
-      -- re-rendering it in the browser would duplicate every tag.
       w:line(string.format("__rt.head(__self, __d, %s)",
         builder(node.children, w, head_options(options))))
     elseif kind == "slot" then
@@ -562,7 +523,6 @@ client_nodes = function(nodes, w, options)
   end
 end
 
--- Assembly -------------------------------------------------------------------------
 
 local PREAMBLE = table.concat({
   'local __rt = require("lunar.runtime.component")',
@@ -575,7 +535,6 @@ local PREAMBLE = table.concat({
   "local __C = {}",
 }, "; ")
 
---- `options` is `{ script, script_line, css, scope_class, name, path, filename }`.
 function codegen.generate(ast, options)
   options = options or {}
   local counter = { n = 0 }
@@ -589,23 +548,12 @@ function codegen.generate(ast, options)
 
   local out = {}
 
-  -- The script is emitted first and padded so its first line lands on the line
-  -- it occupies in the component. Everything before it therefore has to fit on
-  -- one line, which is why the preamble is written with semicolons.
   local script = options.script or ""
   local script_line = options.script_line or 1
   local header = PREAMBLE .. "; __C.setup = function(_ENV)"
   if script_line > 1 then header = string.rep("\n", script_line - 1) .. header end
-  -- Joined with no separator: the script's own leading newline is what moves
-  -- its first statement off the header's line. One added here would shift
-  -- every line of the script by one, which is exactly the bug this padding
-  -- exists to prevent.
   out[#out + 1] = header .. script
 
-  -- The two renderers are closures *inside* the script, not siblings of it.
-  -- That is what lets a template see the script's locals — `local Card =
-  -- import(...)` is an ordinary upvalue here, exactly as it reads. A component
-  -- script therefore cannot `return`, which is the one thing this costs.
   out[#out + 1] = "return function(__out, __self)"
   out[#out + 1] = ssr_writer:body()
   out[#out + 1] = "end, function(__p, __self)"

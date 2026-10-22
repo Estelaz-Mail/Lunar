@@ -1,7 +1,3 @@
---- An endpoint. One function per method; what it returns becomes the response,
---- and a plain table becomes JSON. A directory with an `api.lua` and no
---- `page.lunar` is a URL that is only ever data.
-
 return {
   GET = function(event)
     return {

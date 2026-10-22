@@ -1,9 +1,3 @@
---- The test runner.
---
--- `bin/lunar spec` runs every `spec/*_spec.lua`; naming one runs only that.
--- A spec file returns a table of `name -> function`; a failure is any error
--- raised inside one, so plain `assert` is the whole assertion library.
-
 local root = (debug.getinfo(1, "S").source:sub(2):match("^(.*)/[^/]*$") or ".")
 package.path = root .. "/../?.lua;" .. root .. "/../?/init.lua;"
   .. root .. "/?.lua;" .. package.path
@@ -17,8 +11,6 @@ local function spec_files(names)
     return out
   end
   local out = {}
-  -- The one shell-out in the test runner, for the one thing Lua cannot do:
-  -- list a directory.
   local pipe = io.popen("ls " .. root .. "/*_spec.lua 2>/dev/null")
   if pipe then
     for line in pipe:lines() do out[#out + 1] = line end

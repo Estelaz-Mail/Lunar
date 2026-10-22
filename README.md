@@ -30,12 +30,12 @@ Lunar components use the `.lunar` extension. Each file contains an HTML template
 </script>
 
 <h1>{title}</h1>
-<button on:click={function() count = count + 1 end}>
-  Count: {count}
-</button>
+<button on:click="{function()" count="count" + 1 end}>Count: {count}</button>
 
 <style>
-  h1 { color: var(--accent); }
+  h1 {
+    color: var(--accent);
+  }
 </style>
 ```
 
@@ -53,11 +53,29 @@ Styles are scoped to their component. Lunar generates a class for the rendered e
 
 A `.lunar` file compiles to a Lua module with separate functions for server rendering and browser DOM creation. The compiler parses the script, template, and styles, and reports errors against the original file and line numbers. Compiled components are cached by their source contents.
 
-On the server, Lunar renders the requested route to HTML and includes its data in a JSON script element. In the browser, [Fengari](https://fengari.io) executes the Lua application and Lunar's browser runtime, called *moonlight*, handles reactivity and navigation. Application components do not need to be translated into JavaScript.
+On the server, Lunar renders the requested route to HTML and includes its data in a JSON script element. In the browser, [Fengari](https://fengari.io) executes the Lua application and Lunar's browser runtime, called _moonlight_, handles reactivity and navigation. Application components do not need to be translated into JavaScript.
 
 Updates are applied directly to text nodes and attributes. Conditional and iteration blocks render again when their dependencies change. Lunar does not use a virtual DOM, and `{#each}` currently has no keyed form.
 
-The browser runtime currently rebuilds the rendered container when it takes over from the server instead of attaching to the existing DOM nodes. Links between application routes can then load route data and update the page without a full reload. Ordinary page loads continue to work without client-side navigation.
+When the browser runtime takes over, it claims the nodes the server sent rather than replacing them. The client renderer walks the same template and matches each node it would have created against the one already in the document, attaches the event listeners and effects to it, and writes only the attributes and text that differ. Text that a parser merged into a single node is split where the template expects a boundary, and a block's content is claimed where the server left it. Nodes therefore keep their identity through the takeover, including input values a visitor has already typed, the focused element, and images and iframes that have already loaded.
+
+A container that does not match what the page would have built is not patched into shape. The runtime reports the first difference it found, clears the container, and renders into it, which is the behaviour it had before it could claim nodes at all. The usual cause is a probe that returns different data on two consecutive renders.
+
+Links between application routes load route data and update the page without a full reload. Navigations are numbered, so a response that arrives for a navigation the visitor has already left is discarded instead of replacing a newer page. Ordinary page loads continue to work without client-side navigation.
+
+## Performance
+
+`bin/lunar bench [app]` measures the framework against the application given to it: how long its components take to compile, how many pages a second one process renders along with the latency spread and the memory each page allocates, what the takeover costs, and how many bytes the browser downloads. The numbers depend on the machine, which the output names. On one core of an ordinary x86-64 Linux machine, the example application renders between 5,500 and 8,000 pages a second, at a median of 0.12 to 0.16 ms and a 99th percentile under 0.5 ms, allocating 42 to 58 KB per page. A page here is every probe, every component, and the whole document, rendered from nothing with no cache in front of it.
+
+The browser downloads about 330 KB uncompressed for the example application: 215 KB of Fengari and 115 KB of application bundle. That is the cost of running Lua in the browser rather than compiling it to JavaScript, and it is paid once per version, after the server-rendered page is already visible.
+
+`bin/lunar bench --http URL` drives a running server over keep-alive connections and reports requests a second and the latency spread. Run the server with `RATE_LIMIT=0` for a load test, since the rate limiter exists to stop exactly what a load test does.
+
+The takeover is also measured, against the table DOM the tests use rather than a browser. Claiming is not faster than rebuilding there, and is not meant to look like it: in a table DOM a node costs a table. What claiming buys is the node itself, and in a browser a created node also costs layout and paint, which that measurement cannot capture.
+
+The HTTP server is a single process with a single thread. Each connection runs in a coroutine, yields whenever its socket would block, and is resumed by a `socket.select` loop, so one thread serves many keep-alive connections. Read, keep-alive, and write deadlines are enforced by the loop itself rather than only when a client sends something, so a connection that goes quiet is dropped rather than holding its slot. The number of connections and the number of requests per connection are both bounded, and a connection past the limit is closed on accept.
+
+A probe or an endpoint that blocks blocks the whole loop, because there is one thread to block. Work that waits should be kept off the request path, and an application that needs more than one core should run more than one process behind a proxy. `spec/concurrency_spec.lua` drives many concurrent connections, slow clients, partial writes, timeouts, and the connection limits through the real loop with a substituted socket library.
 
 ## Routing
 
@@ -152,11 +170,13 @@ bin/lunar dev [app]
 bin/lunar build [app]
 bin/lunar map [app]
 bin/lunar compile file
+bin/lunar bench [app]
+bin/lunar bench --http URL
 bin/lunar workers [app]
 bin/lunar spec
 ```
 
-`dev` starts the development server, `build` compiles the application's components to check for errors, and `map` prints the discovered routes. `compile` writes the generated Lua for a component to standard output, `workers` creates a Cloudflare Workers deployment, and `spec` runs the test suite.
+`dev` starts the development server, `build` compiles the application's components to check for errors, and `map` prints the discovered routes. `compile` writes the generated Lua for a component to standard output, `bench` measures compiling, rendering, the takeover, and the download, `workers` creates a Cloudflare Workers deployment, and `spec` runs the test suite.
 
 ## Repository structure
 
@@ -166,8 +186,8 @@ Routing, rendering, the browser bundle, and deployment targets live under `lunar
 
 ## Testing and development status
 
-The test suite contains 108 tests. It compares the HTML generated by the server renderer with the markup serialized from the Lua-based DOM renderer, checks the browser bundle against data produced by the server, and tests the packaged Workers application without filesystem access.
+The test suite contains 128 tests. It compares the HTML generated by the server renderer with the markup serialized from the Lua-based DOM renderer, checks the browser bundle against data produced by the server, and tests the packaged Workers application without filesystem access. It also parses the server's own markup the way a browser would and runs the takeover against it, for every route of the example application, asserting that each element afterwards is the one the server sent. The connection scheduling is tested by driving concurrent connections through the real server loop.
 
-The compiler, component model, reactivity, routing, HTTP server, browser navigation, security defaults, Workers target, and VS Code extension are implemented. Claim-based hydration, keyed iteration, named slots, `{#await}`, built-in form actions, and streaming responses are not currently supported. Server-side form handling can be implemented through `api.lua` endpoints.
+The compiler, component model, reactivity, routing, HTTP server, hydration, browser navigation, security defaults, Workers target, and VS Code extension are implemented. Keyed iteration, named slots, `{#await}`, built-in form actions, and streaming responses are not currently supported. Server-side form handling can be implemented through `api.lua` endpoints.
 
 The codebase uses Lua 5.4, two-space indentation, `snake_case` names, and one returned table per module. Tests follow the `name_spec.lua` naming convention. Apart from LuaSocket for socket access, the framework's HTTP handling, compiler, runtime, and supporting modules are implemented in the repository.

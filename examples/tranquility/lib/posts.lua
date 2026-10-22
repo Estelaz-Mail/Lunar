@@ -1,7 +1,3 @@
---- The example's "database": a table. A real app would read a directory or
---- talk to something; what matters here is that a `load` function is ordinary
---- Lua and can do either.
-
 local posts = {
   {
     slug = "why-lua",

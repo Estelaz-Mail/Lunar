@@ -1,13 +1,3 @@
---- The spec the framework rests on.
---
--- Every fixture is rendered twice — to a string by the server renderer, and
--- into a DOM of Lua tables by the browser renderer — and the two have to
--- produce the same markup. That is what keeps the two code generators from
--- drifting apart without a browser in the loop.
---
--- The second half of each test then writes to state and asserts on the DOM,
--- which is the part only the browser renderer does.
-
 local support = require("support")
 
 local T = {}
@@ -43,8 +33,6 @@ function T.a_click_updates_the_text_the_class_and_the_branch()
   assert(below:find("negative", 1, true))
 end
 
---- The whole point of rendering on the server first: the markup the browser
--- takes over from is the markup it would have built itself.
 function T.the_takeover_produces_what_the_server_sent()
   local def = support.component("Counter")
   local server = support.ssr(def, { start = 3 })
@@ -93,9 +81,6 @@ function T.renders_a_card_with_a_slot_and_its_fallback()
   assert(markup:find("no content", 1, true), "the slot fallback rendered")
 end
 
---- The one fixture that uses everything: imports, a slot with a component
--- inside it, `{@html}`, a spread, a style directive, two bindings and the
--- head.
 function T.renders_the_whole_feature_set_identically()
   local def = support.component("App")
   support.assert_same(def, {})
@@ -137,10 +122,8 @@ function T.escapes_everything_except_what_the_template_said_not_to()
   local evil = '<img src=x onerror="alert(1)">'
   local markup = support.assert_same(def, { value = evil, markup = evil })
 
-  -- The interpolation is escaped, in the text and in the attribute.
   assert(markup:find("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;</p>", 1, true), markup)
   assert(markup:find('title="&lt;img', 1, true))
-  -- `{@html}` is not, which is the whole reason it is a separate syntax.
   assert(markup:find("<div><img src=x", 1, true))
 end
 
@@ -194,8 +177,6 @@ function T.prevent_marks_the_event()
   assert(instance.scope.submitted == true)
 end
 
---- A block that re-renders must take its effects with it, or a list that
--- changes once a second leaks an effect per item per second.
 function T.a_block_disposes_of_what_it_created()
   local signal = require("lunar.runtime.signal")
   local def = support.source([[

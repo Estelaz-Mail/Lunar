@@ -1,5 +1,3 @@
---- The compiler: the split, the parser's errors, and the line numbers.
-
 local compiler = require("lunar.compiler")
 local component = require("lunar.runtime.component")
 local parser = require("lunar.compiler.parser")
@@ -20,8 +18,6 @@ function T.splits_the_three_parts_and_keeps_the_line_numbers()
   assert(parts.script == "\nlocal x = 1\n")
   assert(parts.script_line == 1)
   assert(parts.style == "\np{}\n")
-  -- The template keeps the newlines of what was cut out, so `<p>` is still on
-  -- line 4 of the file.
   local line = 1
   for _ in parts.template:sub(1, parts.template:find("<p>")):gmatch("\n") do line = line + 1 end
   assert(line == 4, "got line " .. line)
@@ -88,8 +84,6 @@ function T.refuses_a_binding_to_something_that_cannot_be_assigned()
     :find("cannot be assigned to", 1, true))
 end
 
---- A void element is closed the moment it is opened, so a closing tag for one
--- is a closing tag for nothing.
 function T.refuses_a_closing_tag_for_a_void_element()
   assert(compile_error("<br>text</br>"):find("with no element open", 1, true))
 end
@@ -99,8 +93,6 @@ function T.refuses_what_a_component_cannot_do()
   assert(compile_error("<Card bind:x={y} />"):find("not part of Lunar", 1, true))
 end
 
---- The whole reason the generated module pads itself: an error raised by a
--- component's own code has to point at the component.
 function T.a_runtime_error_in_a_script_points_at_the_component_line()
   local source = "<script>\n\n\nerror(\"boom\")\n</script>\n<p>x</p>"
   local def = compiler.load(source, { path = "Boom.lunar", filename = "Boom.lunar" })

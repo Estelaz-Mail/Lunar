@@ -1,9 +1,3 @@
---- URLs, as much of them as a server needs.
---
--- Percent-decoding, the query string, and the path split into segments. There
--- is no URL building here: a framework that builds URLs for you is a framework
--- that has opinions about your routes.
-
 local util = require("lunar.core.util")
 
 local url = {}
@@ -21,16 +15,12 @@ function url.encode(value)
   end))
 end
 
---- Percent-encodes a path, leaving the separators alone, so a redirect built
--- from a decoded path cannot smuggle anything into the header.
 function url.encode_path(path)
   return (path:gsub("[^%w%-%.%_%~/]", function(char)
     return string.format("%%%02X", char:byte())
   end))
 end
 
---- `a=1&b=2` as a table. A repeated key becomes a list, because a form with
--- two checkboxes of the same name is a real form.
 function url.parse_query(search)
   local out = {}
   if search == nil or search == "" then return out end
@@ -53,8 +43,6 @@ function url.parse_query(search)
   return out
 end
 
---- Splits a request target into the parts a router needs. The path is
--- decoded; the raw form is kept because that is what a redirect has to echo.
 function url.parse(target)
   local raw_path, search, hash = target:match("^([^?#]*)%??([^#]*)#?(.*)$")
   raw_path = raw_path ~= "" and raw_path or "/"
@@ -67,21 +55,16 @@ function url.parse(target)
   }
 end
 
---- The segments of a path, decoded. `/blog/a%20b/` is two segments.
 function url.segments(path)
   local out = {}
   for segment in path:gmatch("[^/]+") do out[#out + 1] = url.decode(segment) end
   return out
 end
 
---- Normalises a path: collapses `//`, resolves `.` and `..`, and never lets
--- the result climb above the root. This is what a static file handler is
--- built on, so it is the one function here that has to be right.
 function url.normalize(path)
   local segments = {}
   for segment in path:gmatch("[^/]+") do
     if segment == "." then
-      -- nothing
     elseif segment == ".." then
       segments[#segments] = nil
     else

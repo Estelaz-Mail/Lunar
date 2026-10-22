@@ -1,10 +1,3 @@
---- The render pipeline: loads, then components, then the document.
---
--- A page is the innermost component of a chain. Each shell above it renders
--- the one below it into its `<slot />`, which is the same mechanism any
--- component's children use — a shell is not a special kind of component, it is
--- a component the orbit knows where to find.
-
 local component = require("lunar.runtime.component")
 local errors = require("lunar.site.errors")
 local html = require("lunar.core.html")
@@ -13,7 +6,6 @@ local util = require("lunar.core.util")
 
 local render = {}
 
---- The event a probe, and an endpoint, receives.
 function render.event(req, route, params, extra)
   local event = {
     params = params or {},
@@ -29,14 +21,6 @@ function render.event(req, route, params, extra)
   return event
 end
 
---- Runs the probes of a route, outermost first.
---
--- A probe is what a page sends ahead of itself: it runs on the server, before
--- anything is drawn, and what it brings back is the page's `data`.
---
--- Each level sees the data of the levels above it merged into its own, which
--- is what makes a shell's data available to the page inside it without the
--- page asking for it. A level that draws nothing still contributes its data.
 function render.probe_chain(app, route, event)
   local levels = {}
   local cumulative = {}
@@ -65,7 +49,6 @@ function render.probe_chain(app, route, event)
   return levels
 end
 
---- The levels that draw something, with their data: what both renderers walk.
 function render.drawn(levels)
   local out = {}
   for _, level in ipairs(levels) do
@@ -74,8 +57,6 @@ function render.drawn(levels)
   return out
 end
 
---- Renders the chain to markup. `defs` is outermost first; `data` is the
--- data for each of them, already merged down the chain.
 function render.chain(defs, data, options)
   local ctx = component.context((options and options.ctx) or nil)
   local params = (options and options.params) or {}
@@ -88,7 +69,6 @@ function render.chain(defs, data, options)
     local inner = at(index + 1)
     return component.render(defs[index], props, {
       ctx = ctx,
-      -- The shell's `<slot />`: the markup of everything below it.
       slot = function(out) out[#out + 1] = inner end,
     })
   end
@@ -110,8 +90,6 @@ local DEFAULT_SHELL = [[<!doctype html>
 </html>
 ]]
 
---- The document. `app.html` in the app's root replaces the default shell; the
--- two placeholders are all it has to carry.
 function render.document(app, parts)
   local shell = app.shell or DEFAULT_SHELL
 
@@ -121,8 +99,6 @@ function render.document(app, parts)
     head[#head + 1] = "<title>" .. html.escape(parts.title or app.name or "Lunar") .. "</title>"
   end
 
-  -- The styles of the components this page actually rendered, in a stable
-  -- order so the same page is the same bytes.
   local sheets = {}
   for _, class in ipairs(util.keys(parts.css or {})) do
     sheets[#sheets + 1] = parts.css[class]
@@ -137,10 +113,6 @@ function render.document(app, parts)
   local body = { string.format('<div id="lunar">%s</div>', parts.body or "") }
 
   if parts.data then
-    -- A data block, not a script: `type="application/json"` is not executed,
-    -- so it needs no exception in the Content Security Policy. The JSON
-    -- encoder escapes `<` and `>`, so a string in the data cannot end the
-    -- element it sits in.
     body[#body + 1] = string.format(
       '<script type="application/json" id="lunar-data">%s</script>',
       json.encode(parts.data))
@@ -149,7 +121,6 @@ function render.document(app, parts)
   if app.client ~= false then
     body[#body + 1] = string.format('<script src="%s" defer></script>',
       html.escape("/_lunar/fengari.js?v=" .. app.version))
-    -- The moonlight: the app again, for the browser.
     body[#body + 1] = string.format('<script type="application/lua" src="%s" async></script>',
       html.escape("/_lunar/moonlight.lua?v=" .. app.version))
   end

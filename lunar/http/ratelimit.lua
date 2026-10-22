@@ -1,22 +1,3 @@
---- Per-address rate limiting.
---
--- A token bucket per client address, in three classes, because one limit
--- cannot fit both a page view and the subresources it pulls: opening a page is
--- one HTML request and twenty files, and a form endpoint should allow neither
--- twenty nor a hundred.
---
---   page    the rendered pages and the route data the client router fetches
---   asset   anything that came off disk: CSS, fonts, images, the client Lua
---   write   every non-GET request
---
--- The state is this process's, so two instances behind a proxy each allow
--- their own budget. That is the right trade for what this protects against — a
--- scraper walking every page, a loop hammering a form — and a shared limiter
--- would mean a dependency, which this framework does not have.
---
--- Nothing here identifies a visitor: the key is the address, the entry holds
--- two numbers, and it is dropped as soon as the bucket is full again.
-
 local util = require("lunar.core.util")
 
 local ratelimit = {}
@@ -39,9 +20,6 @@ local ASSET_EXTENSIONS = {
   webm = true, webp = true, woff = true, woff2 = true,
 }
 
---- Which bucket a request draws from, from its method and the shape of its
--- path. The static handler has not run yet, so whether the file exists is not
--- knowable here — and a request for a file that is missing is cheap either way.
 function ratelimit.classify(req)
   if req.method ~= "GET" and req.method ~= "HEAD" then return "write" end
   local path = req.path or "/"
@@ -59,7 +37,6 @@ local function default_clock()
   return function() return os.time() end
 end
 
---- `options` is `{ classes, max_keys, idle_seconds, exempt, now, enabled }`.
 function ratelimit.new(options)
   options = options or {}
   local classes = {}
@@ -76,10 +53,6 @@ function ratelimit.new(options)
   return setmetatable({
     enabled = options.enabled ~= false,
     classes = classes,
-    -- The ceiling on how many addresses are remembered. Past it the idle
-    -- entries go first and the oldest after that, so a flood from a wide
-    -- range of addresses costs a bounded amount of memory and not an
-    -- unbounded one.
     max_keys = math.max(16, math.floor(tonumber(options.max_keys) or 8192)),
     idle_seconds = tonumber(options.idle_seconds) or 600,
     exempt = exempt,
@@ -133,8 +106,6 @@ local function bucket_for(self, key, class, now)
   return bucket
 end
 
---- Takes one token. Returns true when the request may proceed, or false and
--- the whole seconds until the next token, which is what `Retry-After` wants.
 function Limiter:take(key, class, cost)
   if not self.enabled then return true end
   if key == nil or key == "" or self.exempt[key] then return true end
@@ -157,8 +128,6 @@ function Limiter:take(key, class, cost)
   return false, math.max(1, math.ceil((cost - bucket.tokens) / config.per_second))
 end
 
---- The middleware. It answers only when the request is over its budget, so it
--- sits at the front of the route table like any other.
 function Limiter:middleware()
   local response = require("lunar.http.response")
   return function(req)
@@ -170,8 +139,6 @@ function Limiter:middleware()
       ["Retry-After"] = tostring(retry_after),
       ["Cache-Control"] = "no-store",
     })
-    -- The connection goes with the response: a client that is over its budget
-    -- should not also hold a slot in the event loop.
     res.close = true
     return res
   end

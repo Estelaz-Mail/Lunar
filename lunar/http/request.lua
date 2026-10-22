@@ -1,8 +1,3 @@
---- Requests.
---
--- Built from the raw HTTP head by `http.server`, or by hand in a spec. The
--- body is read lazily, so a GET never waits on a socket read it does not need.
-
 local json = require("lunar.core.json")
 local url = require("lunar.core.url")
 local util = require("lunar.core.util")
@@ -22,14 +17,10 @@ function Request:read_body()
   return self.body
 end
 
---- The body as JSON, or nil and a message. A handler should never have to
--- wrap this in a pcall itself.
 function Request:json()
   return json.decode(self:read_body())
 end
 
---- The body as a form. `application/x-www-form-urlencoded` is what a `<form>`
--- without JavaScript sends, which is the form this framework cares about.
 function Request:form()
   local kind = (self:header("content-type") or ""):lower()
   if kind:find("application/json", 1, true) then
@@ -41,8 +32,6 @@ end
 
 function Request:is_head() return self.method == "HEAD" end
 
---- Whether the client asked for JSON rather than a page, which is how the
--- client-side router asks for a route's data.
 function Request:wants_json()
   local accept = self:header("accept") or ""
   return accept:find("application/json", 1, true) ~= nil
@@ -64,8 +53,6 @@ local function resolve_origin(headers, options)
   end
 
   if scheme ~= "http" and scheme ~= "https" then scheme = "http" end
-  -- A Host header is attacker-controlled in shape, if not in value. Anything
-  -- that is not a hostname[:port] is replaced rather than parsed.
   if not host:match("^[%w%.%-%_]+:?%d*$") and not host:match("^%[[%x:]+%]:?%d*$") then
     host = options.default_host or "localhost"
   end

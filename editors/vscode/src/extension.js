@@ -1,14 +1,3 @@
-// Lunar editor integration.
-//
-// There is no language server. The extension shells out to the real compiler
-// (`lunar compile <file>`) and turns what it says into editor squiggles, so
-// the editor and the command line can never disagree about what is an error.
-//
-// It is written in plain JavaScript, with no build step and no runtime
-// dependency beyond the `vscode` API and Node's standard library. That is not
-// laziness: Lunar's own rule is that there is no build step, and an extension
-// that needed `tsc` before it could run would be the first exception.
-
 "use strict";
 
 const vscode = require("vscode");
@@ -17,24 +6,11 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 
-/** @type {vscode.DiagnosticCollection} */
 let diagnostics;
-/** @type {vscode.OutputChannel} */
 let output;
 
-/** Debounce timers, keyed by document URI. */
 const timers = new Map();
 
-/**
- * A compiler message looks like one of these:
- *
- *   lunar: orbit/page.lunar:12: {#if} is never closed
- *   lunar: orbit/page.lunar:3: an expression is not a Lua expression: unexpected symbol
- *   lunar: Card.lunar: a component has one <script>, at the top level
- *
- * The line number is optional because a few checks are about the file as a
- * whole. Everything after the last colon-space is the message.
- */
 const WITH_LINE = /^lunar:\s+(.*?):(\d+):\s*(.+)$/;
 const WITHOUT_LINE = /^lunar:\s+(.*?):\s*(.+)$/;
 
@@ -65,9 +41,6 @@ function activate(context) {
     vscode.commands.registerCommand("lunar.spec", () => runInTerminal("spec", ["spec"]))
   );
 
-  // `import("./Card.lunar")` is a path, so ctrl-click should open it. The
-  // compiler resolves these relative to the importing file, or to the app root
-  // for a leading slash; this does the same arithmetic.
   context.subscriptions.push(
     vscode.languages.registerDefinitionProvider(
       { language: "lunar" },
@@ -83,7 +56,6 @@ function deactivate() {
   timers.clear();
 }
 
-// Diagnostics ----------------------------------------------------------------
 
 function maybeCheck(doc, fromType) {
   if (doc.languageId !== "lunar") return;
@@ -115,11 +87,6 @@ function clearTimer(key) {
   }
 }
 
-/**
- * Compiles the document's current text, saved or not, and publishes what the
- * compiler said. An unsaved buffer goes through a temporary file, so the
- * squiggles are live rather than one save behind.
- */
 function check(doc) {
   compile(doc, (error, stdout, stderr) => {
     if (error && error.code === "ENOENT") {
@@ -130,12 +97,6 @@ function check(doc) {
   });
 }
 
-/**
- * Runs `lunar compile` over a document. The temporary file keeps the real
- * file's name, in a directory of its own, because the compiler puts the file
- * name in its messages and a name like `lunar-check-9f3b.lunar` in a squiggle
- * would be confusing.
- */
 function compile(doc, done) {
   const cli = resolveCli();
   let target = doc.uri.fsPath;
@@ -201,10 +162,6 @@ function parseDiagnostics(text, doc) {
   return out;
 }
 
-/**
- * The compiler reports a line, not a column, so the squiggle covers the line's
- * text rather than a guessed token.
- */
 function lineRange(doc, number) {
   if (number < doc.lineCount) {
     const text = doc.lineAt(number);
@@ -215,7 +172,6 @@ function lineRange(doc, number) {
   return new vscode.Range(0, 0, 0, 1);
 }
 
-// Commands -------------------------------------------------------------------
 
 function activeComponent() {
   const doc = vscode.window.activeTextEditor?.document;
@@ -226,13 +182,6 @@ function activeComponent() {
   return doc;
 }
 
-/**
- * Opens the generated module beside the component.
- *
- * This is the first thing to reach for when a template does not do what it
- * reads like: the output is plain Lua, and the `<script>` keeps its original
- * line numbers inside it.
- */
 function showCompiled() {
   const doc = activeComponent();
   if (!doc) return;
@@ -259,7 +208,6 @@ function showCompiled() {
   });
 }
 
-/** The route table, as the framework discovered it. */
 function showOrbit() {
   const cli = resolveCli();
   cp.execFile(
@@ -287,15 +235,7 @@ function runInTerminal(name, args) {
   terminal.sendText([cli.command, ...cli.args, ...args].map(quote).join(" "));
 }
 
-// Resolution -----------------------------------------------------------------
 
-/**
- * `import("./Card.lunar")` under the cursor, as a location.
- *
- * Mirrors `lunar/compiler/resolve.lua`: relative to the importing file, or to
- * the app root when it starts with a slash, and `.lunar` is added when it is
- * not already there.
- */
 function resolveImport(doc, position) {
   const line = doc.lineAt(position.line).text;
   const imports = /import\s*\(\s*(["'])([^"']+)\1\s*\)/g;
@@ -317,15 +257,10 @@ function resolveImport(doc, position) {
   return null;
 }
 
-/** The first workspace folder, which is what the CLI is run from. */
 function workspaceRoot() {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 }
 
-/**
- * The app directory: the `lunar.app` setting, or the nearest ancestor of the
- * open file that has an `orbit/` in it, or the workspace root.
- */
 function appRoot() {
   const configured = config().get("app", "");
   if (configured) return configured;
@@ -344,13 +279,6 @@ function appRoot() {
   return root ?? ".";
 }
 
-/**
- * How to run the CLI. Resolution order, most to least specific:
- *   1. the `lunar.path` setting;
- *   2. `bin/lunar` in a workspace folder, so a contributor runs the checkout
- *      they are editing;
- *   3. `lunar` on PATH.
- */
 function resolveCli() {
   const configured = config().get("path", "");
   if (configured) return { command: configured, args: [] };
@@ -365,7 +293,6 @@ function resolveCli() {
   return { command: "lunar", args: [] };
 }
 
-/** The CLI runs under whichever Lua the user has; `bin/lunar` honours `LUA`. */
 function environment() {
   const lua = config().get("lua", "");
   if (!lua) return process.env;

@@ -1,9 +1,3 @@
---- Responses.
---
--- A response is a plain table — `{ status, headers, body }` — so a handler can
--- build one without a constructor. The helpers exist because almost every
--- handler returns one of a handful of shapes.
-
 local json = require("lunar.core.json")
 
 local response = {}
@@ -60,9 +54,6 @@ function response.no_content(headers)
   return response.new(204, "", headers or {})
 end
 
---- Whatever a handler returned, as a response. A table that is not a response
--- is JSON, a string is HTML, and nil is a 404: those are the shapes an
--- endpoint actually returns.
 function response.coerce(value)
   if value == nil then return nil end
   if type(value) == "string" then return response.html(value) end
@@ -78,8 +69,6 @@ function response.coerce(value)
   return response.text(tostring(value))
 end
 
---- A HEAD response keeps its Content-Length, so the client learns the size it
--- would have received.
 function response.strip_body(res)
   res.headers["Content-Length"] = tostring(res.content_length or #(res.body or ""))
   res.body = ""

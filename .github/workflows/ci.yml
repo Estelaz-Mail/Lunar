@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  spec:
+    name: Lua ${{ matrix.lua }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        lua: ["5.4"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Lua
+        run: sudo apt-get update && sudo apt-get install -y lua${{ matrix.lua }}
+
+      - name: Tests
+        run: LUA=lua${{ matrix.lua }} bin/lunar spec
+
+      - name: Every component compiles
+        run: LUA=lua${{ matrix.lua }} bin/lunar build examples/tranquility
+
+      - name: The route table is discoverable
+        run: LUA=lua${{ matrix.lua }} bin/lunar map examples/tranquility
+
+      - name: Nothing was generated into the repository
+        run: git diff --exit-code && git status --porcelain --untracked-files=all | tee /dev/stderr | (! grep .)
+
+  benchmarks:
+    name: Benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Lua
+        run: sudo apt-get update && sudo apt-get install -y lua5.4
+      - name: Measure
+        run: bin/lunar bench examples/tranquility
+
+  editor:
+    name: VS Code extension
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install
+        working-directory: editors/vscode
+        run: npm install --no-audit --no-fund
+      - name: Grammar, manifest and tokens
+        working-directory: editors/vscode
+        run: npm run check

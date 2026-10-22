@@ -1,15 +1,3 @@
---- An HTTP/1.1 server.
---
--- LuaSocket provides the socket syscalls and nothing else: the protocol, the
--- connection scheduling and the timeouts are here. Every connection runs in
--- its own coroutine, a coroutine yields whenever a socket would block, and the
--- loop uses `socket.select` to resume only the ones that can make progress.
--- One OS thread serves many keep-alive connections, which is what a
--- server-rendered app behind a proxy needs.
---
--- There is no TLS. Put a proxy in front and let it pass the real scheme and
--- host through the forwarded headers.
-
 local request_lib = require("lunar.http.request")
 local response_lib = require("lunar.http.response")
 local util = require("lunar.core.util")
@@ -27,10 +15,6 @@ local DEFAULTS = {
   max_body_bytes = 1024 * 1024,
   max_requests_per_connection = 200,
   chunk_bytes = 64 * 1024,
-  -- One process, one thread: the ceiling is on how many sockets the loop
-  -- carries. Past it a connection is closed on accept rather than queued, so a
-  -- client holding a thousand idle sockets cannot keep the loop from serving
-  -- everyone else.
   max_connections = 512,
   max_connections_per_ip = 0,
   server_header = "lunar",
@@ -38,7 +22,6 @@ local DEFAULTS = {
 
 local WANT_READ, WANT_WRITE = "read", "write"
 
--- Reading --------------------------------------------------------------------
 
 local Reader = {}
 Reader.__index = Reader
@@ -51,6 +34,7 @@ end
 
 function Reader:set_deadline(seconds)
   self.deadline = seconds and (self.socket.gettime() + seconds) or nil
+  if self.entry then self.entry.deadline = self.deadline end
 end
 
 function Reader:expired()
@@ -100,7 +84,6 @@ function Reader:bytes(count)
   return out
 end
 
--- Writing --------------------------------------------------------------------
 
 local function send_all(client, data, deadline, socket)
   local sent, total = 0, #data
@@ -119,9 +102,6 @@ local function send_all(client, data, deadline, socket)
   return true
 end
 
--- A header name must be a token and a value must not contain CR, LF or NUL.
--- Nothing should reach here carrying one, so this is the backstop that makes
--- response splitting impossible whatever a handler puts in a header.
 local function header_name_ok(name)
   return type(name) == "string" and name:match("^[%w!#%$%%&'%*%+%-%.%^_`|~]+$") ~= nil
 end
@@ -143,9 +123,6 @@ local function write_response(client, res, options, deadline, head_only, socket)
   for _, name in ipairs(names) do
     local value = res.headers[name]
     local lowered = type(name) == "string" and name:lower() or ""
-    -- `Connection` and `Date` are written below, from the connection's own
-    -- state: a copy carried on the response would be a second, contradicting
-    -- header, and two Connection headers are how a keep-alive desync starts.
     if lowered == "connection" or lowered == "date" then
       if lowered == "connection" then res.connection = res.connection or value end
     elseif not header_name_ok(name) then
@@ -200,7 +177,6 @@ local function write_response(client, res, options, deadline, head_only, socket)
   return true
 end
 
--- Parsing --------------------------------------------------------------------
 
 local function parse_request_line(line)
   local method, target, version = line:match("^(%u+)%s+(%S+)%s+(HTTP/%d%.%d)$")
@@ -208,12 +184,6 @@ local function parse_request_line(line)
   return { method = method, target = target, version = version }
 end
 
---- A target may not carry a control character, raw or percent-encoded.
---
--- `%S+` above already keeps CR, LF, space and tab out of the raw target, but
--- the path is percent-decoded before a handler sees it, so `%0d%0a` would
--- arrive as a real CRLF and from there into a response header. The decoded
--- form is checked here because this is the last place that can answer 400.
 local function target_is_safe(target)
   if target:find("[\0-\31\127]") then return false end
   for hex in target:gmatch("%%(%x%x)") do
@@ -245,9 +215,6 @@ local function read_headers(reader, limits)
   end
 end
 
---- RFC 9112 framing. A request whose body length is ambiguous is refused
--- rather than guessed at: a server that guesses differently from the proxy in
--- front of it is how a request gets smuggled past that proxy.
 local function check_framing(headers)
   local encoding = headers["transfer-encoding"]
   local length = headers["content-length"]
@@ -257,8 +224,6 @@ local function check_framing(headers)
       return 501, "unsupported transfer-encoding"
     end
   elseif length then
-    -- Two Content-Lengths arrive joined with ", ", which is not a number.
-    -- Only digits pass, which also rules out "0x10", a sign and an exponent.
     if not length:match("^%s*%d+%s*$") then return 400, "malformed content-length" end
   end
   return nil
@@ -299,7 +264,6 @@ local function body_reader(reader, headers, limits)
   return function() return reader:bytes(length) end, length
 end
 
--- Connections ----------------------------------------------------------------
 
 local function error_response(status, message)
   local res = response_lib.text(string.format("%d %s\n%s", status,
@@ -308,10 +272,11 @@ local function error_response(status, message)
   return res
 end
 
-local function serve_connection(client, handler, options, socket)
+local function serve_connection(client, handler, options, socket, entry)
   client:setoption("tcp-nodelay", true)
   client:settimeout(0)
   local reader = new_reader(client, options, socket)
+  reader.entry = entry
   local peer = client:getpeername()
   local served = 0
 
@@ -348,9 +313,6 @@ local function serve_connection(client, handler, options, socket)
     local read_body_fn, declared = body_reader(reader, headers, options)
     if declared and declared > options.max_body_bytes then return fail(413) end
 
-    -- A body that cannot be read to its end leaves the connection at an
-    -- unknown offset, so what follows is not a request and the connection is
-    -- not reused.
     local body_complete = true
     if read_body_fn then
       local read_one = read_body_fn
@@ -381,7 +343,6 @@ local function serve_connection(client, handler, options, socket)
       or res.close
     if wants_close then res.connection = "close" end
 
-    -- A body the handler never read would be parsed as the next request line.
     if read_body_fn and req.body == nil then
       if not pcall(function() req:read_body() end) then body_complete = false end
     end
@@ -390,8 +351,10 @@ local function serve_connection(client, handler, options, socket)
       res.connection = "close"
     end
 
+    local write_deadline = socket.gettime() + options.write_timeout
+    if entry then entry.deadline = write_deadline end
     local sent, send_err = write_response(client, res, options,
-      socket.gettime() + options.write_timeout, req:is_head(), socket)
+      write_deadline, req:is_head(), socket)
     if not sent then
       if send_err ~= "closed" then
         io.stderr:write("lunar: send failed: ", tostring(send_err), "\n")
@@ -403,29 +366,38 @@ local function serve_connection(client, handler, options, socket)
   end
 end
 
---- Starts the accept loop and blocks until `stop()` is called, which is what
--- makes a container's SIGTERM a clean exit.
-function server.serve(options)
-  local ok, socket = pcall(require, "socket")
-  if not ok then
-    error("lunar: serving needs LuaSocket (luarocks install luasocket), "
-      .. "everything else runs without it", 0)
+function server.listener(options)
+  options = util.merge(DEFAULTS, options or {})
+
+  local socket = options.socket
+  if not socket then
+    local ok, loaded = pcall(require, "socket")
+    if not ok then
+      error("lunar: serving needs LuaSocket (luarocks install luasocket), "
+        .. "everything else runs without it", 0)
+    end
+    socket = loaded
   end
 
-  options = util.merge(DEFAULTS, options or {})
   local handler = assert(options.handler, "lunar: serve needs a handler")
 
   local master = assert(socket.bind(options.host, options.port, options.backlog))
   master:settimeout(0)
   master:setoption("reuseaddr", true)
 
-  local running = true
+  local listener = { socket = master, options = options, running = true }
   local connections = {}
   local open_connections = 0
   local per_ip = {}
 
-  local function stop() running = false end
-  if options.on_ready then options.on_ready({ stop = stop, socket = master }) end
+  function listener.stop() listener.running = false end
+
+  function listener.port()
+    local _, port = master:getsockname()
+    return tonumber(port)
+  end
+
+  function listener.connections() return open_connections end
 
   local function forget(entry)
     if not connections[entry.client] then return end
@@ -447,20 +419,21 @@ function server.serve(options)
   end
 
   local function spawn(client, address)
-    local co = coroutine.create(function()
-      local succeeded, err = pcall(serve_connection, client, handler, options, socket)
+    local entry = { want = WANT_READ, client = client, address = address }
+    entry.co = coroutine.create(function()
+      local succeeded, err = pcall(serve_connection, client, handler, options, socket, entry)
       if not succeeded then
         io.stderr:write("lunar: connection failed: ", tostring(err), "\n")
       end
       client:close()
     end)
-    connections[client] = { co = co, want = WANT_READ, client = client, address = address }
+    connections[client] = entry
     open_connections = open_connections + 1
     if address then per_ip[address] = (per_ip[address] or 0) + 1 end
-    return connections[client]
+    return entry
   end
 
-  while running do
+  function listener.step(timeout)
     local read_set, write_set = { master }, {}
     for client, entry in pairs(connections) do
       if entry.want == WANT_WRITE then
@@ -470,7 +443,8 @@ function server.serve(options)
       end
     end
 
-    local readable, writable = socket.select(read_set, write_set, 0.5)
+    local readable, writable = socket.select(read_set, write_set, timeout or 0.5)
+    local resumed = 0
 
     for _, ready in ipairs(readable) do
       if ready == master then
@@ -478,6 +452,7 @@ function server.serve(options)
         while client do
           local entry = connections[client]
           if entry then
+            resumed = resumed + 1
             resume(entry)
           else
             local address = client:getpeername()
@@ -486,6 +461,7 @@ function server.serve(options)
             if open_connections >= options.max_connections or over_ip then
               pcall(function() client:close() end)
             else
+              resumed = resumed + 1
               resume(spawn(client, address))
             end
           end
@@ -493,24 +469,52 @@ function server.serve(options)
         end
       else
         local entry = connections[ready]
-        if entry then resume(entry) end
+        if entry then
+          resumed = resumed + 1
+          resume(entry)
+        end
       end
     end
 
     for _, ready in ipairs(writable) do
       local entry = connections[ready]
-      if entry then resume(entry) end
+      if entry then
+        resumed = resumed + 1
+        resume(entry)
+      end
     end
+
+    local now = socket.gettime()
+    for _, entry in pairs(connections) do
+      if entry.deadline and now > entry.deadline then
+        resumed = resumed + 1
+        resume(entry)
+      end
+    end
+
+    return resumed
   end
 
-  for client in pairs(connections) do pcall(function() client:close() end) end
-  master:close()
+  function listener.close()
+    for client in pairs(connections) do pcall(function() client:close() end) end
+    master:close()
+  end
+
+  return listener
+end
+
+function server.serve(options)
+  local listener = server.listener(options)
+  if listener.options.on_ready then
+    listener.options.on_ready({ stop = listener.stop, socket = listener.socket,
+      listener = listener })
+  end
+  while listener.running do listener.step(0.5) end
+  listener.close()
 end
 
 server.defaults = DEFAULTS
 
--- Exported for the specs: the three places the protocol is enforced rather
--- than parsed, which are the ones a regression would be silent in.
 server.target_is_safe = target_is_safe
 server.check_framing = check_framing
 server.write_response = write_response

@@ -1,16 +1,7 @@
---- JSON, for the data a `load` function hands to a page.
---
--- The encoder escapes `<`, `>` and `&` as `\uXXXX`. That is not decoration:
--- the result is embedded in a `<script type="application/json">` in the
--- document, and a string containing `</script>` would otherwise end the
--- element early and turn page data into markup.
-
 local json = {}
 
---- The sentinel for a JSON null, because a Lua table cannot hold a nil value.
 json.null = setmetatable({}, { __tostring = function() return "null" end })
 
---- Marks a table as an array, so an empty one encodes as `[]` and not `{}`.
 function json.array(list)
   return setmetatable(list or {}, json.ARRAY)
 end
@@ -21,8 +12,6 @@ local ESCAPES = {
   ['"'] = '\\"', ["\\"] = "\\\\", ["\b"] = "\\b", ["\f"] = "\\f",
   ["\n"] = "\\n", ["\r"] = "\\r", ["\t"] = "\\t",
   ["<"] = "\\u003c", [">"] = "\\u003e", ["&"] = "\\u0026",
-  -- U+2028 and U+2029 are line terminators to a JavaScript parser but not to
-  -- a JSON one, and this string may end up inside a script element.
   ["\u{2028}"] = "\\u2028", ["\u{2029}"] = "\\u2029",
 }
 
@@ -46,7 +35,6 @@ local encode_value
 
 local function encode_number(value)
   if value ~= value or value == math.huge or value == -math.huge then
-    -- JSON has no way to say these, and silently writing `null` hides a bug.
     error("json: cannot encode " .. tostring(value))
   end
   if math.type(value) == "integer" then return string.format("%d", value) end
@@ -77,9 +65,6 @@ encode_value = function(value, seen, out)
       out[#out + 1] = "{"
       local keys = {}
       for key in pairs(value) do keys[#keys + 1] = key end
-      -- Sorted, so the same data always produces the same bytes: a page's
-      -- serialised data is part of its response, and a response that differs
-      -- run to run cannot be cached or compared.
       table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
       for index, key in ipairs(keys) do
         if index > 1 then out[#out + 1] = "," end
@@ -99,7 +84,6 @@ function json.encode(value)
   return table.concat(encode_value(value, {}, {}))
 end
 
--- Decoding ------------------------------------------------------------------
 
 local Parser = {}
 Parser.__index = Parser
@@ -143,8 +127,6 @@ function Parser:string()
         local code = tonumber(hex, 16)
         if not code then self:error("bad \\u escape") end
         self.position = self.position + 6
-        -- A surrogate pair is two escapes; the second one is consumed here so
-        -- the pair becomes one character rather than two broken ones.
         if code >= 0xd800 and code <= 0xdbff
           and self.text:sub(self.position, self.position + 1) == "\\u" then
           local low = tonumber(self.text:sub(self.position + 2, self.position + 5), 16)
@@ -225,8 +207,6 @@ function Parser:value()
   self:error("unexpected input")
 end
 
---- Returns the value, or nil and a message. A caller parsing a request body
--- should never have to wrap this in `pcall` itself.
 function json.decode(text)
   if type(text) ~= "string" then return nil, "json: not a string" end
   local parser = setmetatable({ text = text, position = 1 }, Parser)

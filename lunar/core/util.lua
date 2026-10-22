@@ -1,17 +1,9 @@
---- The handful of string and table helpers everything else here uses.
---
--- Lua's standard library stops at `string.gsub`, and a framework that reaches
--- for a utility library is a framework with a dependency. These are the ones
--- that earn their place by being used in three files or more.
-
 local util = {}
 
 function util.trim(value)
   return (tostring(value):gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
---- Escapes the magic characters of a Lua pattern, for the many places a
--- literal has to be used where a pattern is expected.
 function util.pattern_escape(value)
   return (value:gsub("[%^%$%(%)%%%.%[%]%*%+%-%?]", "%%%1"))
 end
@@ -30,10 +22,6 @@ function util.split(value, separator)
   for piece in value:gmatch(pattern .. util.pattern_escape(separator) .. "?") do
     out[#out + 1] = piece
   end
-  -- A trailing empty capture is dropped, so `split("a/b", "/")` is two
-  -- segments, `split("a/b/", "/")` is the same two, and `split("", "/")` is
-  -- none. An empty segment *between* separators is kept, because `a//b` is
-  -- not `a/b`.
   if #out > 0 and out[#out] == "" and not util.ends_with(value, separator) then
     out[#out] = nil
   end
@@ -68,7 +56,6 @@ function util.keys(map)
   return out
 end
 
---- A shallow merge, left to right, for option tables.
 function util.merge(...)
   local out = {}
   for index = 1, select("#", ...) do
@@ -103,17 +90,12 @@ function util.file_exists(path)
   return true
 end
 
---- How many lines a chunk of source occupies, which the compiler needs to keep
--- the generated module's line numbers on top of the component's.
 function util.count_lines(value)
   local lines = 1
   for _ in value:gmatch("\n") do lines = lines + 1 end
   return lines
 end
 
---- FNV-1a, 32 bits, as the short stable hash the CSS scoping class and the
--- moonlight bundle's cache key are built from. It is not a security primitive and
--- is not used as one.
 function util.hash(value)
   local hash = 2166136261
   for index = 1, #value do

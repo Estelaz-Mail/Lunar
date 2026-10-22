@@ -1,12 +1,3 @@
---- Resolving one component's path from inside another.
---
--- `import("./Card.lunar")` has to mean the same file on the server, where it
--- is read from disk, and in the browser, where it is a key in the bundle's
--- registry. So the path arithmetic lives here and both use it.
---
--- It is textual: there is no `realpath` without a C module, and a component
--- path is written by the author, never taken from a request.
-
 local resolve = {}
 
 function resolve.path(request, from, root)
@@ -30,17 +21,10 @@ function resolve.path(request, from, root)
   return path
 end
 
---- The module name a component is registered under in a bundle. Derived from
--- the path, so the registry needs no second lookup table.
 function resolve.module_name(path)
   return "lunar.app:" .. path
 end
 
---- An `import()` that looks in a bundle instead of on a disk.
---
--- Both bundles use this: the browser's, where there is no filesystem, and the
--- server's, when the app is frozen for a platform that has none either. The
--- registry is `{ root, components = { [path] = module name } }`.
 function resolve.registry_resolver(registry)
   return function(request, from)
     local path = resolve.path(request, from, registry.root or "")

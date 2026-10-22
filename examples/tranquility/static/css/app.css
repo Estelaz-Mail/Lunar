@@ -1,6 +1,3 @@
-/* The app's own stylesheet. A component's <style> is scoped to it and arrives
-   inline with the page; this is for what is genuinely global. */
-
 :root {
 	color-scheme: light dark;
 	--ink: #16161a;

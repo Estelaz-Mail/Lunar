@@ -5,6 +5,8 @@
 #   lunar build [app]      compile everything once and report what failed
 #   lunar map [app]        print the route table as it was discovered
 #   lunar compile <file>   print the Lua a component compiles to
+#   lunar bench [app]      measure compiling, rendering, the takeover, the download
+#   lunar bench --http <url>   measure a running server over keep-alive sockets
 #   lunar workers [app]    generate a Cloudflare Workers deploy directory
 #   lunar spec [name...]   run the tests
 #
@@ -23,7 +25,7 @@ command="${1:-help}"
 
 case "$command" in
 	spec) exec "${LUA:-lua5.4}" "$root/spec/runner.lua" "$@" ;;
-	dev|build|map|compile|serve|workers|help|--help|-h)
+	dev|build|map|compile|serve|workers|bench|help|--help|-h)
 		exec "${LUA:-lua5.4}" "$root/lunar/cli.lua" "$command" "$@" ;;
 	*)
 		echo "lunar: unknown command '$command'" >&2

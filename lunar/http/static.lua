@@ -1,10 +1,3 @@
---- Static files.
---
--- The one job here that matters is not serving a file outside the root. The
--- path is decoded, normalised and then checked, in that order, because a
--- `..` that arrives percent-encoded is still a `..` once it is decoded, and a
--- check before decoding would not see it.
-
 local mime = require("lunar.core.mime")
 local response = require("lunar.http.response")
 local url = require("lunar.core.url")
@@ -25,14 +18,11 @@ function static.new(options)
   }, Static)
 end
 
---- The file a path refers to, or nil when it is not inside the root.
 function Static:resolve(path)
   local decoded = url.decode(path or "/")
   if decoded:find("%z") then return nil end
   local normalized = url.normalize(decoded)
   if normalized == "/" or normalized:find("/%.%.") then return nil end
-  -- A dotfile is never served: `.env` and `.git` live next to the files an app
-  -- does mean to publish.
   for segment in normalized:gmatch("[^/]+") do
     if segment:sub(1, 1) == "." then return nil end
   end
@@ -56,9 +46,6 @@ function Static:cache_header(relative)
   return self.cache_control
 end
 
---- Serves a file, or returns nil so the next route gets the request. The
--- response carries `file` rather than a body, so the server streams it
--- instead of reading a video into memory.
 function Static:serve(req, path)
   local absolute, relative = self:resolve(path or req.path)
   if not absolute then return nil end
@@ -66,9 +53,6 @@ function Static:serve(req, path)
   local length = file_length(absolute)
   if not length then return nil end
 
-  -- Derived from the deploy version and the size, not from mtime: there is no
-  -- stat without a C module, and a file that changed size or came from a
-  -- different deploy is a different file.
   local etag = string.format('"%s-%s-%x"', self.version, util.hash(relative), length)
   local headers = {
     ["Content-Type"] = mime.of(absolute),
