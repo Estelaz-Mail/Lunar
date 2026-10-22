@@ -2,6 +2,7 @@
 .lunar/
 node_modules/
 static/vendor/
+CONVENTIONAL_COMMITS.md
 examples/*/.lunar/
 *.lunar
 *.svg
