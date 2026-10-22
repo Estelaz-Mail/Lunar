@@ -2,7 +2,7 @@
 set -eu
 
 REPO=${LUNAR_REPO:-Glazastyy/Lunar}
-REF=${LUNAR_REF:-main}
+REF=${LUNAR_REF:-}
 PREFIX=${LUNAR_HOME:-$HOME/.lunar}
 BIN_DIR=${LUNAR_BIN_DIR:-$HOME/.local/bin}
 
@@ -30,7 +30,7 @@ builds LuaSocket when your Lua has none. It installs nothing outside your home
 directory and never asks for root.
 
 Options:
-  --ref REF          branch, tag or commit to install (default: $REF)
+  --ref REF          branch, tag or commit to install (default: the newest release)
   --from DIR         install from a checkout on this machine instead of fetching
   --prefix DIR       where Lunar goes (default: $PREFIX)
   --bin-dir DIR      where the launcher is linked (default: $BIN_DIR)
@@ -116,6 +116,26 @@ fetch() {
 		wget -q -O "$2" "$1"
 	else
 		die "this needs curl or wget"
+	fi
+}
+
+newest_release() {
+	work=$(mktemp -d)
+	tag=
+	if fetch "https://api.github.com/repos/$REPO/releases/latest" "$work/release.json" 2>/dev/null; then
+		tag=$(sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$work/release.json" |
+			head -1)
+	fi
+	rm -rf "$work"
+	printf '%s' "$tag"
+}
+
+resolve_ref() {
+	[ -n "$REF" ] && return 0
+	REF=$(newest_release || true)
+	if [ -z "$REF" ]; then
+		REF=main
+		warn "could not ask GitHub for the newest release; installing $REF"
 	fi
 }
 
@@ -268,7 +288,8 @@ build_luasocket() {
 }
 
 install_tree() {
-	target=$PREFIX/versions/$REF
+	[ -n "$FROM" ] || resolve_ref
+	target=$PREFIX/versions/${REF:-main}
 	rm -rf "$target"
 	mkdir -p "$target"
 
