@@ -270,6 +270,71 @@ function T.writes_a_response_across_as_many_turns_as_it_takes()
   listener.close()
 end
 
+function T.streams_a_response_in_chunks_and_keeps_the_connection()
+  local response = require("lunar.http.response")
+  local socket = new_socket_library()
+  local listener = listener_for(function(req)
+    if req.path ~= "/feed" then
+      return { status = 200, headers = { ["Content-Type"] = "text/plain" }, body = "plain" }
+    end
+    return response.stream(function(write)
+      write("one")
+      write("")
+      write("two")
+    end, 200, { ["Content-Type"] = "text/event-stream" })
+  end, socket)
+
+  local client = socket.connect(request_for("/feed") .. request_for("/after"))
+  run(listener)
+
+  local head, body = client.outbox:match("^(.-)\r\n\r\n(.*)$")
+  assert(head:find("Transfer%-Encoding: chunked"), head)
+  assert(not head:find("Content%-Length"), "a streamed response has no length")
+  assert(body:find("^3\r\none\r\n3\r\ntwo\r\n0\r\n\r\n"), body)
+  assert(#responses_in(client) == 2, "the connection served the next request too")
+  listener.close()
+end
+
+function T.drops_a_connection_whose_stream_failed_halfway()
+  local response = require("lunar.http.response")
+  local socket = new_socket_library()
+  local listener = listener_for(function()
+    return response.stream(function(write)
+      write("half")
+      error("the database is on fire", 0)
+    end)
+  end, socket)
+
+  local client = socket.connect(request_for("/feed"))
+  run(listener)
+
+  local body = client.outbox:match("\r\n\r\n(.*)$")
+  assert(body:find("^4\r\nhalf\r\n$"), body)
+  assert(not body:find("0\r\n\r\n"), "a broken stream is not terminated as a whole one")
+  assert(client.closed, "the connection was dropped")
+  listener.close()
+end
+
+function T.collects_a_stream_for_a_client_that_cannot_read_chunks()
+  local response = require("lunar.http.response")
+  local socket = new_socket_library()
+  local listener = listener_for(function()
+    return response.stream(function(write)
+      write("one")
+      write("two")
+    end)
+  end, socket)
+
+  local client = socket.connect("GET /feed HTTP/1.0\r\nHost: lunar.test\r\n\r\n")
+  run(listener)
+
+  local head, body = client.outbox:match("^(.-)\r\n\r\n(.*)$")
+  assert(head:find("Content%-Length: 6"), head)
+  assert(not head:find("Transfer%-Encoding"), head)
+  assert(body == "onetwo", body)
+  listener.close()
+end
+
 function T.stops_quietly_when_it_is_interrupted()
   local socket = new_socket_library()
   local handler, calls = counting_handler()

@@ -114,6 +114,9 @@ local function write_response(client, res, options, deadline, head_only, socket)
   local status = math.floor(tonumber(res.status) or 200)
   if status < 100 or status > 599 then status = 500 end
 
+  local stream = res.stream
+  if status == 204 or status == 304 then stream = nil end
+
   local lines = { string.format("HTTP/1.1 %d %s", status, response_lib.status_text(status)) }
   local has_length = false
   local names = {}
@@ -123,8 +126,11 @@ local function write_response(client, res, options, deadline, head_only, socket)
   for _, name in ipairs(names) do
     local value = res.headers[name]
     local lowered = type(name) == "string" and name:lower() or ""
+    local framing = lowered == "content-length" or lowered == "transfer-encoding"
     if lowered == "connection" or lowered == "date" then
       if lowered == "connection" then res.connection = res.connection or value end
+    elseif stream and framing then
+      res.headers[name] = nil
     elseif not header_name_ok(name) then
       io.stderr:write("lunar: dropped a header with an invalid name: ", tostring(name), "\n")
     else
@@ -138,7 +144,9 @@ local function write_response(client, res, options, deadline, head_only, socket)
   end
 
   local file = res.file
-  if not has_length then
+  if stream then
+    lines[#lines + 1] = "Transfer-Encoding: chunked"
+  elseif not has_length then
     local length = res.content_length or (file and file.length) or #(res.body or "")
     lines[#lines + 1] = "Content-Length: " .. tostring(length)
   end
@@ -151,6 +159,27 @@ local function write_response(client, res, options, deadline, head_only, socket)
   local ok, err = send_all(client, table.concat(lines, "\r\n"), deadline, socket)
   if not ok then return nil, err end
   if head_only or status == 204 or status == 304 then return true end
+
+  if stream then
+    local broken
+    local ok, err = pcall(stream, function(chunk)
+      chunk = tostring(chunk or "")
+      if #chunk == 0 then return true end
+      local sent, send_err = send_all(client,
+        string.format("%x\r\n%s\r\n", #chunk, chunk), deadline, socket)
+      if not sent then
+        broken = send_err or "closed"
+        error(broken, 0)
+      end
+      return true
+    end)
+    if broken then return nil, broken end
+    if not ok then
+      io.stderr:write("lunar: a stream failed: ", tostring(err), "\n")
+      return nil, "stream failed"
+    end
+    return send_all(client, "0\r\n\r\n", deadline, socket)
+  end
 
   if file then
     local handle = io.open(file.path, "rb")
@@ -335,6 +364,14 @@ local function serve_connection(client, handler, options, socket, entry)
     end
     if type(res) ~= "table" then
       res = error_response(500, "the handler returned no response")
+    end
+
+    if res.stream and head.version == "HTTP/1.0" then
+      local collected, collect_err = response_lib.collect(res)
+      if not collected then
+        io.stderr:write("lunar: a stream failed: ", tostring(collect_err), "\n")
+        res = error_response(500)
+      end
     end
 
     local wants_close = (headers["connection"] or ""):lower():find("close", 1, true) ~= nil

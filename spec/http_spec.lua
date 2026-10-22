@@ -166,6 +166,28 @@ function T.turns_what_a_handler_returned_into_a_response()
 end
 
 
+function T.carries_a_stream_through_coercion_and_a_head_request()
+  local produced = response.stream(function(write) write("a") write("b") end,
+    200, { ["Content-Type"] = "text/event-stream" })
+  assert(type(produced.stream) == "function")
+  assert(response.coerce(produced) == produced, "a stream is already a response")
+
+  local headed = response.strip_body(produced)
+  assert(headed.headers["Content-Length"] == nil, "an unknown length is not invented")
+  assert(type(headed.stream) == "function", "HEAD still announces the framing")
+
+  local collected = assert(response.collect(
+    response.stream(function(write) write("a") write(nil) write(2) end)))
+  assert(collected.body == "a2", collected.body)
+  assert(collected.stream == nil)
+
+  local broken, err = response.collect(response.stream(function() error("nope", 0) end))
+  assert(broken == nil and tostring(err):find("nope", 1, true))
+
+  local ok = pcall(response.stream, "not a function")
+  assert(not ok, "a stream wants a producer")
+end
+
 function T.will_not_serve_a_file_outside_its_root()
   local static = static_lib.new({ root = "examples/tranquility/static", version = "v1" })
   assert(static:resolve("/css/app.css"))

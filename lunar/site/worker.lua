@@ -1,6 +1,7 @@
 local app_lib = require("lunar.site.app")
 local json = require("lunar.core.json")
 local request_lib = require("lunar.http.request")
+local response_lib = require("lunar.http.response")
 local url_lib = require("lunar.core.url")
 
 local worker = {}
@@ -72,6 +73,17 @@ function worker.handle(app, payload)
   local body = res.body or ""
   if res.file then
     body = ""
+  end
+  if res.stream then
+    local collected, collect_err = response_lib.collect(res)
+    if not collected then
+      return worker.encode({
+        status = 500,
+        headers = { ["Content-Type"] = "text/plain; charset=utf-8" },
+        body = "500 Internal Server Error\n",
+      }, as_text)
+    end
+    body = collected.body
   end
 
   local headers = {}
