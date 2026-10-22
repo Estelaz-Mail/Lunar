@@ -23,21 +23,21 @@ the drawing, with no border at all.
 
 ## Which file
 
-| File                        | What                        | Background  | Use it                        |
-| --------------------------- | --------------------------- | ----------- | ----------------------------- |
-| `icon.png`                  | the planet, 256×256         | transparent | **the application icon**      |
-| `favicon.png`               | the planet, 32×32           | transparent | **the favicon**               |
-| `planet-blue.svg`           | the planet                  | transparent | the icon, as vector           |
-| `planet-violet.svg`         | the planet, violet          | transparent | the same, on a light page     |
-| `planet-blue.png`           | the planet, 1024×1024       | transparent | where a PNG is wanted         |
-| `planet-violet.png`         | the planet, violet          | transparent | the same, on a light page     |
-| `lunar-blue.svg`            | the lockup                  | transparent | on a dark background          |
-| `lunar-violet.svg`          | the lockup, violet          | transparent | on a light background         |
-| `lunar-blue.png`            | the lockup                  | transparent | on a dark background          |
-| `lunar-violet.png`          | the lockup, violet          | transparent | on a light background         |
-| `lunar-blue-on-black.png`   | the lockup                  | black       | where transparency is not an option |
-| `lunar-violet-on-black.png` | the lockup, violet          | black       | the same, violet              |
-| `lunar-violet-on-white.png` | the lockup, violet          | white       | print, slides                 |
+| File                        | What                  | Background  | Use it                              |
+| --------------------------- | --------------------- | ----------- | ----------------------------------- |
+| `icon.png`                  | the planet, 256×256   | transparent | **the application icon**            |
+| `favicon.png`               | the planet, 32×32     | transparent | **the favicon**                     |
+| `planet-blue.svg`           | the planet            | transparent | the icon, as vector                 |
+| `planet-violet.svg`         | the planet, violet    | transparent | the same, on a light page           |
+| `planet-blue.png`           | the planet, 1024×1024 | transparent | where a PNG is wanted               |
+| `planet-violet.png`         | the planet, violet    | transparent | the same, on a light page           |
+| `lunar-blue.svg`            | the lockup            | transparent | on a dark background                |
+| `lunar-violet.svg`          | the lockup, violet    | transparent | on a light background               |
+| `lunar-blue.png`            | the lockup            | transparent | on a dark background                |
+| `lunar-violet.png`          | the lockup, violet    | transparent | on a light background               |
+| `lunar-blue-on-black.png`   | the lockup            | black       | where transparency is not an option |
+| `lunar-violet-on-black.png` | the lockup, violet    | black       | the same, violet                    |
+| `lunar-violet-on-white.png` | the lockup, violet    | white       | print, slides                       |
 
 The wordmark is white in the blue colourway, so `lunar-blue.*` disappears on a
 white page; that is what the violet colourway is for. The README picks between

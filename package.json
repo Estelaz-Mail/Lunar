@@ -1,0 +1,12 @@
+{
+	"name": "lunar",
+	"private": true,
+	"description": "Formatting for the parts of Lunar that are not Lua.",
+	"scripts": {
+		"format": "prettier --write .",
+		"format:check": "prettier --check ."
+	},
+	"devDependencies": {
+		"prettier": "3.9.10"
+	}
+}

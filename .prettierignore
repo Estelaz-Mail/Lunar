@@ -1,0 +1,9 @@
+.dev/
+.lunar/
+node_modules/
+package-lock.json
+static/vendor/
+examples/*/.lunar/
+*.lunar
+*.svg
+*.lua

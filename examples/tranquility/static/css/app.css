@@ -13,20 +13,33 @@
 	}
 }
 
-* { box-sizing: border-box; }
+* {
+	box-sizing: border-box;
+}
 
 body {
 	margin: 0;
 	background: var(--paper);
 	color: var(--ink);
-	font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+	font:
+		16px/1.6 ui-sans-serif,
+		system-ui,
+		-apple-system,
+		"Segoe UI",
+		sans-serif;
 }
 
-a { color: var(--accent); }
+a {
+	color: var(--accent);
+}
 
-h1 { font-size: 1.8rem; line-height: 1.2; }
+h1 {
+	font-size: 1.8rem;
+	line-height: 1.2;
+}
 
-button, input {
+button,
+input {
 	font: inherit;
 	color: inherit;
 	background: transparent;
@@ -35,8 +48,14 @@ button, input {
 	padding: 0.3rem 0.6rem;
 }
 
-button { cursor: pointer; }
+button {
+	cursor: pointer;
+}
 
-input { border-color: rgba(127, 127, 127, 0.5); }
+input {
+	border-color: rgba(127, 127, 127, 0.5);
+}
 
-[data-theme="night"] { filter: invert(1) hue-rotate(180deg); }
+[data-theme="night"] {
+	filter: invert(1) hue-rotate(180deg);
+}

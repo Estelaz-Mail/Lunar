@@ -178,6 +178,18 @@ bin/lunar spec
 
 `dev` starts the development server, `build` compiles the application's components to check for errors, and `map` prints the discovered routes. `compile` writes the generated Lua for a component to standard output, `bench` measures compiling, rendering, the takeover, and the download, `workers` creates a Cloudflare Workers deployment, and `spec` runs the test suite.
 
+## Formatting
+
+Everything in the repository that is not Lua is formatted with Prettier: Markdown, YAML, JSON, CSS, HTML, and JavaScript. Prettier is the only development dependency and the only one pinned in `package.json`.
+
+```sh
+npm install
+npm run format
+npm run format:check
+```
+
+Lua files are listed in `.prettierignore`, since Prettier has no Lua support. Lua in this repository uses two-space indentation, `snake_case` names, and no comments. The continuous integration workflow runs `npm run format:check` alongside the test suite.
+
 ## Repository structure
 
 The implementation is under `lunar/`. Shared utilities for JSON, HTML escaping, URLs, MIME types, and files are in `lunar/core/`. The parser, CSS scoping, and code generation are in `lunar/compiler/`, while reactivity, server rendering helpers, and DOM handling are in `lunar/runtime/`.

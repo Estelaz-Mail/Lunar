@@ -36,8 +36,8 @@ resolves it.
 
 ## Settings
 
-| Setting                      | What it is                                                                   |
-| ---------------------------- | ---------------------------------------------------------------------------- |
+| Setting                      | What it is                                                                    |
+| ---------------------------- | ----------------------------------------------------------------------------- |
 | `lunar.path`                 | Path to the CLI. Empty: `bin/lunar` in the workspace, then `lunar` on `PATH`. |
 | `lunar.app`                  | The app directory. Empty: the nearest ancestor with a `routes/` in it.        |
 | `lunar.diagnostics.run`      | `onType` (default), `onSave`, `off`.                                          |

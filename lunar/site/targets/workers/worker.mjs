@@ -8,8 +8,7 @@ function boot() {
 	lualib.luaL_openlibs(L);
 
 	if (
-		lauxlib.luaL_loadbuffer(L, to_luastring(source), null, to_luastring("@app.lua")) !==
-		lua.LUA_OK
+		lauxlib.luaL_loadbuffer(L, to_luastring(source), null, to_luastring("@app.lua")) !== lua.LUA_OK
 	) {
 		throw new Error(`lunar: the app did not load: ${lua.lua_tojsstring(L, -1)}`);
 	}

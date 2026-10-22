@@ -18,6 +18,8 @@ dist/
 build/
 out/
 node_modules/
+package-lock.json
+bun.lock
 .lunar/
 
 # Editors and systems.

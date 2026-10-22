@@ -37,29 +37,17 @@
 	"derived": {
 		"prefix": "derived",
 		"description": "State computed from other state, kept up to date.",
-		"body": [
-			"derived(\"${1:total}\", function()",
-			"\treturn $0",
-			"end)"
-		]
+		"body": ["derived(\"${1:total}\", function()", "\treturn $0", "end)"]
 	},
 	"watch": {
 		"prefix": "watch",
 		"description": "Run now, and again whenever anything it read changes.",
-		"body": [
-			"watch(function()",
-			"\t$0",
-			"end)"
-		]
+		"body": ["watch(function()", "\t$0", "end)"]
 	},
 	"on_rise": {
 		"prefix": "onrise",
 		"description": "Moonrise: the component is in the document. Browser only.",
-		"body": [
-			"on_rise(function()",
-			"\t$0",
-			"end)"
-		]
+		"body": ["on_rise(function()", "\t$0", "end)"]
 	},
 	"import a component": {
 		"prefix": "import",
@@ -69,22 +57,12 @@
 	"if block": {
 		"prefix": "if",
 		"description": "{#if} … {/if}",
-		"body": [
-			"{#if ${1:condition}}",
-			"\t$0",
-			"{/if}"
-		]
+		"body": ["{#if ${1:condition}}", "\t$0", "{/if}"]
 	},
 	"if else block": {
 		"prefix": "ifelse",
 		"description": "{#if} … {:else} … {/if}",
-		"body": [
-			"{#if ${1:condition}}",
-			"\t$2",
-			"{:else}",
-			"\t$0",
-			"{/if}"
-		]
+		"body": ["{#if ${1:condition}}", "\t$2", "{:else}", "\t$0", "{/if}"]
 	},
 	"each block": {
 		"prefix": "each",
@@ -105,12 +83,7 @@
 	"head": {
 		"prefix": "head",
 		"description": "Content hoisted into the document head.",
-		"body": [
-			"<lunar:head>",
-			"\t<title>${1:Title}</title>",
-			"</lunar:head>",
-			"$0"
-		]
+		"body": ["<lunar:head>", "\t<title>${1:Title}</title>", "</lunar:head>", "$0"]
 	},
 	"slot": {
 		"prefix": "slot",
@@ -158,13 +131,7 @@
 	"Endpoint": {
 		"prefix": "api",
 		"description": "An api.lua endpoint: one function per method.",
-		"body": [
-			"return {",
-			"\tGET = function(event)",
-			"\t\treturn { $0 }",
-			"\tend,",
-			"}"
-		]
+		"body": ["return {", "\tGET = function(event)", "\t\treturn { $0 }", "\tend,", "}"]
 	},
 	"Eclipse": {
 		"prefix": "eclipse",
@@ -187,10 +154,6 @@
 	"on_set": {
 		"prefix": "onset",
 		"description": "Moonset: the component is about to be removed.",
-		"body": [
-			"on_set(function()",
-			"\t$0",
-			"end)"
-		]
+		"body": ["on_set(function()", "\t$0", "end)"]
 	}
 }
