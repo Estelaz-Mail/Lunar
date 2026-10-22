@@ -8,7 +8,7 @@ Module.__index = Module
 function module.new()
   return setmetatable({
     types = {}, type_keys = {},
-    imports = {}, functions = {}, exports = {}, elements = {},
+    imports = {}, functions = {}, exports = {}, elements = {}, segments = {},
     imported_functions = 0,
     memory_limits = nil, imported_memory = false,
     table_limits = nil, imported_table = false,
@@ -80,6 +80,11 @@ function Module:export_function(name, index)
   self.exports[#self.exports + 1] = encode.name(name) .. "\x00" .. encode.unsigned(index)
 end
 
+function Module:data(offset, bytes)
+  self.segments[#self.segments + 1] = "\x00\x41" .. encode.signed(offset) .. "\x0b"
+    .. encode.unsigned(#bytes) .. bytes
+end
+
 function Module:export_memory(name)
   self.exports[#self.exports + 1] = encode.name(name) .. "\x02" .. encode.unsigned(0)
 end
@@ -105,6 +110,7 @@ function Module:encode()
 
   add(encode.SECTIONS.export, #self.exports > 0 and encode.vector(self.exports) or "")
   add(encode.SECTIONS.code, #bodies > 0 and encode.vector(bodies) or "")
+  add(encode.SECTIONS.data, #self.segments > 0 and encode.vector(self.segments) or "")
 
   return encode.MAGIC .. table.concat(sections)
 end

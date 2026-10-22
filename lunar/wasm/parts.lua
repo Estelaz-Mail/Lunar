@@ -1,12 +1,43 @@
 local compile = require("lunar.wasm.compile")
+local parse = require("lunar.wasm.parse")
+local runtime_lib = require("lunar.wasm.runtime")
 local util = require("lunar.core.util")
 
 local parts = {}
+
+local function aligned(size)
+  return size + ((8 - (size % 8)) % 8)
+end
 
 function parts.build(units, options)
   options = options or {}
   local manifest = { parts = {}, index = {}, order = {} }
   local externals = {}
+
+  local declared = {}
+  for _, unit in ipairs(units) do
+    if unit.name == runtime_lib.NAME then
+      error("lunar: `" .. runtime_lib.NAME .. "` is the name of Lunar's own wasm part", 0)
+    end
+  end
+  for _, unit in ipairs(units) do
+    for _, declaration in ipairs(parse.chunk(unit.source,
+      { filename = unit.filename or ((unit.name or "part") .. ".lua") })) do
+      if declaration.exported then
+        declared[declaration.name] = { arity = #declaration.parameters, part = unit.name }
+      end
+    end
+  end
+
+  local bases, cursor = {}, runtime_lib.DATA_START
+  for _, unit in ipairs(units) do
+    local _, measured = compile.chunk(unit.source, {
+      filename = unit.filename or ((unit.name or "part") .. ".lua"),
+      externals = declared,
+    })
+    bases[unit.name] = cursor
+    cursor = cursor + aligned(measured.data_size)
+  end
 
   for _, unit in ipairs(units) do
     local name = unit.name or error("lunar: a wasm part needs a name", 0)
@@ -17,6 +48,7 @@ function parts.build(units, options)
     local bytes, info = compile.chunk(unit.source, {
       filename = unit.filename or (name .. ".lua"),
       externals = externals,
+      data_base = bases[name],
     })
 
     manifest.parts[name] = {
@@ -40,6 +72,34 @@ function parts.build(units, options)
     end
   end
 
+  local wanted = false
+  for _, name in ipairs(manifest.order) do
+    for _, needed in ipairs(manifest.parts[name].needs) do
+      if needed == runtime_lib.NAME then wanted = true end
+    end
+  end
+
+  if wanted then
+    local bytes, info = compile.chunk(runtime_lib.SOURCE, {
+      filename = "runtime.lua",
+      is_runtime = true,
+      memory = true,
+      data_segments = { { offset = 0, bytes = string.pack("<d", cursor) } },
+    })
+    manifest.parts[runtime_lib.NAME] = {
+      name = runtime_lib.NAME,
+      bytes = bytes,
+      exports = info.exports,
+      arities = info.arities,
+      needs = {},
+      host = info.host,
+      digest = util.hash(bytes),
+      internal = true,
+    }
+    table.insert(manifest.order, 1, runtime_lib.NAME)
+  end
+
+  manifest.heap = cursor
   return manifest
 end
 

@@ -40,10 +40,10 @@ end
 
 function T.numbers_the_functions_after_the_imports()
   local builder = module_lib.new()
-  local imported = builder:import_function("lunar", "pow", { "f64", "f64" }, { "f64" })
+  local imported = builder:import_function("host", "pow", { "f64", "f64" }, { "f64" })
   local own = builder:add_function({ "f64" }, { "f64" }, {}, "\x20\x00")
   assert(imported == 0 and own == 1, "an import takes the first index")
-  assert(not pcall(builder.import_function, builder, "lunar", "late", {}, { "f64" }),
+  assert(not pcall(builder.import_function, builder, "host", "late", {}, { "f64" }),
     "an import after a function would renumber the calls")
 end
 
@@ -91,12 +91,14 @@ function T.asks_the_host_only_for_what_it_cannot_do_itself()
 end
 
 function T.refuses_what_the_subset_does_not_cover()
-  assert(compile_error('function f() return "text" end'):find("has no place here", 1, true))
-  assert(compile_error("function f() return {} end"):find("is not an expression", 1, true))
-  assert(compile_error("function f(a) local t = a .. a return t end")
-    :find("not part of the wasm subset", 1, true))
-  assert(compile_error("function f(a) return a < 1 end")
-    :find("truth value", 1, true))
+  assert(compile_error("function f() return ... end"):find("is not an expression", 1, true))
+  assert(compile_error("function f(a) return a:upper() end"):find("is not an expression", 1, true))
+  assert(compile_error("function f() return function() return 1 end end")
+    :find("is not an expression", 1, true))
+  assert(compile_error("function f() return 1 % 0 ^ coroutine end")
+    :find("is not a value this part knows", 1, true))
+  assert(compile_error('function f() return math.pi end')
+    :find("something to call, not a value", 1, true))
   assert(compile_error("function f() return missing(1) end")
     :find("is not a function this part can call", 1, true))
   assert(compile_error("function f(a) return a end function f(a) return a end")
@@ -152,6 +154,79 @@ function T.a_part_imports_a_name_only_when_it_calls_it()
   local bytes = manifest.parts.user.bytes
   assert(bytes:find("one", 1, true), "the name it calls is imported")
   assert(not bytes:find("two", 1, true), "the name it never calls is not")
+end
+
+function T.carries_strings_in_the_memory_the_host_hands_it()
+  local bytes, info = compile.chunk([[
+function greeting(loud)
+  if loud then
+    return "hello" .. "!"
+  end
+  return "hello"
+end
+
+function size()
+  return #"hello"
+end
+]], { filename = "text.lua", data_base = 2048 })
+
+  assert(info.memory, "a part with strings needs the memory")
+  assert(table.concat(info.needs, ",") == "runtime", "and the runtime beside it")
+  assert(info.data_size == 32, "two literals, each padded to a cell: " .. info.data_size)
+  assert(info.data:find("hello", 1, true), "the bytes travel in the module")
+  assert(select(2, info.data:gsub("hello", "")) == 1, "the same literal is written once")
+  assert(bytes:find("hello", 1, true))
+end
+
+function T.builds_the_runtime_part_only_for_the_parts_that_need_it()
+  local plain = parts_lib.build({
+    { name = "numbers", source = "function twice(x) return x * 2 end" },
+  })
+  assert(plain.parts.runtime == nil, "numbers alone need no runtime")
+
+  local manifest = parts_lib.build({
+    { name = "text", source = 'function hello() return "a" .. "b" end' },
+  })
+  local runtime = manifest.parts.runtime
+  assert(runtime, "a part with strings brings the runtime")
+  assert(manifest.order[1] == "runtime", "and it comes first")
+  assert(runtime.internal, "it is Lunar's own, not the application's")
+  assert(manifest.index.concat == nil, "its exports are not names an app can ask for")
+  assert(manifest.index.hello == "text")
+  assert(table.concat(manifest.parts.text.needs, ",") == "runtime")
+  assert(manifest.heap >= 1024, "the heap starts after the literals: " .. manifest.heap)
+
+  local ok, err = pcall(parts_lib.build, {
+    { name = "runtime", source = "function twice(x) return x * 2 end" },
+  })
+  assert(not ok and tostring(err):find("Lunar's own wasm part", 1, true), tostring(err))
+end
+
+function T.gives_each_part_its_own_room_in_the_memory()
+  local manifest = parts_lib.build({
+    { name = "first", source = 'function a() return "0123456789abcdef" end' },
+    { name = "second", source = 'function b() return "x" end' },
+  })
+  assert(manifest.parts.first.bytes:find("0123456789abcdef", 1, true))
+  assert(manifest.parts.second.bytes:find("x", 1, true))
+  assert(manifest.heap >= 1024 + 24 + 16, "the second part sits after the first: " .. manifest.heap)
+end
+
+function T.compiles_tables_through_the_runtime()
+  local _, info = compile.chunk([[
+function build()
+  local t = { 1, 2, name = "lunar" }
+  t[3] = 3
+  t.name = "moon"
+  return t
+end
+
+function read(t)
+  return t[1] + #t
+end
+]], { filename = "tables.lua" })
+  assert(table.concat(info.needs, ",") == "runtime")
+  assert(info.memory)
 end
 
 local function fake_browser(manifest)

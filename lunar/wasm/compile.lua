@@ -27,6 +27,46 @@ local MATH_OPS = {
 
 local MATH_PAIRS = { min = "\xa4", max = "\xa5" }
 
+local I32 = {
+  trunc_f64_u = "\xfc\x03", wrap_i64 = "\xa7", extend_u = "\xad",
+  ["and"] = "\x71", ["or"] = "\x72", xor = "\x73", shl = "\x74", shr_u = "\x76",
+  mul = "\x6c", add = "\x6a", sub = "\x6b",
+  load8_u = "\x2d\x00\x00", store8 = "\x3a\x00\x00",
+}
+
+local F64 = {
+  convert_i32_u = "\xb8", convert_i32_s = "\xb7", convert_i64_u = "\xba",
+  reinterpret_i64 = "\xbf", load = "\x2b\x03\x00", store = "\x39\x03\x00",
+}
+
+local I64 = {
+  reinterpret_f64 = "\xbd", const = "\x42",
+  ["and"] = "\x83", ["or"] = "\x84", shl = "\x86", shr_u = "\x88",
+  eq = "\x51", ne = "\x52",
+}
+
+local INTRINSICS = { mem = true, bit = true, box = true }
+
+local BOX_BASE = 0xfff8000000000000
+local TAG_MASK = 0x7fff
+
+local TAG = { nothing = 0, boolean = 1, string = 2, table = 3 }
+
+local function boxed(tag, address)
+  return string.pack("<I8", BOX_BASE | (tag << 32) | address)
+end
+
+local BOX = {
+  ["nil"] = boxed(TAG.nothing, 0),
+  ["false"] = boxed(TAG.boolean, 0),
+  ["true"] = boxed(TAG.boolean, 1),
+}
+
+local RUNTIME = {
+  concat = 2, length = 1, equal = 2, alloc = 1,
+  table_new = 0, table_get = 2, table_set = 3,
+}
+
 local Function = {}
 Function.__index = Function
 
@@ -62,22 +102,165 @@ end
 function Function:push_scope() self.scopes[#self.scopes + 1] = {} end
 function Function:pop_scope() self.scopes[#self.scopes] = nil end
 
+function Function:runtime(name)
+  local index = self.unit.runtime[name]
+  if not index then
+    fail(self, nil, "this part cannot reach the runtime's " .. name)
+  end
+  self:emit(OP.call, encode.unsigned(index))
+end
+
 function Function:number(node)
   local kind = self:expression(node)
-  if kind ~= "number" then
-    fail(self, node, "a comparison is a truth value; the wasm subset does arithmetic on numbers")
+  if kind == "condition" then
+    self:emit(OP["if"], BLOCK.f64, OP.f64_const, BOX["true"],
+      OP["else"], OP.f64_const, BOX["false"], OP["end"])
   end
 end
 
 function Function:condition(node)
   local kind = self:expression(node)
-  if kind == "number" then
+  if kind == "condition" then return end
+  if node.kind == "number" or node.kind == "string" then
     self:emit(OP.drop, OP.i32_const, encode.signed(1))
+    return
   end
+  if node.kind == "nil" then
+    self:emit(OP.drop, OP.i32_const, encode.signed(0))
+    return
+  end
+  local slot = self:scratch()
+  self:emit(OP.local_tee, encode.unsigned(slot))
+  self:emit(I64.reinterpret_f64, I64.const, encode.signed(BOX_BASE), I64.ne)
+  self:emit(OP.local_get, encode.unsigned(slot))
+  self:emit(I64.reinterpret_f64, I64.const,
+    encode.signed(BOX_BASE | (TAG.boolean << 32)), I64.ne)
+  self:emit(I32["and"])
 end
+
+function Function:intrinsic(node, namespace, name)
+  local arguments = node.arguments
+  local function wants(count)
+    if #arguments ~= count then
+      fail(self, node, string.format("%s.%s takes %d", namespace, name, count))
+    end
+  end
+
+  self.unit.memory = self.unit.memory or namespace == "mem"
+
+  if namespace == "mem" then
+    if name == "load" then
+      wants(1)
+      self:number(arguments[1])
+      self:emit(I32.trunc_f64_u, F64.load)
+      return "number"
+    end
+    if name == "store" then
+      wants(2)
+      self:number(arguments[1])
+      self:emit(I32.trunc_f64_u)
+      self:number(arguments[2])
+      self:emit(F64.store, OP.f64_const, encode.float(0))
+      return "number"
+    end
+    if name == "byte" then
+      wants(1)
+      self:number(arguments[1])
+      self:emit(I32.trunc_f64_u, I32.load8_u, F64.convert_i32_u)
+      return "number"
+    end
+    if name == "set_byte" then
+      wants(2)
+      self:number(arguments[1])
+      self:emit(I32.trunc_f64_u)
+      self:number(arguments[2])
+      self:emit(I32.trunc_f64_u, I32.store8, OP.f64_const, encode.float(0))
+      return "number"
+    end
+    if name == "size" then
+      wants(0)
+      self:emit("\x3f\x00", F64.convert_i32_u)
+      return "number"
+    end
+    if name == "grow" then
+      wants(1)
+      self:number(arguments[1])
+      self:emit(I32.trunc_f64_u, "\x40\x00", F64.convert_i32_s)
+      return "number"
+    end
+    if name == "trap" then
+      wants(0)
+      self:emit(OP.unreachable, OP.f64_const, encode.float(0))
+      return "number"
+    end
+    fail(self, node, "mem." .. name .. " is not an intrinsic")
+  end
+
+  if namespace == "bit" then
+    local operation = ({ band = I32["and"], bor = I32["or"], bxor = I32.xor,
+      shl = I32.shl, shr = I32.shr_u, mul = I32.mul })[name]
+    if not operation then fail(self, node, "bit." .. name .. " is not an intrinsic") end
+    wants(2)
+    self:number(arguments[1])
+    self:emit(I32.trunc_f64_u)
+    self:number(arguments[2])
+    self:emit(I32.trunc_f64_u, operation, F64.convert_i32_u)
+    return "number"
+  end
+
+  if namespace == "box" then
+    if name == "pack" then
+      wants(2)
+      self:number(arguments[1])
+      self:emit(I32.trunc_f64_u, I32.extend_u, I64.const, encode.signed(32), I64.shl)
+      self:number(arguments[2])
+      self:emit(I32.trunc_f64_u, I32.extend_u, I64["or"])
+      self:emit(I64.const, encode.signed(BOX_BASE), I64["or"], F64.reinterpret_i64)
+      return "number"
+    end
+    if name == "tag" then
+      wants(1)
+      self:number(arguments[1])
+      self:emit(I64.reinterpret_f64, I64.const, encode.signed(32), I64.shr_u)
+      self:emit(I64.const, encode.signed(TAG_MASK), I64["and"], F64.convert_i64_u)
+      return "number"
+    end
+    if name == "address" then
+      wants(1)
+      self:number(arguments[1])
+      self:emit(I64.reinterpret_f64, I32.wrap_i64, F64.convert_i32_u)
+      return "number"
+    end
+    if name == "same" then
+      wants(2)
+      self:number(arguments[1])
+      self:emit(I64.reinterpret_f64)
+      self:number(arguments[2])
+      self:emit(I64.reinterpret_f64, I64.eq)
+      return "condition"
+    end
+    if name == "is_number" then
+      wants(1)
+      self:number(arguments[1])
+      self:emit(I64.reinterpret_f64, I64.const, encode.signed(BOX_BASE), I64["and"])
+      self:emit(I64.const, encode.signed(BOX_BASE), I64.ne)
+      return "condition"
+    end
+    fail(self, node, "box." .. name .. " is not an intrinsic")
+  end
+
+  fail(self, node, namespace .. "." .. name .. " is not an intrinsic")
+end
+
+
 
 function Function:call(node)
   local target = node.target
+  if target.kind == "field" and target.target.kind == "name"
+    and INTRINSICS[target.target.name] then
+    return self:intrinsic(node, target.target.name, target.name)
+  end
+
   if target.kind == "field" and target.target.kind == "name"
     and target.target.name == "math" then
     local name = target.name
@@ -124,6 +307,16 @@ function Function:expression(node)
     return "number"
   end
 
+  if kind == "string" then
+    self:emit(OP.f64_const, self.unit:literal(node.value))
+    return "number"
+  end
+
+  if kind == "nil" then
+    self:emit(OP.f64_const, BOX["nil"])
+    return "number"
+  end
+
   if kind == "boolean" then
     self:emit(OP.i32_const, encode.signed(node.value and 1 or 0))
     return "condition"
@@ -146,10 +339,55 @@ function Function:expression(node)
     return self:call(node)
   end
 
+  if kind == "table" then
+    local slot = self:scratch()
+    self:runtime("table_new")
+    self:emit(OP.local_set, encode.unsigned(slot))
+    for index, item in ipairs(node.items) do
+      self:emit(OP.local_get, encode.unsigned(slot))
+      self:emit(OP.f64_const, encode.float(index))
+      self:number(item)
+      self:runtime("table_set")
+      self:emit(OP.drop)
+    end
+    for _, field in ipairs(node.fields) do
+      self:emit(OP.local_get, encode.unsigned(slot))
+      self:number(field.key)
+      self:number(field.value)
+      self:runtime("table_set")
+      self:emit(OP.drop)
+    end
+    self:emit(OP.local_get, encode.unsigned(slot))
+    return "number"
+  end
+
+  if kind == "index" then
+    self:number(node.target)
+    self:number(node.key)
+    self:runtime("table_get")
+    return "number"
+  end
+
+  if kind == "field" then
+    if node.target.kind == "name" and (INTRINSICS[node.target.name]
+      or node.target.name == "math") then
+      fail(self, node, node.target.name .. "." .. node.name .. " is something to call, not a value")
+    end
+    self:number(node.target)
+    self:emit(OP.f64_const, self.unit:literal(node.name))
+    self:runtime("table_get")
+    return "number"
+  end
+
   if kind == "unary" then
     if node.operator == "-" then
       self:number(node.value)
       self:emit("\x9a")
+      return "number"
+    end
+    if node.operator == "#" then
+      self:number(node.value)
+      self:runtime("length")
       return "number"
     end
     self:condition(node.value)
@@ -171,6 +409,15 @@ function Function:expression(node)
         self:condition(node.right)
         self:emit(OP["end"])
       end
+      return "condition"
+    end
+
+    if (operator == "==" or operator == "~=") and self.unit.boxes then
+      self:number(node.left)
+      self:number(node.right)
+      self:runtime("equal")
+      self:emit(OP.f64_const, encode.float(0))
+      self:emit(operator == "==" and COMPARE["~="] or COMPARE["=="])
       return "condition"
     end
 
@@ -212,6 +459,13 @@ function Function:expression(node)
       return "number"
     end
 
+    if operator == ".." then
+      self:number(node.left)
+      self:number(node.right)
+      self:runtime("concat")
+      return "number"
+    end
+
     if operator == "^" then
       self:number(node.left)
       self:number(node.right)
@@ -247,6 +501,20 @@ function Function:statement(node)
     end
     self:number(node.value)
     self:emit(OP.local_set, encode.unsigned(slot))
+    return
+  end
+
+  if kind == "set_index" then
+    local target = node.target
+    self:number(target.target)
+    if target.kind == "field" then
+      self:emit(OP.f64_const, self.unit:literal(target.name))
+    else
+      self:number(target.key)
+    end
+    self:number(node.value)
+    self:runtime("table_set")
+    self:emit(OP.drop)
     return
   end
 
@@ -383,8 +651,30 @@ local function walk(nodes, found)
   for _, node in pairs(nodes) do
     if type(node) == "table" then
       if node.kind == "binary" and node.operator == "^" then found.power = true end
+      if node.kind == "string" then found.strings = true end
+      if node.kind == "unary" and node.operator == "#" then found.strings = true end
+      if node.kind == "binary" and node.operator == ".." then found.strings = true end
+      if node.kind == "nil" then found.boxes = true end
+      if node.kind == "table" or node.kind == "index" or node.kind == "set_index" then
+        found.boxes = true
+        found.tables = true
+      end
+      if node.kind == "field" and node.target and node.target.kind == "name"
+        and not (INTRINSICS[node.target.name] or node.target.name == "math") then
+        found.boxes = true
+        found.tables = true
+      end
+      if node.kind == "binary" and (node.operator == "==" or node.operator == "~=") then
+        for _, side in ipairs({ node.left, node.right }) do
+          if side.kind == "boolean" or side.kind == "nil" then found.boxes = true end
+        end
+      end
       if node.kind == "call" and node.target and node.target.kind == "name" then
         found.called[node.target.name] = true
+      end
+      if node.kind == "call" and node.target and node.target.kind == "field"
+        and node.target.target.kind == "name" and INTRINSICS[node.target.target.name] then
+        found.memory = found.memory or node.target.target.name == "mem"
       end
       walk(node, found)
     end
@@ -400,8 +690,21 @@ function compile.chunk(source, options)
   local builder = module_lib.new()
   local unit = {
     filename = filename, functions_by_name = {}, externals = {},
-    power_index = nil,
+    power_index = nil, runtime = {}, literals = {}, blob = {}, blob_size = 0,
+    data_base = options.data_base or 0, boxes = false,
   }
+
+  function unit:literal(value)
+    local found = self.literals[value]
+    if found then return found end
+    local offset = self.data_base + self.blob_size
+    local padding = (8 - (#value % 8)) % 8
+    self.blob[#self.blob + 1] = string.pack("<d", #value) .. value .. string.rep("\0", padding)
+    self.blob_size = self.blob_size + 8 + #value + padding
+    local bytes = boxed(TAG.string, offset)
+    self.literals[value] = bytes
+    return bytes
+  end
 
   local found = walk(declarations, { called = {} })
   for _, declaration in ipairs(declarations) do found.called[declaration.name] = nil end
@@ -412,9 +715,28 @@ function compile.chunk(source, options)
   end
   table.sort(external_names)
 
+  unit.boxes = not options.is_runtime and (found.strings or found.boxes) or false
+
+  if found.memory or unit.boxes or options.memory then
+    builder:import_memory("host", "memory", 1)
+  end
+
   local needs_power = found.power
   if needs_power then
-    unit.power_index = builder:import_function("lunar", "pow", { "f64", "f64" }, { "f64" })
+    unit.power_index = builder:import_function("host", "pow", { "f64", "f64" }, { "f64" })
+  end
+
+  local runtime_names = {}
+  if unit.boxes then
+    for name in pairs(RUNTIME) do
+      if name ~= "alloc" then runtime_names[#runtime_names + 1] = name end
+    end
+    table.sort(runtime_names)
+    for _, name in ipairs(runtime_names) do
+      local parameters = {}
+      for index = 1, RUNTIME[name] do parameters[index] = "f64" end
+      unit.runtime[name] = builder:import_function("runtime", name, parameters, { "f64" })
+    end
   end
 
   for _, name in ipairs(external_names) do
@@ -423,7 +745,7 @@ function compile.chunk(source, options)
     for index = 1, external.arity do parameters[index] = "f64" end
     unit.externals[name] = {
       arity = external.arity,
-      index = builder:import_function(external.part or "lunar", external.name or name,
+      index = builder:import_function(external.part or "runtime", external.name or name,
         parameters, { "f64" }),
     }
   end
@@ -454,8 +776,19 @@ function compile.chunk(source, options)
     end
   end
 
+  if unit.blob_size > 0 then
+    builder:data(unit.data_base, table.concat(unit.blob))
+  end
+  for _, segment in ipairs(options.data_segments or {}) do
+    builder:data(segment.offset, segment.bytes)
+  end
+
   table.sort(exports)
   local needs, seen = {}, {}
+  if unit.boxes then
+    seen.runtime = true
+    needs[#needs + 1] = "runtime"
+  end
   for _, name in ipairs(external_names) do
     local part = options.externals[name].part
     if part and not seen[part] then
@@ -468,6 +801,9 @@ function compile.chunk(source, options)
   return builder:encode(), {
     exports = exports,
     arities = arities,
+    memory = found.memory or unit.boxes or options.memory or false,
+    data = table.concat(unit.blob),
+    data_size = unit.blob_size,
     externals = external_names,
     needs = needs,
     host = needs_power and { "pow" } or {},

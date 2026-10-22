@@ -48,6 +48,13 @@ function Lexer:next_token()
     return { kind = "name", value = name, line = line }
   end
 
+  local quote = source:sub(self.position, self.position)
+  if quote == '"' or quote == "'" then
+    local value, length = self:read_string(quote, line)
+    self.position = self.position + length
+    return { kind = "string", value = value, line = line }
+  end
+
   local number = source:match("^0[xX]%x+", self.position)
     or source:match("^%d+%.?%d*[eE][-+]?%d+", self.position)
     or source:match("^%d*%.%d+", self.position)
@@ -69,6 +76,38 @@ function Lexer:next_token()
   self:error("`" .. source:sub(self.position, self.position) .. "` has no place here", line)
 end
 
+local ESCAPES = {
+  n = "\n", t = "\t", r = "\r", a = "\a", b = "\b", f = "\f", v = "\v",
+  ["\\"] = "\\", ['"'] = '"', ["'"] = "'", ["0"] = "\0",
+}
+
+function Lexer:read_string(quote, line)
+  local source = self.source
+  local out = {}
+  local index = self.position + 1
+  while true do
+    local char = source:sub(index, index)
+    if char == "" or char == "\n" then
+      self:error("a string is never closed", line)
+    end
+    if char == quote then
+      return table.concat(out), index - self.position + 1
+    end
+    if char == "\\" then
+      local escaped = source:sub(index + 1, index + 1)
+      local replacement = ESCAPES[escaped]
+      if not replacement then
+        self:error("\\" .. escaped .. " is not an escape the wasm subset reads", line)
+      end
+      out[#out + 1] = replacement
+      index = index + 2
+    else
+      out[#out + 1] = char
+      index = index + 1
+    end
+  end
+end
+
 local Parser = {}
 Parser.__index = Parser
 
@@ -77,8 +116,18 @@ function Parser:error(message, line)
 end
 
 function Parser:advance()
-  self.token = self.lexer:next_token()
+  if self.ahead then
+    self.token = self.ahead
+    self.ahead = nil
+  else
+    self.token = self.lexer:next_token()
+  end
   return self.token
+end
+
+function Parser:peek()
+  if not self.ahead then self.ahead = self.lexer:next_token() end
+  return self.ahead
 end
 
 function Parser:check(kind)
@@ -124,10 +173,22 @@ function Parser:primary()
     self:advance()
     return { kind = "number", value = token.value, line = token.line }
   end
+  if token.kind == "string" then
+    self:advance()
+    return { kind = "string", value = token.value, line = token.line }
+  end
   if token.kind == "true" or token.kind == "false" then
     self:advance()
     return { kind = "boolean", value = token.kind == "true", line = token.line }
   end
+  if token.kind == "nil" then
+    self:advance()
+    return { kind = "nil", line = token.line }
+  end
+  if self:check("{") then
+    return self:table_constructor()
+  end
+
   if token.kind == "name" then
     self:advance()
     local node = { kind = "name", name = token.value, line = token.line }
@@ -135,6 +196,11 @@ function Parser:primary()
       if self:accept(".") then
         local field = self:expect("name", "a field name")
         node = { kind = "field", target = node, name = field.value, line = field.line }
+      elseif self:check("[") then
+        self:advance()
+        local key = self:expression(0)
+        self:expect("]")
+        node = { kind = "index", target = node, key = key, line = token.line }
       elseif self:check("(") then
         node = { kind = "call", target = node, arguments = self:arguments(), line = token.line }
       else
@@ -143,6 +209,34 @@ function Parser:primary()
     end
   end
   self:error("`" .. tostring(token.value or token.kind) .. "` is not an expression")
+end
+
+function Parser:table_constructor()
+  local line = self.token.line
+  self:expect("{")
+  local node = { kind = "table", items = {}, fields = {}, line = line }
+  while not self:check("}") do
+    if self:check("[") then
+      self:advance()
+      local key = self:expression(0)
+      self:expect("]")
+      self:expect("=", "`=`")
+      node.fields[#node.fields + 1] = { key = key, value = self:expression(0) }
+    elseif self:check("name") and self:peek().kind == "=" then
+      local name = self.token
+      self:advance()
+      self:advance()
+      node.fields[#node.fields + 1] = {
+        key = { kind = "string", value = name.value, line = name.line },
+        value = self:expression(0),
+      }
+    else
+      node.items[#node.items + 1] = self:expression(0)
+    end
+    if not (self:accept(",") or self:accept(";")) then break end
+  end
+  self:expect("}")
+  return node
 end
 
 function Parser:arguments()
@@ -164,6 +258,8 @@ function Parser:expression(limit)
     left = { kind = "unary", operator = "-", value = self:expression(UNARY), line = token.line }
   elseif self:accept("not") then
     left = { kind = "unary", operator = "not", value = self:expression(UNARY), line = token.line }
+  elseif self:accept("#") then
+    left = { kind = "unary", operator = "#", value = self:expression(UNARY), line = token.line }
   else
     left = self:primary()
   end
@@ -267,6 +363,10 @@ function Parser:statement()
   local target = self:primary()
   if target.kind == "call" then
     return { kind = "call_statement", value = target, line = token.line }
+  end
+  if target.kind == "index" or target.kind == "field" then
+    self:expect("=", "`=`")
+    return { kind = "set_index", target = target, value = self:expression(0), line = token.line }
   end
   if target.kind ~= "name" then
     self:error("this cannot be assigned to", token.line)
