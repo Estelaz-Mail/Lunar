@@ -1,6 +1,6 @@
 {
 	"name": "lunar-lang",
-	"displayName": "Lunar",
+	"displayName": "Lunar for VS Code",
 	"description": "Syntax highlighting, diagnostics and commands for Lunar components (.lunar) — the web framework in Lua.",
 	"version": "0.1.0",
 	"publisher": "glazastov",
