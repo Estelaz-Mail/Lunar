@@ -1,6 +1,6 @@
 # Vendored
 
-`fengari-web.js` is [Fengari](https://fengari.io) — the Lua 5.4 virtual
+`fengari-web.js` is [Fengari](https://github.com/fengari-lua/fengari) — the Lua 5.4 virtual
 machine, in JavaScript — which is what runs the browser half of a Lunar app.
 It is checked in rather than fetched because this framework has no build step
 and no package manager: a file an app depends on at runtime is a file in the

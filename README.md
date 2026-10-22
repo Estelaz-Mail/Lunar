@@ -53,7 +53,7 @@ Styles are scoped to their component. Lunar generates a class for the rendered e
 
 A `.lunar` file compiles to a Lua module with separate functions for server rendering and browser DOM creation. The compiler parses the script, template, and styles, and reports errors against the original file and line numbers. Compiled components are cached by their source contents.
 
-On the server, Lunar renders the requested route to HTML and includes its data in a JSON script element. In the browser, [Fengari](https://fengari.io) executes the Lua application and Lunar's browser runtime, called _moonlight_, handles reactivity and navigation. Application components do not need to be translated into JavaScript.
+On the server, Lunar renders the requested route to HTML and includes its data in a JSON script element. In the browser, [Fengari](https://github.com/fengari-lua/fengari) executes the Lua application and Lunar's browser runtime, called _moonlight_, handles reactivity and navigation. Application components do not need to be translated into JavaScript.
 
 Updates are applied directly to text nodes and attributes. Conditional and iteration blocks render again when their dependencies change. Lunar does not use a virtual DOM, and `{#each}` currently has no keyed form.
 
