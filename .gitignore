@@ -28,6 +28,7 @@ node_modules/
 .vscode/
 
 # Local configuration.
+CLAUDE.md
 .env
 .env.*
 !.env.example
