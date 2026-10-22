@@ -29,6 +29,24 @@ function Static:resolve(path)
   return self.root .. normalized, normalized:sub(2)
 end
 
+local ENCODINGS = {
+  { name = "br", suffix = ".br" },
+  { name = "gzip", suffix = ".gz" },
+}
+
+local function accepts(req, wanted)
+  local header = req:header("accept-encoding")
+  if not header then return false end
+  for piece in header:gmatch("[^,]+") do
+    local token, parameters = piece:match("^%s*([^;%s]+)%s*(.*)$")
+    if token == wanted or token == "*" then
+      local quality = parameters:match("[qQ]%s*=%s*([%d%.]+)")
+      if not quality or tonumber(quality) ~= 0 then return true end
+    end
+  end
+  return false
+end
+
 local function file_length(path)
   local handle = io.open(path, "rb")
   if not handle then return nil end
@@ -46,6 +64,15 @@ function Static:cache_header(relative)
   return self.cache_control
 end
 
+function Static:encoded(req, absolute)
+  for _, encoding in ipairs(ENCODINGS) do
+    local path = absolute .. encoding.suffix
+    local length = accepts(req, encoding.name) and file_length(path) or nil
+    if length then return path, length, encoding.name end
+  end
+  return nil
+end
+
 function Static:serve(req, path)
   local absolute, relative = self:resolve(path or req.path)
   if not absolute then return nil end
@@ -53,13 +80,19 @@ function Static:serve(req, path)
   local length = file_length(absolute)
   if not length then return nil end
 
-  local etag = string.format('"%s-%s-%x"', self.version, util.hash(relative), length)
+  local file = absolute
+  local encoded, encoded_length, encoding = self:encoded(req, absolute)
+  if encoded then file, length = encoded, encoded_length end
+
+  local etag = string.format('"%s-%s-%x%s"', self.version, util.hash(relative), length,
+    encoding and ("-" .. encoding) or "")
   local headers = {
     ["Content-Type"] = mime.of(absolute),
     ["Cache-Control"] = self:cache_header(relative),
     ["ETag"] = etag,
     ["Vary"] = "Accept-Encoding",
   }
+  if encoding then headers["Content-Encoding"] = encoding end
 
   if req:header("if-none-match") == etag then
     return response.new(304, "", headers)
@@ -70,7 +103,7 @@ function Static:serve(req, path)
   end
 
   local res = response.new(200, "", headers)
-  res.file = { path = absolute, length = length, offset = 0 }
+  res.file = { path = file, length = length, offset = 0 }
   res.content_length = length
   return res
 end

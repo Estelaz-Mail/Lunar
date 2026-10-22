@@ -177,6 +177,42 @@ function T.will_not_serve_a_file_outside_its_root()
 end
 
 
+function T.serves_a_precompressed_file_to_a_client_that_asked_for_one()
+  local fs = require("lunar.core.fs")
+  local util_lib = require("lunar.core.util")
+  local root = fs.join(os.getenv("TMPDIR") or "/tmp",
+    string.format("lunar-static-%d-%d", os.time(), math.random(100000)))
+  fs.mkdirp(fs.join(root, "vendor"))
+  assert(util_lib.write_file(fs.join(root, "vendor/app.js"), string.rep("source;", 100)))
+  assert(util_lib.write_file(fs.join(root, "vendor/app.js.gz"), "squeezed"))
+  local static = static_lib.new({ root = root, version = "v1" })
+
+  local plain = static:serve(make("GET", "/vendor/app.js"), "/vendor/app.js")
+  assert(plain.headers["Content-Encoding"] == nil, "nothing was asked for")
+  assert(plain.file.path:find("app%.js$"))
+
+  local zipped = static:serve(
+    make("GET", "/vendor/app.js", { ["accept-encoding"] = "gzip, deflate" }), "/vendor/app.js")
+  assert(zipped.headers["Content-Encoding"] == "gzip")
+  assert(zipped.file.path:find("app%.js%.gz$"), zipped.file.path)
+  assert(zipped.content_length == 8, "the length is the compressed one")
+  assert(zipped.headers["Content-Type"]:find("javascript", 1, true), "the type is the original's")
+  assert(zipped.headers["ETag"] ~= plain.headers["ETag"], "each encoding has its own tag")
+
+  local refused = static:serve(
+    make("GET", "/vendor/app.js", { ["accept-encoding"] = "gzip;q=0" }), "/vendor/app.js")
+  assert(refused.headers["Content-Encoding"] == nil, "q=0 is a refusal")
+
+  local missing = static:serve(
+    make("GET", "/vendor/app.js", { ["accept-encoding"] = "br" }), "/vendor/app.js")
+  assert(missing.headers["Content-Encoding"] == nil, "there is no .br next to it")
+
+  local again = static:serve(
+    make("GET", "/vendor/app.js", { ["accept-encoding"] = "gzip",
+      ["if-none-match"] = zipped.headers["ETag"] }), "/vendor/app.js")
+  assert(again.status == 304)
+end
+
 function T.hashes_an_inline_script_the_way_a_browser_does()
   assert(security.hash_source("abc")
     == "'sha256-ungWv48Bz+pBQUDeXa4iI7ADYaOWF3qctBD/YfIAFa0='")
