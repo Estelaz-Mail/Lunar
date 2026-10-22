@@ -2,6 +2,7 @@ local bundle = require("lunar.site.bundle")
 local fs = require("lunar.core.fs")
 local json = require("lunar.core.json")
 local util = require("lunar.core.util")
+local wasm_lib = require("lunar.site.wasm")
 
 local workers = {}
 
@@ -183,6 +184,15 @@ function workers.generate(app, options)
       return nil, "fengari-web.js is missing from the framework's static/vendor"
     end
     write("public/_lunar/fengari.js", fengari)
+  end
+
+  local manifest, manifest_error = wasm_lib.build(app.root)
+  if manifest_error then return nil, manifest_error end
+  if manifest then
+    for _, name in ipairs(manifest.order) do
+      write("public/_lunar/wasm/" .. name .. ".wasm", manifest.parts[name].bytes)
+    end
+    write("public/_lunar/wasm/index.json", json.encode(wasm_lib.index(manifest)))
   end
 
   return { out = out, files = written }

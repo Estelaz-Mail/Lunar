@@ -2,6 +2,7 @@ local compile = require("lunar.wasm.compile")
 local encode = require("lunar.wasm.encode")
 local module_lib = require("lunar.wasm.module")
 local parts_lib = require("lunar.wasm.parts")
+local wasm_runtime = require("lunar.runtime.wasm")
 
 local T = {}
 
@@ -151,6 +152,90 @@ function T.a_part_imports_a_name_only_when_it_calls_it()
   local bytes = manifest.parts.user.bytes
   assert(bytes:find("one", 1, true), "the name it calls is imported")
   assert(not bytes:find("two", 1, true), "the name it never calls is not")
+end
+
+local function fake_browser(manifest)
+  local log = {}
+
+  local function promise(value)
+    local self = {}
+    function self.resolve(_, handler)
+      local produced = handler(value)
+      if type(produced) == "table" and produced.is_promise then return produced end
+      return promise(produced)
+    end
+    self["then"] = self.resolve
+    self["catch"] = function(_) return self end
+    self.is_promise = true
+    return self
+  end
+
+  local window = { Object = {}, Math = { pow = function(a, b) return a ^ b end } }
+  window.console = { warn = function(_, message) log[#log + 1] = "warn " .. message end }
+
+  window.WebAssembly = {
+    instantiate = function(_, buffer, imports)
+      log[#log + 1] = "instantiate " .. buffer.part
+      local exports = {}
+      for _, name in ipairs(manifest.parts[buffer.part].exports) do
+        exports[name] = function() return name .. "!" end
+      end
+      return promise({ instance = { exports = exports, imports = imports } })
+    end,
+  }
+
+  function window:fetch(url)
+    log[#log + 1] = "fetch " .. url
+    if url:find("index.json", 1, true) then
+      local json = require("lunar.core.json")
+      local wasm_site = require("lunar.site.wasm")
+      local text = json.encode(wasm_site.index(manifest))
+      return promise({ ok = true, text = function() return promise(text) end })
+    end
+    local name = url:match("/([%w_%-]+)%.wasm")
+    return promise({ ok = true,
+      arrayBuffer = function() return promise({ part = name }) end })
+  end
+
+  local js = { new = function() return {} end }
+  return window, js, log
+end
+
+function T.loads_a_part_and_everything_it_needs_once()
+  local manifest = parts_lib.build({
+    { name = "numbers", source = "function twice(x) return x * 2 end" },
+    { name = "shapes", source = "function wide(r) return twice(r) end" },
+  })
+  manifest.digest = "test"
+
+  local window, js, log = fake_browser(manifest)
+  local loader = wasm_runtime.browser(window, js)
+
+  local got
+  loader:load("wide", function(fn) got = fn() end)
+  assert(got == "wide!", "the export came back")
+  assert(table.concat(log, " | "):find("fetch /_lunar/wasm/index.json", 1, true))
+  assert(table.concat(log, " | "):find("instantiate numbers | fetch /_lunar/wasm/shapes", 1, true),
+    "what it needs is instantiated first: " .. table.concat(log, " | "))
+
+  local before = #log
+  loader:load("twice", function(fn) got = fn() end)
+  assert(got == "twice!")
+  assert(#log == before, "the second call touched the network not at all")
+  assert(loader:loaded("numbers") and loader:loaded("shapes"))
+end
+
+function T.says_what_went_wrong_rather_than_failing_quietly()
+  local manifest = parts_lib.build({
+    { name = "numbers", source = "function twice(x) return x * 2 end" },
+  })
+  manifest.digest = "test"
+  local window, js = fake_browser(manifest)
+  local loader = wasm_runtime.browser(window, js)
+
+  local message
+  loader:load("absent", function() end, function(reason) message = reason end)
+  assert(message and message:find("no wasm part exports", 1, true), tostring(message))
 end
 
 return T

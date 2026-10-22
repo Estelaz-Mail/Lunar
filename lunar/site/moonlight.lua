@@ -25,7 +25,8 @@ function moonlight.mount_chain(defs, data, target, dom, options)
   options = options or {}
 
   local function render()
-    local ctx = component.context({ render_head = options.render_head or false })
+    local ctx = component.context({ render_head = options.render_head or false,
+      wasm = options.wasm })
     local instances = {}
 
     local function build(index)
@@ -96,6 +97,7 @@ function Session:swap(payload)
       render_head = self.started or false,
       hydrate = not self.started and #self.dom:children(self.target) > 0,
       on_rebuild = self.options.on_rebuild,
+      wasm = self.options.wasm,
     })
   self.instances = instances
   if not self.started then self.hydrated = claimed end

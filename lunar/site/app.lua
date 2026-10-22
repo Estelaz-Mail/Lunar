@@ -8,6 +8,7 @@ local routes_lib = require("lunar.site.routes")
 local security_lib = require("lunar.http.security")
 local manifest_lib = require("lunar.site.manifest")
 local static_lib = require("lunar.http.static")
+local wasm_lib = require("lunar.site.wasm")
 local util = require("lunar.core.util")
 local watch_lib = require("lunar.site.watch")
 
@@ -108,6 +109,18 @@ end
 
 function App:generation()
   return self.watcher and self.watcher.generation or 0
+end
+
+function App:wasm_manifest()
+  if self.frozen then return nil end
+  local generation = self:generation()
+  if self.wasm_generation ~= generation then
+    local manifest, err = wasm_lib.build(self.root)
+    if err then io.stderr:write("lunar: ", err, "\n") end
+    self.wasm_parts = manifest
+    self.wasm_generation = generation
+  end
+  return self.wasm_parts
 end
 
 function App:module(path)
@@ -256,6 +269,9 @@ function App:framework_response(req)
       ["Cache-Control"] = self.dev and "no-store" or "public, max-age=31536000, immutable",
     })
   end
+
+  local part = wasm_lib.respond(self:wasm_manifest(), path, not self.dev)
+  if part then return part end
 
   if path == "/_lunar/fengari.js" then
     local res = self.framework_static:serve(req, "/vendor/fengari-web.js")

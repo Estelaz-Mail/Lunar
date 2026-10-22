@@ -302,4 +302,23 @@ function T.rate_limits_a_flood_from_one_address()
   assert(send(instance, "GET", "/css/app.css").status == 200)
 end
 
+function T.serves_the_wasm_parts_and_the_index_that_points_at_them()
+  local index = get("/_lunar/wasm/index.json")
+  assert(index.status == 200, index.status)
+  assert(index.headers["Content-Type"]:find("json", 1, true))
+  local decoded = json.decode(index.body)
+  assert(decoded.index.area == "geometry", "the index says which part exports what")
+  assert(decoded.index.basel == "series")
+  assert(table.concat(decoded.parts.series.needs, ",") == "geometry")
+  assert(#decoded.parts.geometry.needs == 0)
+
+  local part = get("/_lunar/wasm/geometry.wasm")
+  assert(part.status == 200)
+  assert(part.headers["Content-Type"] == "application/wasm")
+  assert(part.body:sub(1, 4) == "\0asm", "those are wasm bytes")
+  assert(part.headers["ETag"] == string.format('"%s"', decoded.parts.geometry.digest))
+
+  assert(get("/_lunar/wasm/nothing.wasm").status == 404)
+end
+
 return T

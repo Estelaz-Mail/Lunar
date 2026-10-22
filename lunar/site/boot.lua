@@ -1,5 +1,6 @@
 local moonlight = require("lunar.site.moonlight")
 local dom_lib = require("lunar.runtime.dom")
+local wasm_lib = require("lunar.runtime.wasm")
 local json = require("lunar.core.json")
 
 local boot = {}
@@ -41,7 +42,9 @@ function boot.start(registry)
   end
 
   local dom = dom_lib.browser(window, js)
+  local loader = window.WebAssembly and wasm_lib.browser(window, js) or nil
   local session = moonlight.start(registry, payload, dom, target, {
+    wasm = loader,
     on_rebuild = function(reason)
       window.console:warn("lunar: the page was rebuilt rather than claimed: " .. tostring(reason))
     end,
