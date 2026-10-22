@@ -27,12 +27,25 @@ end
 function Loader:host_imports()
   local object = self.js.new(self.window.Object)
   object.pow = self.window.Math.pow
+  object.memory = self:memory()
   return object
+end
+
+function Loader:memory()
+  if not self.shared then
+    self.shared = self.js.new(self.window.WebAssembly.Memory,
+      (function()
+        local descriptor = self.js.new(self.window.Object)
+        descriptor.initial = 2
+        return descriptor
+      end)())
+  end
+  return self.shared
 end
 
 function Loader:import_object(part)
   local imports = self.js.new(self.window.Object)
-  imports.lunar = self:host_imports()
+  imports.host = self:host_imports()
   for _, needed in ipairs(part.needs or {}) do
     local instance = self.instances[needed]
     if not instance then return nil, needed .. " is not loaded yet" end
@@ -155,9 +168,45 @@ function Loader:load(name, on_ready, on_error)
       if not exported then
         return on_error("`" .. tostring(name) .. "` is missing from " .. part_name)
       end
-      on_ready(function(...) return exported(...) end)
+      on_ready(function(...) return self:decode(exported(...)) end)
     end, on_error)
   end, on_error)
+end
+
+local BOX_BASE = 0xfff8000000000000
+local TAG_MASK = 0x7fff
+
+function Loader:bytes()
+  local memory = self:memory()
+  local buffer = memory.buffer
+  if self.view == nil or self.view_of ~= buffer then
+    self.view = self.js.new(self.window.Uint8Array, buffer)
+    self.view_of = buffer
+  end
+  return self.view
+end
+
+function Loader:decode(value)
+  if type(value) ~= "number" then return value end
+  local bits = string.unpack("<I8", string.pack("<d", value))
+  if bits & BOX_BASE ~= BOX_BASE then return value end
+
+  local tag = (bits >> 32) & TAG_MASK
+  local address = bits & 0xffffffff
+  if tag == 0 then return nil end
+  if tag == 1 then return address == 1 end
+  if tag ~= 2 then return value end
+
+  local bytes = self:bytes()
+  local header = {}
+  for index = 0, 7 do header[index + 1] = string.char(bytes[address + index]) end
+  local size = math.tointeger(string.unpack("<d", table.concat(header))) or 0
+
+  local out = {}
+  for index = 1, size do
+    out[index] = string.char(bytes[address + 7 + index])
+  end
+  return table.concat(out)
 end
 
 function Loader:loaded(name)
