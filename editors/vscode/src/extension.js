@@ -11,16 +11,22 @@ let output;
 let status;
 let cli = null;
 let warned = null;
+let home = null;
 
 const timers = new Map();
 
 const CLI_NAMES = process.platform === "win32" ? ["lunar.cmd", "lunar.exe", "lunar"] : ["lunar"];
+const LUA_NAMES =
+	process.platform === "win32"
+		? ["lua54.exe", "lua5.4.exe", "lua.exe"]
+		: ["lua5.4", "lua54", "lua"];
 const SEARCH_DEPTH = 8;
 
 const WITH_LINE = /^lunar:\s+(.*?):(\d+):\s*(.+)$/;
 const WITHOUT_LINE = /^lunar:\s+(.*?):\s*(.+)$/;
 
 function activate(context) {
+	home = context.extensionPath;
 	diagnostics = vscode.languages.createDiagnosticCollection("lunar");
 	output = vscode.window.createOutputChannel("Lunar");
 	status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
@@ -150,7 +156,12 @@ function compile(doc, done) {
 	cp.execFile(
 		found.command,
 		[...found.args, "compile", target],
-		{ timeout: 10000, cwd: workspaceRoot(), env: environment(), maxBuffer: 8 * 1024 * 1024 },
+		{
+			timeout: 10000,
+			cwd: workspaceRoot(),
+			env: environment(found.env),
+			maxBuffer: 8 * 1024 * 1024,
+		},
 		(error, stdout, stderr) => {
 			if (temporary) fs.rm(path.dirname(temporary), { recursive: true, force: true }, () => {});
 			done(error, stdout, stderr);
@@ -250,7 +261,7 @@ function showOrbit() {
 	cp.execFile(
 		found.command,
 		[...found.args, "map", appRoot()],
-		{ timeout: 15000, cwd: workspaceRoot(), env: environment() },
+		{ timeout: 15000, cwd: workspaceRoot(), env: environment(found.env) },
 		(error, stdout, stderr) => {
 			if (error && (error.code === "ENOENT" || error.code === "EACCES")) {
 				refreshCli();
@@ -368,6 +379,27 @@ function onPath(name) {
 	return null;
 }
 
+function bundled() {
+	if (!home) return null;
+	const entry = path.join(home, "runtime", "lunar", "cli.lua");
+	if (!fs.existsSync(entry)) return null;
+	return { entry, root: path.join(home, "runtime") };
+}
+
+function luaBinary() {
+	const configured = config().get("lua", "").trim();
+	if (configured) {
+		const expanded = expandHome(configured);
+		if (path.isAbsolute(expanded)) return isExecutable(expanded) ? expanded : null;
+		return onPath(expanded);
+	}
+	for (const name of LUA_NAMES) {
+		const found = onPath(name);
+		if (found) return found;
+	}
+	return null;
+}
+
 function candidates() {
 	const configured = config().get("path", "").trim();
 	if (configured) {
@@ -393,6 +425,24 @@ function candidates() {
 		const found = onPath(name);
 		if (found) out.push({ command: found, origin: "your PATH" });
 	}
+
+	const own = bundled();
+	const lua = own ? luaBinary() : null;
+	if (own && lua) {
+		out.push({
+			command: lua,
+			args: [own.entry],
+			origin: "the copy inside the extension",
+			env: {
+				LUA_PATH: [
+					path.join(own.root, "?.lua"),
+					path.join(own.root, "?", "init.lua"),
+					process.env.LUA_PATH || "",
+					"",
+				].join(";"),
+			},
+		});
+	}
 	return out;
 }
 
@@ -403,12 +453,17 @@ function refreshCli() {
 	for (const candidate of candidates()) {
 		tried.push(candidate.command);
 		if (!fs.existsSync(candidate.command)) continue;
-		chosen = { ...candidate, args: [] };
+		chosen = { ...candidate, args: candidate.args ?? [] };
 		if (!isExecutable(candidate.command)) chosen.problem = "not-executable";
 		break;
 	}
 
-	cli = chosen ?? { command: null, args: [], origin: null, problem: "missing" };
+	cli = chosen ?? {
+		command: null,
+		args: [],
+		origin: null,
+		problem: bundled() ? "no-lua" : "missing",
+	};
 	cli.tried = tried;
 	logCli();
 	updateStatus();
@@ -424,7 +479,7 @@ function verifyCli() {
 	cp.execFile(
 		target.command,
 		[...target.args, "help"],
-		{ timeout: 10000, cwd: workspaceRoot(), env: environment() },
+		{ timeout: 10000, cwd: workspaceRoot(), env: environment(target.env) },
 		(error, stdout, stderr) => {
 			if (cli !== target) return;
 			if (error) {
@@ -474,6 +529,12 @@ function cliMessage() {
 			"and its parents, and lunar on your PATH. Point lunar.path at bin/lunar in your checkout."
 		);
 	}
+	if (cli.problem === "no-lua") {
+		return (
+			"Lunar: no Lua 5.4 found. The extension carries the framework itself, but it needs an " +
+			"interpreter to run it: install Lua 5.4, or point lunar.lua at one."
+		);
+	}
 	if (cli.problem === "not-executable") {
 		return `Lunar: ${cli.command} is there but is not executable. Run chmod +x on it.`;
 	}
@@ -493,13 +554,14 @@ function warn() {
 	if (warned === key) return;
 	warned = key;
 
-	const locate = "Locate the CLI…";
+	const locate = cli.problem === "no-lua" ? "Locate Lua…" : "Locate the CLI…";
 	const settings = "Open settings";
 	const log = "Show log";
 	vscode.window.showWarningMessage(cliMessage(), locate, settings, log).then((choice) => {
 		if (choice === locate) vscode.commands.executeCommand("lunar.locateCli");
 		if (choice === settings) {
-			vscode.commands.executeCommand("workbench.action.openSettings", "lunar.path");
+			const setting = cli?.problem === "no-lua" ? "lunar.lua" : "lunar.path";
+			vscode.commands.executeCommand("workbench.action.openSettings", setting);
 		}
 		if (choice === log) output.show(true);
 	});
@@ -536,19 +598,20 @@ function updateStatus() {
 }
 
 async function locateCli() {
+	const forLua = cli?.problem === "no-lua";
 	const root = workspaceRoot();
 	const picked = await vscode.window.showOpenDialog({
-		title: "Select the lunar CLI",
-		openLabel: "Use this CLI",
+		title: forLua ? "Select a Lua 5.4 interpreter" : "Select the lunar CLI",
+		openLabel: forLua ? "Use this Lua" : "Use this CLI",
 		canSelectMany: false,
-		defaultUri: root ? vscode.Uri.file(path.join(root, "bin")) : undefined,
+		defaultUri: !forLua && root ? vscode.Uri.file(path.join(root, "bin")) : undefined,
 	});
 	if (!picked || picked.length === 0) return;
 
 	const scope = vscode.workspace.workspaceFolders?.length
 		? vscode.ConfigurationTarget.Workspace
 		: vscode.ConfigurationTarget.Global;
-	await config().update("path", picked[0].fsPath, scope);
+	await config().update(forLua ? "lua" : "path", picked[0].fsPath, scope);
 	warned = null;
 	refreshCli();
 }
@@ -564,10 +627,10 @@ function showStatus() {
 	);
 }
 
-function environment() {
+function environment(extra) {
 	const lua = config().get("lua", "");
-	if (!lua) return process.env;
-	return { ...process.env, LUA: lua };
+	const base = lua ? { ...process.env, LUA: lua } : { ...process.env };
+	return extra ? { ...base, ...extra } : base;
 }
 
 function quote(value) {

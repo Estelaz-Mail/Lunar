@@ -2,7 +2,7 @@ import Module from "node:module";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { mkdtempSync, writeFileSync, chmodSync } from "node:fs";
+import { mkdtempSync, writeFileSync, chmodSync, mkdirSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -24,11 +24,20 @@ const check = (condition, what) => {
 	if (!condition) problems.push(what);
 };
 
+const bare = mkdtempSync(join(tmpdir(), "lunar-bare-"));
+
+function withRuntime() {
+	const root = mkdtempSync(join(tmpdir(), "lunar-ext-"));
+	mkdirSync(join(root, "runtime"));
+	symlinkSync(join(checkout, "lunar"), join(root, "runtime", "lunar"), "dir");
+	return root;
+}
+
 function activate(fields) {
 	vscode.__reset(fields);
 	delete require.cache[require.resolve(extension)];
 	const api = require(extension);
-	api.activate({ subscriptions: [] });
+	api.activate({ subscriptions: [], extensionPath: fields.extensionPath ?? bare });
 	return { api, state: vscode.__state };
 }
 
@@ -114,6 +123,45 @@ const settled = () => new Promise((done) => setTimeout(done, 400));
 	check(/Lua 5\.4/.test(message), "the message does not say what is missing");
 }
 
+{
+	const lua = join("/usr", "bin");
+	const empty = mkdtempSync(join(tmpdir(), "lunar-cli-"));
+	const path = process.env.PATH;
+	process.env.PATH = lua;
+	const { state } = activate({ folders: [empty], extensionPath: withRuntime() });
+	await settled();
+	process.env.PATH = path;
+
+	check(
+		state.output.some((line) => /found via the copy inside the extension/.test(line)),
+		"the copy inside the extension was not used",
+	);
+	check(state.warnings.length === 0, `the bundled copy warned: ${state.warnings[0]?.message}`);
+	check(state.status.text === "$(check) Lunar", `status was ${state.status.text}`);
+	check(
+		state.output.some((line) => /\(0\.\d+\.\d+\)/.test(line)),
+		"the bundled copy did not report a version",
+	);
+}
+
+{
+	const empty = mkdtempSync(join(tmpdir(), "lunar-cli-"));
+	const path = process.env.PATH;
+	process.env.PATH = empty;
+	const { state } = activate({ folders: [empty], extensionPath: withRuntime() });
+	await settled();
+	process.env.PATH = path;
+
+	check(state.warnings.length === 1, "a missing Lua did not warn");
+	const warning = state.warnings[0] ?? { message: "", actions: [] };
+	check(/no Lua 5\.4 found/.test(warning.message), `the message was: ${warning.message}`);
+	check(
+		/carries the framework itself/.test(warning.message),
+		"the message does not say the framework is already there",
+	);
+	check(warning.actions.includes("Locate Lua…"), "there is no way to point at Lua");
+}
+
 for (const problem of problems) console.error(`  ${problem}`);
-console.log(`5 CLI scenarios, ${problems.length} problems`);
+console.log(`7 CLI scenarios, ${problems.length} problems`);
 process.exit(problems.length === 0 ? 0 : 1);

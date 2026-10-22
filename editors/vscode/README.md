@@ -27,10 +27,14 @@ inside it, which is why a runtime error points back at the component.
 **The commands you would otherwise type:** the dev server, the build check,
 the orbit, the tests.
 
-**It finds the CLI by itself.** `bin/lunar` is looked for in the folder you have
-open and in every parent of it, so working inside a subdirectory of a checkout
-is no different from working at its root, and `lunar` on your `PATH` is used
-when there is no checkout at all. What was found is in the status bar while a
+**It carries the framework, and prefers yours.** The extension ships a copy of
+Lunar inside it, so it has a compiler even with no checkout anywhere — but it
+looks for yours first: `lunar.path` if you set it, then `bin/lunar` in the
+folder you have open and in every parent of it, then `lunar` on your `PATH`,
+and only then its own copy. Working on Lunar itself therefore gives you
+diagnostics from the compiler you are editing, not from a frozen one. What it
+cannot carry is the interpreter: the copy runs under whatever Lua 5.4 is on
+your `PATH`, or the one `lunar.lua` points at. What was found is in the status bar while a
 `.lunar` file is open, with the version it reported. When it cannot be found,
 the warning says how many places were tried, the output channel lists them one
 by one, and **Lunar: Locate the CLI** opens a file picker that writes
@@ -47,19 +51,20 @@ resolves it.
 
 ## Settings
 
-| Setting                      | What it is                                                                                             |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `lunar.path`                 | Path to the CLI. Empty: `bin/lunar` in the folder you have open or any parent, then `lunar` on `PATH`. |
-| `lunar.app`                  | The app directory. Empty: the nearest ancestor with an `orbit/` in it.                                 |
-| `lunar.diagnostics.run`      | `onType` (default), `onSave`, `off`.                                                                   |
-| `lunar.diagnostics.debounce` | Milliseconds after the last keystroke before re-checking.                                              |
-| `lunar.lua`                  | The Lua interpreter the CLI runs under, passed as `LUA`.                                               |
+| Setting                      | What it is                                                                                                                                 |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `lunar.path`                 | Path to the CLI. Empty: `bin/lunar` in the folder you have open or any parent, then `lunar` on `PATH`, then the copy inside the extension. |
+| `lunar.app`                  | The app directory. Empty: the nearest ancestor with an `orbit/` in it.                                                                     |
+| `lunar.diagnostics.run`      | `onType` (default), `onSave`, `off`.                                                                                                       |
+| `lunar.diagnostics.debounce` | Milliseconds after the last keystroke before re-checking.                                                                                  |
+| `lunar.lua`                  | The Lua 5.4 interpreter to run under. Empty: `lua5.4`, then `lua`, from `PATH`.                                                            |
 
 ## Running it from a checkout
 
 ```sh
 code --extensionDevelopmentPath="$PWD" ../../examples/tranquility
 npm run check          # the grammar, the manifest and the CLI search, without an editor
+npm run stage          # copy the framework into runtime/, which the package carries
 npm run package        # a .vsix, with @vscode/vsce
 ```
 

@@ -167,7 +167,8 @@
 	"scripts": {
 		"check": "node scripts/check-grammar.mjs && node scripts/check-extension.mjs && node scripts/check-tokens.mjs && node scripts/check-cli.mjs",
 		"icons": "sh scripts/icons.sh",
-		"package": "npx --yes @vscode/vsce package"
+		"package": "npm run stage && npx --yes @vscode/vsce package",
+		"stage": "node scripts/stage-runtime.mjs"
 	},
 	"devDependencies": {
 		"@types/node": "^20.0.0",
