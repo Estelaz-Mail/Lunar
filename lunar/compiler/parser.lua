@@ -209,9 +209,13 @@ function Parser:parse_block_tag(trimmed, line, children)
 end
 
 function Parser:parse_each_head(rest, line)
-  if rest:find("%(") and rest:find("%)%s*$") then
-    self:fail("a keyed {#each ... (key)} is not part of Lunar: the block "
-      .. "re-renders as a whole", line)
+  local key
+  local head, keyed = rest:match("^(.-)%s*%((.*)%)%s*$")
+  if head then
+    key = util.trim(keyed)
+    if key == "" then self:fail("{#each ... ()} wants a key expression", line) end
+    self:check_expression(key, line, "a {#each} key")
+    rest = head
   end
   local list, names = rest:match("^(.-)%s+as%s+([%w_%s,]+)$")
   if not list then
@@ -224,7 +228,7 @@ function Parser:parse_each_head(rest, line)
   if not item then self:fail("{#each}: `" .. util.trim(names) .. "` is not a name", line) end
   self:check_expression(list, line, "{#each}")
   return { kind = "each", list = util.trim(list), item = item, index = index,
-    children = {}, else_children = nil, line = line }
+    key = key, children = {}, else_children = nil, line = line }
 end
 
 

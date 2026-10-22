@@ -68,8 +68,10 @@ end
 function T.refuses_an_each_it_cannot_read()
   assert(compile_error("{#each items}x{/each}"):find("list as item", 1, true))
   assert(compile_error("{#each items as a b}x{/each}"):find("is not a name", 1, true))
-  assert(compile_error("{#each items as item (item.id)}x{/each}")
-    :find("keyed", 1, true))
+  assert(compile_error("{#each items as item ()}x{/each}")
+    :find("wants a key expression", 1, true))
+  assert(compile_error("{#each items as item (item.)}x{/each}")
+    :find("a {#each} key", 1, true))
 end
 
 function T.refuses_a_directive_that_is_a_typo()

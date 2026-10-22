@@ -74,6 +74,146 @@ function T.a_new_list_rebuilds_the_block_and_an_empty_one_takes_the_else()
   assert(support.serialize(dom.body):find("<li>1back</li>", 1, true))
 end
 
+function T.a_keyed_list_keeps_the_nodes_whose_key_survived()
+  local def = support.source([[
+<script>
+  items = { { id = "a" }, { id = "b" }, { id = "c" } }
+</script>
+<ul>{#each items as item (item.id)}<li>{item.id}</li>{/each}</ul>
+]], "Keyed.lunar")
+
+  local markup, dom, instance = support.client(def, {})
+  assert(markup:find("<li>a</li><li>b</li><li>c</li>", 1, true), markup)
+  local before = {}
+  for _, node in ipairs(select(2, support.find(dom, "li"))) do before[#before + 1] = node end
+
+  local a, b, c = table.unpack(instance.scope.items)
+  instance.scope.items = { c, a, b }
+  local reordered = support.serialize(dom.body)
+  assert(reordered:find("<li>c</li><li>a</li><li>b</li>", 1, true), reordered)
+
+  local after = select(2, support.find(dom, "li"))
+  assert(after[1] == before[3] and after[2] == before[1] and after[3] == before[2],
+    "the rows moved rather than being rebuilt")
+
+  instance.scope.items = { c, b }
+  local removed = select(2, support.find(dom, "li"))
+  assert(#removed == 2 and removed[1] == before[3] and removed[2] == before[2],
+    "dropping a key left the others alone")
+
+  local d = { id = "d" }
+  instance.scope.items = { d, c, b }
+  local grown = select(2, support.find(dom, "li"))
+  assert(support.serialize(dom.body):find("<li>d</li><li>c</li><li>b</li>", 1, true))
+  assert(grown[2] == before[3] and grown[3] == before[2], "a new key did not disturb the rest")
+end
+
+function T.a_keyed_list_rebuilds_a_row_whose_item_changed()
+  local def = support.source([[
+<script>
+  items = { { id = "a", label = "one" }, { id = "b", label = "two" } }
+</script>
+<ul>{#each items as item (item.id)}<li>{item.label}</li>{/each}</ul>
+]], "KeyedSwap.lunar")
+
+  local _, dom, instance = support.client(def, {})
+  local before = select(2, support.find(dom, "li"))
+  local kept = instance.scope.items[2]
+
+  instance.scope.items = { { id = "a", label = "uno" }, kept }
+  local after = select(2, support.find(dom, "li"))
+  assert(support.serialize(dom.body):find("<li>uno</li><li>two</li>", 1, true))
+  assert(after[1] ~= before[1], "the row with a new item was rebuilt")
+  assert(after[2] == before[2], "the untouched row was kept")
+end
+
+function T.a_keyed_list_takes_the_else_and_comes_back()
+  local def = support.source([[
+<script>
+  items = { { id = "a" } }
+</script>
+<ul>{#each items as item, i (item.id)}<li>{i}{item.id}</li>{:else}<li>none</li>{/each}</ul>
+]], "KeyedElse.lunar")
+
+  local _, dom, instance = support.client(def, {})
+  instance.scope.items = {}
+  assert(support.serialize(dom.body):find("<li>none</li>", 1, true))
+  instance.scope.items = { { id = "b" }, { id = "a" } }
+  assert(support.serialize(dom.body):find("<li>1b</li><li>2a</li>", 1, true))
+end
+
+function T.a_keyed_list_refuses_the_same_key_twice()
+  local def = support.source([[
+<script>
+  items = { { id = "a" }, { id = "a" } }
+</script>
+{#each items as item (item.id)}<li>{item.id}</li>{/each}
+]], "KeyedTwice.lunar")
+
+  local reported = {}
+  local stderr = io.stderr
+  io.stderr = { write = function(_, ...) reported[#reported + 1] = table.concat({ ... }) end }
+  pcall(support.client, def, {})
+  io.stderr = stderr
+  assert(table.concat(reported):find("the key a twice", 1, true), table.concat(reported))
+end
+
+function T.a_keyed_list_disposes_of_the_rows_it_dropped()
+  local def = support.source([[
+<script>
+  items = { { id = "a" }, { id = "b" }, { id = "c" } }
+  tick = 0
+</script>
+{#each items as item (item.id)}<span>{item.id}-{tick}</span>{/each}
+]], "KeyedLeak.lunar")
+
+  local _, _, instance = support.client(def, {})
+  local cell = instance.signals.tick
+  local function subscribers()
+    local total = 0
+    for _ in pairs(cell.subscribers) do total = total + 1 end
+    return total
+  end
+  assert(subscribers() == 3, "one effect per row, got " .. subscribers())
+
+  local kept = instance.scope.items[2]
+  instance.scope.items = { kept }
+  assert(subscribers() == 1, "the dropped rows were disposed, got " .. subscribers())
+
+  instance:destroy()
+  assert(subscribers() == 0, "destroying the component disposed the rest")
+end
+
+function T.a_keyed_list_renders_the_same_as_an_unkeyed_one()
+  local items = { { id = "a" }, { id = "b" } }
+  local keyed = support.source([[
+<script>
+  props { items = {} }
+</script>
+<ul>{#each items as item, i (item.id)}<li>{i}{item.id}</li>{/each}</ul>
+]], "KeyedSame.lunar")
+  local plain = support.source([[
+<script>
+  props { items = {} }
+</script>
+<ul>{#each items as item, i}<li>{i}{item.id}</li>{/each}</ul>
+]], "PlainSame.lunar")
+
+  local markup = support.assert_same(keyed, { items = items })
+  assert(markup == support.ssr(plain, { items = items }),
+    "a key changes nothing about what is rendered")
+end
+
+function T.a_keyed_list_claims_what_the_server_sent()
+  local def = support.source([[
+<script>
+  props { items = {} }
+</script>
+<ul>{#each items as item (item.id)}<li>{item.id}</li>{/each}</ul>
+]], "KeyedHydrate.lunar")
+  support.assert_claims(def, { items = { { id = "a" }, { id = "b" } } })
+end
+
 function T.renders_a_card_with_a_slot_and_its_fallback()
   local def = support.component("Card")
   support.assert_same(def, {})

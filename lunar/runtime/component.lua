@@ -242,16 +242,22 @@ function component.merge(base, extra)
   return out
 end
 
-local function render_block(instance, dom, anchor, state, build, ...)
+local function build_block(instance, dom, reference, build, ...)
   local owner = { disposers = {}, children = {} }
   local arguments = table.pack(...)
+  local nodes
   instance:with_owner(owner, function()
     local fragment = dom:fragment()
     build(fragment, table.unpack(arguments, 1, arguments.n))
-    local nodes = dom:children(fragment)
-    dom:insert_before(anchor, fragment)
-    for _, node in ipairs(nodes) do state.nodes[#state.nodes + 1] = node end
+    nodes = dom:children(fragment)
+    dom:insert_before(reference, fragment)
   end)
+  return nodes, owner
+end
+
+local function render_block(instance, dom, anchor, state, build, ...)
+  local nodes, owner = build_block(instance, dom, anchor, build, ...)
+  for _, node in ipairs(nodes) do state.nodes[#state.nodes + 1] = node end
   state.owners[#state.owners + 1] = owner
 end
 
@@ -290,21 +296,120 @@ function component.branch(instance, dom, anchor, selector, builders)
   end)
 end
 
-function component.each(instance, dom, anchor, list_fn, item_builder, empty_builder)
+local function settled_positions(previous, count)
+  local piles, parents, settled = {}, {}, {}
+  for position = 1, count do
+    local before = previous[position]
+    if before then
+      local low, high = 1, #piles
+      while low <= high do
+        local middle = (low + high) // 2
+        if previous[piles[middle]] < before then low = middle + 1 else high = middle - 1 end
+      end
+      parents[position] = piles[low - 1]
+      piles[low] = position
+    end
+  end
+  local cursor = piles[#piles]
+  while cursor do
+    settled[cursor] = true
+    cursor = parents[cursor]
+  end
+  return settled
+end
+
+local function drop_entry(dom, entry)
+  dispose_owner(entry.owner)
+  for _, node in ipairs(entry.nodes) do dom:remove(node) end
+end
+
+local function reconcile(instance, dom, anchor, state, list, item_builder, keyed)
+  local before = state.entries
+  if before and dom:claiming() then
+    dom:hydration_failed("a keyed block changed while the page was being claimed")
+  end
+  local entries, by_key, previous = {}, {}, {}
+
+  for position, item in ipairs(list) do
+    local key = keyed.key(item, position)
+    if key == nil then
+      error("lunar: a keyed {#each} got no key for item " .. position, 0)
+    end
+    if by_key[key] then
+      error("lunar: a keyed {#each} saw the key " .. tostring(key) .. " twice", 0)
+    end
+    local kept = before and before.by_key[key]
+    if kept and rawequal(kept.item, item) and (not keyed.index or kept.position == position) then
+      kept.reused = true
+      previous[position] = kept.position
+      kept.position = position
+      entries[position] = kept
+    else
+      entries[position] = { key = key, item = item, position = position }
+    end
+    by_key[key] = entries[position]
+  end
+
+  for _, entry in ipairs(before and before.list or {}) do
+    if not entry.reused then drop_entry(dom, entry) end
+    entry.reused = nil
+  end
+
+  for position, entry in ipairs(entries) do
+    if not entry.nodes then
+      entry.nodes, entry.owner = build_block(instance, dom, anchor, item_builder,
+        entry.item, position)
+    end
+  end
+
+  if before then
+    local settled = settled_positions(previous, #entries)
+    local reference = anchor
+    for position = #entries, 1, -1 do
+      local entry = entries[position]
+      if not settled[position] then
+        for _, node in ipairs(entry.nodes) do dom:insert_before(reference, node) end
+      end
+      reference = entry.nodes[1] or reference
+    end
+  end
+
+  state.entries = { list = entries, by_key = by_key }
+  state.nodes, state.owners = {}, {}
+  for _, entry in ipairs(entries) do
+    for _, node in ipairs(entry.nodes) do state.nodes[#state.nodes + 1] = node end
+    state.owners[#state.owners + 1] = entry.owner
+  end
+end
+
+function component.each(instance, dom, anchor, list_fn, item_builder, empty_builder, keyed)
   local ssr = require("lunar.runtime.ssr")
   local state = new_block_state()
   own_block(instance, dom, state)
   component.effect(instance, function()
     local list = ssr.list(list_fn())
     signal.untrack(function()
-      clear_block(dom, state)
+      if not keyed then
+        clear_block(dom, state)
+        if #list == 0 then
+          if empty_builder then render_block(instance, dom, anchor, state, empty_builder) end
+          return
+        end
+        for index, item in ipairs(list) do
+          render_block(instance, dom, anchor, state, item_builder, item, index)
+        end
+        return
+      end
+
+      if #list == 0 or state.entries == nil then
+        clear_block(dom, state)
+        state.entries = nil
+      end
       if #list == 0 then
         if empty_builder then render_block(instance, dom, anchor, state, empty_builder) end
         return
       end
-      for index, item in ipairs(list) do
-        render_block(instance, dom, anchor, state, item_builder, item, index)
-      end
+      reconcile(instance, dom, anchor, state, list, item_builder, keyed)
     end)
   end)
 end

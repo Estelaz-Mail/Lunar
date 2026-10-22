@@ -507,8 +507,13 @@ local function client_each(node, w, options)
   local item_builder = builder(node.children, w, options,
     node.item .. ", " .. (node.index or "__index"))
   local empty = node.else_children and builder(node.else_children, w, options) or "nil"
-  w:line(string.format("__rt.each(__self, __d, %s, function() return %s end, %s, %s)",
-    anchor, node.list, item_builder, empty))
+  local keyed = "nil"
+  if node.key then
+    keyed = string.format("{ key = function(%s, %s) return %s end, index = %s }",
+      node.item, node.index or "__index", node.key, node.index and "true" or "false")
+  end
+  w:line(string.format("__rt.each(__self, __d, %s, function() return %s end, %s, %s, %s)",
+    anchor, node.list, item_builder, empty, keyed))
 end
 
 client_nodes = function(nodes, w, options)
