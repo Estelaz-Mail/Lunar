@@ -1,4 +1,5 @@
 local fs = require("lunar.core.fs")
+local minify = require("lunar.core.minify")
 local json = require("lunar.core.json")
 local resolve = require("lunar.compiler.resolve")
 local util = require("lunar.core.util")
@@ -21,6 +22,13 @@ local MODULES = {
 
 local function module_name(path)
   return (path:gsub("%.lua$", ""):gsub("/", "."):gsub("%.init$", ""))
+end
+
+local function framework_source(app, path)
+  local source = util.read_file(path)
+  if not source then return nil end
+  if app.minify then return minify.lua_source(source) end
+  return source
 end
 
 local function preload(name, source, chunk_name)
@@ -63,7 +71,7 @@ function bundle.build(app)
 
   for _, relative in ipairs(MODULES) do
     local path = fs.join(app.framework, relative)
-    local source = util.read_file(path)
+    local source = framework_source(app, path)
     if not source then return nil, path .. " is missing from the framework" end
     parts[#parts + 1] = preload(module_name(relative), source, relative)
   end
@@ -86,15 +94,27 @@ function bundle.build(app)
     "package.preload[%q] = function() return %s end",
     "lunar.app.registry", bundle.literal(registry))
 
-  parts[#parts + 1] = table.concat({
+  if app.dev then
+    local path = fs.join(app.framework, "lunar/site/reload.lua")
+    local source = framework_source(app, path)
+    if source then
+      parts[#parts + 1] = preload("lunar.site.reload", source, "lunar/site/reload.lua")
+    end
+  end
+
+  local tail = {
     'local registry = require("lunar.app.registry")',
     'local started, failure = pcall(function()',
     '  require("lunar.site.boot").start(registry)',
     'end)',
     'if not started then print("lunar: the client half did not start: "'
       .. ' .. tostring(failure)) end',
-    'return registry',
-  }, "\n")
+  }
+  if app.dev then
+    tail[#tail + 1] = 'pcall(function() require("lunar.site.reload").watch() end)'
+  end
+  tail[#tail + 1] = 'return registry'
+  parts[#parts + 1] = table.concat(tail, "\n")
 
   local source = table.concat(parts, "\n\n") .. "\n"
   app.bundle_cache = source
@@ -205,7 +225,7 @@ function bundle.server(app, options)
 
   for _, relative in ipairs(SERVER_MODULES) do
     local path = fs.join(app.framework, relative)
-    local source = util.read_file(path)
+    local source = framework_source(app, path)
     if not source then return nil, path .. " is missing from the framework" end
     parts[#parts + 1] = preload(module_name(relative), source, relative)
   end

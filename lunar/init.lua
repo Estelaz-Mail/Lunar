@@ -28,23 +28,36 @@ function lunar.rate_limit_from_env()
   }
 end
 
+function lunar.listen_options(app, options)
+  options = options or {}
+  local declared = (app and app.manifest) or {}
+  local host = options.host or os.getenv("HOST") or declared.host
+    or options.default_host or "0.0.0.0"
+  local port = tonumber(options.port) or tonumber(os.getenv("PORT")) or declared.port or 3000
+  return host, port
+end
+
 function lunar.serve(options)
   options = options or {}
   if options.rate_limit == nil then options.rate_limit = lunar.rate_limit_from_env() end
   local app = lunar.app(options)
   local server = require("lunar.http.server")
+  local host, port = lunar.listen_options(app, options)
 
   server.serve({
-    host = options.host or "0.0.0.0",
-    port = options.port or 3000,
+    host = host,
+    port = port,
     handler = app:handler(),
     max_body_bytes = options.max_body_bytes,
     max_connections = options.max_connections,
     max_connections_per_ip = options.max_connections_per_ip,
     on_ready = options.on_ready or function()
       io.write(string.format("lunar %s listening on http://%s:%d (%s)\n",
-        lunar.VERSION, options.host or "0.0.0.0", options.port or 3000,
-        app.dev and "dev" or "production"))
+        lunar.VERSION, host, port, app.dev and "dev" or "production"))
+      io.flush()
+    end,
+    on_interrupt = options.on_interrupt or function()
+      io.write("\nlunar: stopped\n")
       io.flush()
     end,
   })

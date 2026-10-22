@@ -49,8 +49,9 @@ function cli.dev(argument)
   lunar.serve({
     root = root,
     dev = true,
-    host = os.getenv("HOST") or "127.0.0.1",
-    port = tonumber(os.getenv("PORT")) or 3000,
+    host = os.getenv("HOST"),
+    port = tonumber(os.getenv("PORT")),
+    default_host = "127.0.0.1",
   })
 end
 
@@ -59,8 +60,8 @@ function cli.serve(argument)
   lunar.serve({
     root = root,
     dev = false,
-    host = os.getenv("HOST") or "0.0.0.0",
-    port = tonumber(os.getenv("PORT")) or 3000,
+    host = os.getenv("HOST"),
+    port = tonumber(os.getenv("PORT")),
   })
 end
 

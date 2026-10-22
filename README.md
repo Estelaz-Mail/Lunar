@@ -23,6 +23,8 @@ From a clone, there is nothing to install: Lunar requires Lua 5.4, and LuaSocket
 bin/lunar dev examples/tranquility
 ```
 
+The development server listens on port 3000. It compiles components when they are requested and caches them by their own bytes, so an edit is live on the next request; it also notices files that appear or disappear, so a new route works without a restart. Pages opened from it reload themselves when anything in the application changes: the browser half polls `/_lunar/dev` for a counter the server moves when it sees a difference, and that endpoint and the script that polls it exist only in development.
+
 The development server listens on port 3000. Components are compiled when requested and cached until their source changes, so development does not require a separate build step.
 
 ## Components
@@ -69,11 +71,46 @@ A container that does not match what the page would have built is not patched in
 
 Links between application routes load route data and update the page without a full reload. Navigations are numbered, so a response that arrives for a navigation the visitor has already left is discarded instead of replacing a newer page. Ordinary page loads continue to work without client-side navigation.
 
+## The manifest
+
+An application can declare itself in a `lunar.json` at its root. Every field is optional, and anything passed to `lunar.app` or `lunar.serve` in code takes precedence over the file; `HOST` and `PORT` in the environment take precedence over the file's `host` and `port`.
+
+```json
+{
+  "name": "Tranquility",
+  "description": "The example app, which is also a fixture for the specs.",
+  "lang": "en",
+  "port": 3000
+}
+```
+
+| Field         | What it is                                                                 |
+| ------------- | -------------------------------------------------------------------------- |
+| `name`        | The application's name, and the document title when a page sets none.      |
+| `version`     | The version in asset URLs. Default: the time the process started.          |
+| `lang`        | The `lang` attribute of the document.                                      |
+| `host`        | The address to bind. Default: `0.0.0.0`, or `127.0.0.1` under `lunar dev`. |
+| `port`        | The port to bind. Default: 3000.                                           |
+| `client`      | `false` leaves the browser half out of the document entirely.              |
+| `dev`         | Development mode: live reload, no caching, errors in the response.         |
+| `minify`      | Whether the bundles are minified. Default: on outside development.         |
+| `stylesheets` | Stylesheet URLs to link in every document.                                 |
+| `security`    | Overrides for the security headers and the Content Security Policy.        |
+| `rate_limit`  | Overrides for the token buckets, in the shape `lunar.app` takes.           |
+
+`description`, `author`, `license`, `repository`, `homepage`, `keywords` and `private` are allowed and ignored, so a manifest can carry what a package registry would want. Any other key is an error naming the key, as is a field of the wrong type: a manifest that does not do what it says is worse than no manifest.
+
+There are no `scripts`. Running arbitrary commands would mean shelling out, which this framework does in exactly two places, both at build time, and a task runner is not worth being the third.
+
 ## Performance
 
 `bin/lunar bench [app]` measures the framework against the application given to it: how long its components take to compile, how many pages a second one process renders along with the latency spread and the memory each page allocates, what the takeover costs, and how many bytes the browser downloads. The numbers depend on the machine, which the output names. On one core of an ordinary x86-64 Linux machine, the example application renders between 5,500 and 8,000 pages a second, at a median of 0.12 to 0.16 ms and a 99th percentile under 0.5 ms, allocating 42 to 58 KB per page. A page here is every probe, every component, and the whole document, rendered from nothing with no cache in front of it.
 
 The browser downloads about 302 KB uncompressed for the example application: 215 KB of Fengari and 88 KB of application bundle. That is the cost of running Lua in the browser rather than compiling it to JavaScript, and it is paid once per version, after the server-rendered page is already visible. The same application frozen for an edge runtime is 143 KB.
+
+Outside development the framework's own modules are minified on their way into both bundles: comments, indentation and blank lines go, strings and line breaks stay. `minify` in the manifest, `MINIFY=0` in the environment, or `minify = false` passed to `lunar.app` turns it off. It is worth about 5%, because this source carries no comments to drop — 88 KB becomes 83 KB, and the frozen application 145 KB becomes 136 KB. The generated component modules are left alone on purpose: minifying them saves another 1.4 KB and costs the line numbers that make a runtime error point back at the `.lunar` file.
+
+The honest comparison is that the same bundle is 17 KB gzipped, and Fengari 68 KB. Compression is four times the win minification is, and Lunar does not do it yet: it would mean an implementation of DEFLATE in Lua, since the rule about dependencies rules out zlib. Put a proxy in front and let it compress, which is what the server's headers already assume.
 
 `bin/lunar bench --http URL` drives a running server over keep-alive connections and reports requests a second and the latency spread. On the same machine as the server, with 32 keep-alive connections and the client in one process of its own, the example application answers about 4,200 requests a second at a median of 7.5 ms, 8.7 ms at the 95th percentile and 11.4 ms at the 99th. Both sides are competing for the same cores, so that is a floor rather than a ceiling. Run the server with `RATE_LIMIT=0` for a load test, since the rate limiter exists to stop exactly what a load test does.
 

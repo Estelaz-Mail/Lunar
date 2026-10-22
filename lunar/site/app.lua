@@ -6,8 +6,10 @@ local render = require("lunar.site.render")
 local response = require("lunar.http.response")
 local routes_lib = require("lunar.site.routes")
 local security_lib = require("lunar.http.security")
+local manifest_lib = require("lunar.site.manifest")
 local static_lib = require("lunar.http.static")
 local util = require("lunar.core.util")
+local watch_lib = require("lunar.site.watch")
 
 local app = {}
 
@@ -15,6 +17,14 @@ local App = {}
 App.__index = App
 
 local function compiler_lib() return require("lunar.compiler") end
+
+local function minify_setting(value, dev)
+  if value ~= nil then return value and true or false end
+  local flag = os.getenv("MINIFY")
+  if flag == "0" or flag == "false" or flag == "no" then return false end
+  if flag == "1" or flag == "true" or flag == "yes" then return true end
+  return not dev
+end
 local function bundle_lib() return require("lunar.site.bundle") end
 
 local function framework_root()
@@ -26,16 +36,28 @@ function app.new(options)
   options = options or {}
   local root = (options.root or "."):gsub("/+$", "")
 
+  local declared, manifest_error = manifest_lib.read(root)
+  if not declared then error(manifest_error, 0) end
+
+  local function pick(key, fallback)
+    if options[key] ~= nil then return options[key] end
+    if declared[key] ~= nil then return declared[key] end
+    return fallback
+  end
+
   local self = setmetatable({
     root = root,
-    dev = options.dev ~= false,
-    name = options.name or fs.basename(root ~= "" and root or "lunar"),
-    lang = options.lang or "en",
-    client = options.client ~= false,
+    dev = pick("dev", true) ~= false,
+    name = pick("name", fs.basename(root ~= "" and root or "lunar")),
+    lang = pick("lang", "en"),
+    client = pick("client", true) ~= false,
     framework = options.framework or framework_root(),
-    stylesheets = options.stylesheets or {},
+    stylesheets = pick("stylesheets", {}),
+    manifest = declared,
     modules = {},
   }, App)
+
+  self.minify = minify_setting(pick("minify", nil), self.dev)
 
   package.path = table.concat({
     fs.join(root, "lib") .. "/?.lua",
@@ -48,7 +70,7 @@ function app.new(options)
   self.cache:install()
   self.routes = routes_lib.discover(fs.join(root, "orbit"))
 
-  self.version = tostring(options.version or os.time())
+  self.version = tostring(pick("version", nil) or os.time())
 
   self.shell = util.read_file(fs.join(root, "app.html"))
 
@@ -62,10 +84,29 @@ function app.new(options)
     version = self.version,
   })
 
-  self.security = security_lib.new(options.security or {})
-  self.limiter = ratelimit.new(options.rate_limit or {})
+  self.security = security_lib.new(pick("security", {}))
+  self.limiter = ratelimit.new(pick("rate_limit", {}))
+
+  if self.dev and options.watch ~= false then
+    self.watcher = watch_lib.new({ root = root, interval = options.watch_interval })
+  end
 
   return self
+end
+
+function App:refresh(force)
+  if not self.watcher then return false end
+  if not self.watcher:changed({ force = force }) then return false end
+
+  self.routes = routes_lib.discover(fs.join(self.root, "orbit"))
+  self.shell = util.read_file(fs.join(self.root, "app.html"))
+  self.modules = {}
+  self.bundle_cache = nil
+  return true
+end
+
+function App:generation()
+  return self.watcher and self.watcher.generation or 0
 end
 
 function App:module(path)
@@ -197,6 +238,12 @@ function App:framework_response(req)
 
   if self.frozen then return nil end
 
+  if path == "/_lunar/dev" then
+    if not self.watcher then return nil end
+    return response.json({ generation = self:generation(), version = self.version }, 200,
+      { ["Cache-Control"] = "no-store" })
+  end
+
   if path == "/_lunar/moonlight.lua" then
     local source, err = bundle_lib().build(self)
     if not source then
@@ -223,6 +270,8 @@ end
 
 
 function App:handle(req)
+  if self.watcher then self:refresh() end
+
   local limited = self.limiter_middleware or self.limiter:middleware()
   self.limiter_middleware = limited
   local refused = limited(req)

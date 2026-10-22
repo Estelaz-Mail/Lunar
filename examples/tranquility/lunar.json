@@ -1,0 +1,6 @@
+{
+	"name": "Tranquility",
+	"description": "The example app, which is also a fixture for the specs.",
+	"lang": "en",
+	"port": 3000
+}

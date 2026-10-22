@@ -1,0 +1,125 @@
+local fs = require("lunar.core.fs")
+local json = require("lunar.core.json")
+local lunar = require("lunar")
+local request = require("lunar.http.request")
+local util = require("lunar.core.util")
+
+local T = {}
+
+local function temp_app(files)
+  local root = fs.join(os.getenv("TMPDIR") or "/tmp",
+    string.format("lunar-dev-%d-%d", os.time(), math.random(100000)))
+  for relative, source in pairs(files) do
+    local path = fs.join(root, relative)
+    fs.mkdirp(fs.dirname(path))
+    assert(util.write_file(path, source))
+  end
+  return root
+end
+
+local function get(instance, path, headers)
+  local all = headers or {}
+  all.host = "localhost"
+  local req = request.new({ method = "GET", target = path, headers = all }, {})
+  req.ip = "203.0.113.4"
+  return instance:handler()(req)
+end
+
+local HOME = [[
+<script>
+  props { data = {} }
+</script>
+<h1>home</h1>
+]]
+
+local ABOUT = [[
+<script>
+  props { data = {} }
+</script>
+<h1>about</h1>
+]]
+
+function T.picks_up_a_new_route_without_a_restart()
+  local root = temp_app({ ["orbit/page.lunar"] = HOME })
+  local instance = lunar.app({ root = root, dev = true, version = "spec",
+    watch_interval = 0 })
+
+  assert(get(instance, "/").status == 200)
+  assert(get(instance, "/about").status == 404, "there is no /about yet")
+
+  fs.mkdirp(fs.join(root, "orbit/about"))
+  assert(util.write_file(fs.join(root, "orbit/about/page.lunar"), ABOUT))
+
+  local answer = get(instance, "/about")
+  assert(answer.status == 200, "the new route answered " .. answer.status)
+  assert(answer.body:find("<h1>about</h1>", 1, true), "and it is the new page")
+
+  os.execute("rm -rf " .. root)
+end
+
+function T.forgets_a_route_that_was_deleted()
+  local root = temp_app({
+    ["orbit/page.lunar"] = HOME,
+    ["orbit/about/page.lunar"] = ABOUT,
+  })
+  local instance = lunar.app({ root = root, dev = true, version = "spec",
+    watch_interval = 0 })
+
+  assert(get(instance, "/about").status == 200)
+  os.remove(fs.join(root, "orbit/about/page.lunar"))
+  assert(get(instance, "/about").status == 404, "the deleted route is gone")
+
+  os.execute("rm -rf " .. root)
+end
+
+function T.reports_a_generation_that_moves_when_a_source_changes()
+  local root = temp_app({ ["orbit/page.lunar"] = HOME })
+  local instance = lunar.app({ root = root, dev = true, version = "spec",
+    watch_interval = 0 })
+
+  local first = json.decode(get(instance, "/_lunar/dev").body)
+  assert(type(first.generation) == "number", "the endpoint reports a generation")
+  local again = json.decode(get(instance, "/_lunar/dev").body)
+  assert(again.generation == first.generation, "nothing changed, so it stood still")
+
+  assert(util.write_file(fs.join(root, "orbit/page.lunar"), HOME .. "<p>more</p>\n"))
+  local moved = json.decode(get(instance, "/_lunar/dev").body)
+  assert(moved.generation > first.generation, "an edit moved it")
+
+  local answer = get(instance, "/")
+  assert(answer.body:find("<p>more</p>", 1, true), "and the page is the edited one")
+
+  os.execute("rm -rf " .. root)
+end
+
+function T.has_no_watcher_and_no_endpoint_in_production()
+  local root = temp_app({ ["orbit/page.lunar"] = HOME })
+  local instance = lunar.app({ root = root, dev = false, version = "spec" })
+
+  assert(instance.watcher == nil, "production does not watch")
+  assert(instance:generation() == 0)
+  assert(get(instance, "/_lunar/dev").status == 404, "and does not answer the poll")
+
+  os.execute("rm -rf " .. root)
+end
+
+function T.the_dev_bundle_carries_the_reloader_and_the_other_does_not()
+  local root = temp_app({ ["orbit/page.lunar"] = HOME })
+  local bundle = require("lunar.site.bundle")
+
+  local development = lunar.app({ root = root, dev = true, version = "spec" })
+  local source = assert(bundle.build(development))
+  assert(source:find('package.preload["lunar.site.reload"]', 1, true),
+    "the dev bundle carries the reloader")
+  assert(source:find('require("lunar.site.reload").watch()', 1, true),
+    "and starts it")
+
+  local production = lunar.app({ root = root, dev = false, version = "spec" })
+  local plain = assert(bundle.build(production))
+  assert(not plain:find("lunar.site.reload", 1, true),
+    "a production bundle carries nothing of the sort")
+
+  os.execute("rm -rf " .. root)
+end
+
+return T
