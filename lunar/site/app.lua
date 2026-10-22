@@ -34,7 +34,8 @@ end
 
 function app.new(options)
   options = options or {}
-  local root = (options.root or "."):gsub("/+$", "")
+  local root = require("lunar.compiler.resolve").normalize(options.root or ".")
+  if root == "." then root = "" end
 
   local declared, manifest_error = manifest_lib.read(root)
   if not declared then error(manifest_error, 0) end

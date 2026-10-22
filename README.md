@@ -100,6 +100,21 @@ An application can declare itself in a `lunar.json` at its root. Every field is 
 | `security`    | Overrides for the security headers and the Content Security Policy.        |
 | `rate_limit`  | Overrides for the token buckets, in the shape `lunar.app` takes.           |
 
+A third-party script or an API on another origin is declared in `security.extra`, which widens one directive and leaves the rest of the policy alone:
+
+```json
+{
+  "security": {
+    "extra": {
+      "script-src": ["https://cdn.example.com"],
+      "connect-src": ["https://api.example.com"]
+    }
+  }
+}
+```
+
+An inline script is allowed by the SHA-256 of its bytes through `security.script_hashes`, never by a nonce and never by `unsafe-eval`. Nothing Lunar ships needs either: the vendored Fengari contains no `eval` and no `new Function`, and the document's own data is an `application/json` block a browser does not run.
+
 `description`, `author`, `license`, `repository`, `homepage`, `keywords` and `private` are allowed and ignored, so a manifest can carry what a package registry would want. Any other key is an error naming the key, as is a field of the wrong type: a manifest that does not do what it says is worse than no manifest.
 
 There are no `scripts`. Running arbitrary commands would mean shelling out, which this framework does in exactly two places, both at build time, and a task runner is not worth being the third.

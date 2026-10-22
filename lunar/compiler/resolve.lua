@@ -1,5 +1,29 @@
 local resolve = {}
 
+function resolve.normalize(path)
+  if path == nil or path == "" then return "" end
+
+  local absolute = path:sub(1, 1) == "/"
+  local out = {}
+  for segment in path:gmatch("[^/]+") do
+    if segment == ".." then
+      local last = out[#out]
+      if last ~= nil and last ~= ".." then
+        out[#out] = nil
+      elseif not absolute then
+        out[#out + 1] = ".."
+      end
+    elseif segment ~= "." then
+      out[#out + 1] = segment
+    end
+  end
+
+  local joined = table.concat(out, "/")
+  if absolute then return "/" .. joined end
+  if joined == "" then return "." end
+  return joined
+end
+
 function resolve.path(request, from, root)
   local path = request
 
@@ -10,25 +34,20 @@ function resolve.path(request, from, root)
     path = directory .. "/" .. request
   end
 
-  path = path:gsub("/%./", "/"):gsub("^%./", "")
-  while true do
-    local collapsed, count = path:gsub("[^/]+/%.%./", "", 1)
-    path = collapsed
-    if count == 0 then break end
-  end
-
+  path = resolve.normalize(path)
   if not path:match("%.lunar$") then path = path .. ".lunar" end
   return path
 end
 
 function resolve.module_name(path)
-  return "lunar.app:" .. path
+  return "lunar.app:" .. resolve.normalize(path)
 end
 
 function resolve.registry_resolver(registry)
   return function(request, from)
     local path = resolve.path(request, from, registry.root or "")
-    local name = (registry.components or {})[path]
+    local components = registry.components or {}
+    local name = components[path] or components[resolve.normalize(path)]
     if not name then return nil, path .. " is not in the bundle" end
     local ok, def = pcall(require, name)
     if not ok then return nil, tostring(def) end

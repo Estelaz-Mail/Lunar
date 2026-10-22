@@ -8,12 +8,12 @@ local T = {}
 
 local APP = "examples/tranquility"
 
-local function app()
-  return lunar.app({ root = APP, dev = false, version = "spec" })
+local function app(root)
+  return lunar.app({ root = root or APP, dev = false, version = "spec" })
 end
 
-local function frozen_fetch()
-  local source, err = bundle.server(app())
+local function frozen_fetch(root)
+  local source, err = bundle.server(app(root))
   assert(source, err)
 
   local saved_preload, saved_loaded = {}, {}
@@ -164,6 +164,85 @@ function T.generates_every_file_the_deploy_needs()
     "the socket server has no business on an edge runtime")
 
   os.execute("rm -rf " .. out)
+end
+
+local function outside_the_working_directory()
+  local root = string.format("%s/lunar-frozen-%d-%d", os.getenv("TMPDIR") or "/tmp",
+    os.time(), math.random(100000))
+  local fs = require("lunar.core.fs")
+  local util = require("lunar.core.util")
+
+  fs.mkdirp(fs.join(root, "orbit"))
+  fs.mkdirp(fs.join(root, "lib"))
+  assert(util.write_file(fs.join(root, "orbit/page.lunar"), [[
+<script>
+  props { data = {} }
+  local Card = import("./Card.lunar")
+  local Nav = import("/lib/Nav.lunar")
+</script>
+<h1>frozen</h1>
+<Card title="a sibling" />
+<Nav label="a library" />
+]]))
+  assert(util.write_file(fs.join(root, "orbit/Card.lunar"), [[
+<script>
+  props { title = "untitled" }
+</script>
+<section class="card">{title}</section>
+]]))
+  assert(util.write_file(fs.join(root, "lib/Nav.lunar"), [[
+<script>
+  props { label = "nav" }
+</script>
+<nav>{label}</nav>
+]]))
+
+  local cwd = os.getenv("PWD") or "."
+  local depth = 0
+  for _ in cwd:gmatch("[^/]+") do depth = depth + 1 end
+  local spelled = ("../"):rep(depth) .. root:gsub("^/", "")
+  return root, spelled
+end
+
+function T.an_app_outside_the_working_directory_keeps_its_imports()
+  local root, spelled = outside_the_working_directory()
+
+  local fetch, restore = frozen_fetch(spelled)
+  local ok, err = pcall(function()
+    local home = serve(fetch, "GET", "/")
+    assert(home.status == 200, "the page answered " .. home.status
+      .. ": " .. tostring(home.body):sub(1, 200))
+    assert(home.body:find("a sibling", 1, true),
+      "the sibling import rendered, which a collapsed ../ breaks")
+    assert(home.body:find("a library", 1, true), "and so did the one from lib/")
+  end)
+  restore()
+  os.execute("rm -rf " .. root)
+  assert(ok, err)
+end
+
+function T.an_app_reached_through_its_parent_freezes_the_same_way()
+  local sideways = "examples/../examples/tranquility"
+
+  local plain = app()
+  local reached = app(sideways)
+  assert(#plain.routes == #reached.routes, "the same routes were found")
+
+  local fetch, restore = frozen_fetch(sideways)
+  local ok, err = pcall(function()
+    local home = serve(fetch, "GET", "/")
+    assert(home.status == 200, "the home page answered " .. home.status
+      .. ": " .. tostring(home.body):sub(1, 200))
+    assert(home.body:find("A framework in Lua", 1, true), "the page rendered")
+    assert(home.body:find('class="counter', 1, true),
+      "and so did the component it imports, which is what a collapsed path breaks")
+
+    local post = serve(fetch, "GET", "/blog/why-lua")
+    assert(post.status == 200, post.status)
+    assert(post.body:find("Why Lua", 1, true))
+  end)
+  restore()
+  assert(ok, err)
 end
 
 return T
