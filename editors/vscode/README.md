@@ -27,6 +27,17 @@ inside it, which is why a runtime error points back at the component.
 **The commands you would otherwise type:** the dev server, the build check,
 the orbit, the tests.
 
+**It finds the CLI by itself.** `bin/lunar` is looked for in the folder you have
+open and in every parent of it, so working inside a subdirectory of a checkout
+is no different from working at its root, and `lunar` on your `PATH` is used
+when there is no checkout at all. What was found is in the status bar while a
+`.lunar` file is open, with the version it reported. When it cannot be found,
+the warning says how many places were tried, the output channel lists them one
+by one, and **Lunar: Locate the CLI** opens a file picker that writes
+`lunar.path` for you. A CLI that is there but not executable, and one that
+cannot start because Lua is missing, say exactly that rather than failing as a
+compiler error. **Lunar: CLI status** asks again and reports what it found.
+
 **Go to definition** on `import("./Card.lunar")`, resolved the way the compiler
 resolves it.
 
@@ -36,19 +47,19 @@ resolves it.
 
 ## Settings
 
-| Setting                      | What it is                                                                    |
-| ---------------------------- | ----------------------------------------------------------------------------- |
-| `lunar.path`                 | Path to the CLI. Empty: `bin/lunar` in the workspace, then `lunar` on `PATH`. |
-| `lunar.app`                  | The app directory. Empty: the nearest ancestor with a `routes/` in it.        |
-| `lunar.diagnostics.run`      | `onType` (default), `onSave`, `off`.                                          |
-| `lunar.diagnostics.debounce` | Milliseconds after the last keystroke before re-checking.                     |
-| `lunar.lua`                  | The Lua interpreter the CLI runs under, passed as `LUA`.                      |
+| Setting                      | What it is                                                                                             |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `lunar.path`                 | Path to the CLI. Empty: `bin/lunar` in the folder you have open or any parent, then `lunar` on `PATH`. |
+| `lunar.app`                  | The app directory. Empty: the nearest ancestor with an `orbit/` in it.                                 |
+| `lunar.diagnostics.run`      | `onType` (default), `onSave`, `off`.                                                                   |
+| `lunar.diagnostics.debounce` | Milliseconds after the last keystroke before re-checking.                                              |
+| `lunar.lua`                  | The Lua interpreter the CLI runs under, passed as `LUA`.                                               |
 
 ## Running it from a checkout
 
 ```sh
 code --extensionDevelopmentPath="$PWD" ../../examples/tranquility
-npm run check          # the grammar and the manifest, without an editor
+npm run check          # the grammar, the manifest and the CLI search, without an editor
 npm run package        # a .vsix, with @vscode/vsce
 ```
 

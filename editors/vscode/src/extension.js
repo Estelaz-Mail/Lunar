@@ -8,8 +8,14 @@ const path = require("path");
 
 let diagnostics;
 let output;
+let status;
+let cli = null;
+let warned = null;
 
 const timers = new Map();
+
+const CLI_NAMES = process.platform === "win32" ? ["lunar.cmd", "lunar.exe", "lunar"] : ["lunar"];
+const SEARCH_DEPTH = 8;
 
 const WITH_LINE = /^lunar:\s+(.*?):(\d+):\s*(.+)$/;
 const WITHOUT_LINE = /^lunar:\s+(.*?):\s*(.+)$/;
@@ -17,7 +23,9 @@ const WITHOUT_LINE = /^lunar:\s+(.*?):\s*(.+)$/;
 function activate(context) {
 	diagnostics = vscode.languages.createDiagnosticCollection("lunar");
 	output = vscode.window.createOutputChannel("Lunar");
-	context.subscriptions.push(diagnostics, output);
+	status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+	status.command = "lunar.status";
+	context.subscriptions.push(diagnostics, output, status);
 
 	context.subscriptions.push(
 		vscode.workspace.onDidOpenTextDocument((doc) => maybeCheck(doc, false)),
@@ -41,6 +49,19 @@ function activate(context) {
 		),
 		vscode.commands.registerCommand("lunar.routes", () => showOrbit()),
 		vscode.commands.registerCommand("lunar.spec", () => runInTerminal("spec", ["spec"])),
+		vscode.commands.registerCommand("lunar.locateCli", () => locateCli()),
+		vscode.commands.registerCommand("lunar.status", () => showStatus()),
+	);
+
+	context.subscriptions.push(
+		vscode.window.onDidChangeActiveTextEditor(() => updateStatus()),
+		vscode.workspace.onDidChangeWorkspaceFolders(() => refreshCli()),
+		vscode.workspace.onDidChangeConfiguration((event) => {
+			if (event.affectsConfiguration("lunar.path") || event.affectsConfiguration("lunar.lua")) {
+				warned = null;
+				refreshCli();
+			}
+		}),
 	);
 
 	context.subscriptions.push(
@@ -50,6 +71,7 @@ function activate(context) {
 		),
 	);
 
+	refreshCli();
 	for (const doc of vscode.workspace.textDocuments) maybeCheck(doc, false);
 }
 
@@ -90,8 +112,12 @@ function clearTimer(key) {
 
 function check(doc) {
 	compile(doc, (error, stdout, stderr) => {
-		if (error && error.code === "ENOENT") {
-			promptMissingCli();
+		if (error && (error.code === "ENOENT" || error.code === "EACCES")) {
+			refreshCli();
+			return;
+		}
+		if (error && !String(stderr || "").includes("lunar:")) {
+			blame(String(stderr || error.message));
 			return;
 		}
 		diagnostics.set(
@@ -102,7 +128,8 @@ function check(doc) {
 }
 
 function compile(doc, done) {
-	const cli = resolveCli();
+	const found = cliOrWarn();
+	if (!found) return;
 	let target = doc.uri.fsPath;
 	let temporary = null;
 
@@ -121,8 +148,8 @@ function compile(doc, done) {
 	}
 
 	cp.execFile(
-		cli.command,
-		[...cli.args, "compile", target],
+		found.command,
+		[...found.args, "compile", target],
 		{ timeout: 10000, cwd: workspaceRoot(), env: environment(), maxBuffer: 8 * 1024 * 1024 },
 		(error, stdout, stderr) => {
 			if (temporary) fs.rm(path.dirname(temporary), { recursive: true, force: true }, () => {});
@@ -190,8 +217,12 @@ function showCompiled() {
 	if (!doc) return;
 
 	compile(doc, async (error, stdout, stderr) => {
-		if (error && error.code === "ENOENT") {
-			promptMissingCli();
+		if (error && (error.code === "ENOENT" || error.code === "EACCES")) {
+			refreshCli();
+			return;
+		}
+		if (error && !String(stderr || "").includes("lunar:")) {
+			blame(String(stderr || error.message));
 			return;
 		}
 		if (error) {
@@ -214,14 +245,19 @@ function showCompiled() {
 }
 
 function showOrbit() {
-	const cli = resolveCli();
+	const found = cliOrWarn();
+	if (!found) return;
 	cp.execFile(
-		cli.command,
-		[...cli.args, "map", appRoot()],
+		found.command,
+		[...found.args, "map", appRoot()],
 		{ timeout: 15000, cwd: workspaceRoot(), env: environment() },
 		(error, stdout, stderr) => {
-			if (error && error.code === "ENOENT") {
-				promptMissingCli();
+			if (error && (error.code === "ENOENT" || error.code === "EACCES")) {
+				refreshCli();
+				return;
+			}
+			if (error && !String(stderr || "").includes("lunar:")) {
+				blame(String(stderr || error.message));
 				return;
 			}
 			output.show(true);
@@ -231,13 +267,14 @@ function showOrbit() {
 }
 
 function runInTerminal(name, args) {
-	const cli = resolveCli();
+	const found = cliOrWarn();
+	if (!found) return;
 	const terminal = vscode.window.createTerminal({
 		name: `lunar ${name}`,
 		cwd: workspaceRoot(),
 	});
 	terminal.show();
-	terminal.sendText([cli.command, ...cli.args, ...args].map(quote).join(" "));
+	terminal.sendText([found.command, ...found.args, ...args].map(quote).join(" "));
 }
 
 function resolveImport(doc, position) {
@@ -283,37 +320,254 @@ function appRoot() {
 	return root ?? ".";
 }
 
-function resolveCli() {
-	const configured = config().get("path", "");
-	if (configured) return { command: configured, args: [] };
+function expandHome(value) {
+	if (value === "~") return os.homedir();
+	if (value.startsWith("~/")) return path.join(os.homedir(), value.slice(2));
+	return value;
+}
 
+function ancestors(from) {
+	const out = [];
+	let directory = from;
+	while (directory && out.length < SEARCH_DEPTH) {
+		out.push(directory);
+		const parent = path.dirname(directory);
+		if (parent === directory) break;
+		directory = parent;
+	}
+	return out;
+}
+
+function searchBases() {
+	const bases = [];
+	const open = vscode.window.activeTextEditor?.document.uri.fsPath;
+	if (open) bases.push(...ancestors(path.dirname(open)));
 	for (const folder of vscode.workspace.workspaceFolders ?? []) {
-		for (const relative of ["bin/lunar", "editors/../bin/lunar"]) {
-			const candidate = path.join(folder.uri.fsPath, relative);
-			if (fs.existsSync(candidate)) return { command: candidate, args: [] };
+		bases.push(...ancestors(folder.uri.fsPath));
+	}
+	return [...new Set(bases)];
+}
+
+function isExecutable(target) {
+	try {
+		const info = fs.statSync(target);
+		if (!info.isFile()) return false;
+		if (process.platform === "win32") return true;
+		return (info.mode & 0o111) !== 0;
+	} catch {
+		return false;
+	}
+}
+
+function onPath(name) {
+	for (const entry of (process.env.PATH ?? "").split(path.delimiter)) {
+		if (!entry) continue;
+		const candidate = path.join(entry, name);
+		if (isExecutable(candidate)) return candidate;
+	}
+	return null;
+}
+
+function candidates() {
+	const configured = config().get("path", "").trim();
+	if (configured) {
+		const expanded = expandHome(configured);
+		if (path.isAbsolute(expanded)) {
+			return [{ command: expanded, origin: "the lunar.path setting" }];
 		}
+		if (expanded.includes(path.sep) || expanded.includes("/")) {
+			return searchBases().map((base) => ({
+				command: path.join(base, expanded),
+				origin: `the lunar.path setting, under ${base}`,
+			}));
+		}
+		const found = onPath(expanded);
+		return found ? [{ command: found, origin: "the lunar.path setting, on your PATH" }] : [];
 	}
 
-	return { command: "lunar", args: [] };
+	const out = searchBases().map((base) => ({
+		command: path.join(base, "bin", "lunar"),
+		origin: `bin/lunar in ${base}`,
+	}));
+	for (const name of CLI_NAMES) {
+		const found = onPath(name);
+		if (found) out.push({ command: found, origin: "your PATH" });
+	}
+	return out;
+}
+
+function refreshCli() {
+	const tried = [];
+	let chosen = null;
+
+	for (const candidate of candidates()) {
+		tried.push(candidate.command);
+		if (!fs.existsSync(candidate.command)) continue;
+		chosen = { ...candidate, args: [] };
+		if (!isExecutable(candidate.command)) chosen.problem = "not-executable";
+		break;
+	}
+
+	cli = chosen ?? { command: null, args: [], origin: null, problem: "missing" };
+	cli.tried = tried;
+	logCli();
+	updateStatus();
+	if (cli.problem) {
+		warn();
+		return;
+	}
+	verifyCli();
+}
+
+function verifyCli() {
+	const target = cli;
+	cp.execFile(
+		target.command,
+		[...target.args, "help"],
+		{ timeout: 10000, cwd: workspaceRoot(), env: environment() },
+		(error, stdout, stderr) => {
+			if (cli !== target) return;
+			if (error) {
+				target.problem = error.code === "EACCES" ? "not-executable" : "broken";
+				target.detail = firstLine(stderr || error.message);
+			} else {
+				target.problem = null;
+				target.version = (String(stdout).match(/lunar\s+(\S+)/) ?? [])[1] ?? null;
+			}
+			logCli();
+			updateStatus();
+			if (target.problem) warn();
+		},
+	);
+}
+
+function cliOrWarn() {
+	if (!cli) refreshCli();
+	if (!cli || !cli.command) {
+		warn();
+		return null;
+	}
+	return cli;
+}
+
+function blame(text) {
+	if (!cli) return;
+	cli.problem = "broken";
+	cli.detail = firstLine(text);
+	logCli();
+	updateStatus();
+	warn();
+}
+
+function firstLine(text) {
+	return String(text || "")
+		.trim()
+		.split(/\r?\n/)[0];
+}
+
+function cliMessage() {
+	if (!cli || cli.problem === "missing") {
+		const places = cli?.tried?.length ?? 0;
+		return (
+			"Lunar: no CLI found. The extension looked in " +
+			`${places} place${places === 1 ? "" : "s"} — bin/lunar in the folder you have open ` +
+			"and its parents, and lunar on your PATH. Point lunar.path at bin/lunar in your checkout."
+		);
+	}
+	if (cli.problem === "not-executable") {
+		return `Lunar: ${cli.command} is there but is not executable. Run chmod +x on it.`;
+	}
+	if (cli.problem === "broken") {
+		const detail = cli.detail ? ` It said: ${cli.detail}` : "";
+		return (
+			`Lunar: ${cli.command} did not run.${detail} ` +
+			"The CLI needs Lua 5.4 on your PATH, or lunar.lua pointed at one."
+		);
+	}
+	return `Lunar: using ${cli.command}.`;
+}
+
+function warn() {
+	if (!cli || !cli.problem) return;
+	const key = `${cli.problem}:${cli.command ?? ""}:${cli.detail ?? ""}`;
+	if (warned === key) return;
+	warned = key;
+
+	const locate = "Locate the CLI…";
+	const settings = "Open settings";
+	const log = "Show log";
+	vscode.window.showWarningMessage(cliMessage(), locate, settings, log).then((choice) => {
+		if (choice === locate) vscode.commands.executeCommand("lunar.locateCli");
+		if (choice === settings) {
+			vscode.commands.executeCommand("workbench.action.openSettings", "lunar.path");
+		}
+		if (choice === log) output.show(true);
+	});
+}
+
+function logCli() {
+	if (!output) return;
+	if (cli?.command && !cli.problem) {
+		const version = cli.version ? ` (${cli.version})` : "";
+		output.appendLine(`cli: ${cli.command}${version}, found via ${cli.origin}`);
+		return;
+	}
+	output.appendLine(`cli: ${cliMessage()}`);
+	for (const candidate of cli?.tried ?? []) output.appendLine(`  tried ${candidate}`);
+}
+
+function updateStatus() {
+	if (!status) return;
+	if (!cli || cli.problem) {
+		status.text = "$(warning) Lunar";
+		status.tooltip = cliMessage();
+		status.backgroundColor = new vscode.ThemeColor("statusBarItem.warningBackground");
+		status.show();
+		return;
+	}
+	status.text = "$(check) Lunar";
+	status.tooltip = `${cli.command}${cli.version ? ` — ${cli.version}` : ""}\nFound via ${cli.origin}.`;
+	status.backgroundColor = undefined;
+	if (vscode.window.activeTextEditor?.document.languageId === "lunar") {
+		status.show();
+	} else {
+		status.hide();
+	}
+}
+
+async function locateCli() {
+	const root = workspaceRoot();
+	const picked = await vscode.window.showOpenDialog({
+		title: "Select the lunar CLI",
+		openLabel: "Use this CLI",
+		canSelectMany: false,
+		defaultUri: root ? vscode.Uri.file(path.join(root, "bin")) : undefined,
+	});
+	if (!picked || picked.length === 0) return;
+
+	const scope = vscode.workspace.workspaceFolders?.length
+		? vscode.ConfigurationTarget.Workspace
+		: vscode.ConfigurationTarget.Global;
+	await config().update("path", picked[0].fsPath, scope);
+	warned = null;
+	refreshCli();
+}
+
+function showStatus() {
+	warned = null;
+	refreshCli();
+	output.show(true);
+	if (cli?.problem) return;
+	const version = cli.version ? ` (${cli.version})` : "";
+	vscode.window.showInformationMessage(
+		`Lunar: using ${cli.command}${version}, found via ${cli.origin}.`,
+	);
 }
 
 function environment() {
 	const lua = config().get("lua", "");
 	if (!lua) return process.env;
 	return { ...process.env, LUA: lua };
-}
-
-function promptMissingCli() {
-	vscode.window
-		.showWarningMessage(
-			"Lunar: the CLI was not found. Point `lunar.path` at bin/lunar in your checkout.",
-			"Open settings",
-		)
-		.then((choice) => {
-			if (choice === "Open settings") {
-				vscode.commands.executeCommand("workbench.action.openSettings", "lunar.path");
-			}
-		});
 }
 
 function quote(value) {

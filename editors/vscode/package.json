@@ -3,12 +3,12 @@
 	"displayName": "Lunar",
 	"description": "Syntax highlighting, diagnostics and commands for Lunar components (.lunar) — the web framework in Lua.",
 	"version": "0.1.0",
-	"icon": "images/icon.png",
 	"publisher": "glazastov",
 	"license": "MIT",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/Glazastyy/Lunar"
+	"icon": "images/icon.png",
+	"galleryBanner": {
+		"color": "#4800e4",
+		"theme": "dark"
 	},
 	"engines": {
 		"vscode": "^1.75.0"
@@ -25,6 +25,15 @@
 		"ssr",
 		"web framework"
 	],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Glazastyy/Lunar.git"
+	},
+	"homepage": "https://github.com/Glazastyy/Lunar/tree/main/editors/vscode",
+	"bugs": {
+		"url": "https://github.com/Glazastyy/Lunar/issues"
+	},
+	"qna": "marketplace",
 	"main": "./src/extension.js",
 	"contributes": {
 		"languages": [
@@ -93,6 +102,16 @@
 				"command": "lunar.spec",
 				"title": "Lunar: Run the tests",
 				"category": "Lunar"
+			},
+			{
+				"command": "lunar.status",
+				"title": "Lunar: CLI status",
+				"category": "Lunar"
+			},
+			{
+				"command": "lunar.locateCli",
+				"title": "Lunar: Locate the CLI",
+				"category": "Lunar"
 			}
 		],
 		"menus": {
@@ -110,7 +129,7 @@
 				"lunar.path": {
 					"type": "string",
 					"default": "",
-					"markdownDescription": "Path to the `lunar` CLI. When empty, the extension looks for `bin/lunar` in each workspace folder, then `lunar` on your `PATH`."
+					"markdownDescription": "Path to the `lunar` CLI. When empty, the extension looks for `bin/lunar` in the folder you have open and in each of its parents, then for `lunar` on your `PATH`. A relative path is resolved against those same folders, and `~` is your home directory. Run **Lunar: CLI status** to see what was found and where."
 				},
 				"lunar.app": {
 					"type": "string",
@@ -145,14 +164,14 @@
 			}
 		}
 	},
+	"scripts": {
+		"check": "node scripts/check-grammar.mjs && node scripts/check-extension.mjs && node scripts/check-tokens.mjs && node scripts/check-cli.mjs",
+		"icons": "sh scripts/icons.sh",
+		"package": "npx --yes @vscode/vsce package"
+	},
 	"devDependencies": {
 		"@types/node": "^20.0.0",
 		"@types/vscode": "^1.75.0"
-	},
-	"scripts": {
-		"check": "node scripts/check-grammar.mjs && node scripts/check-extension.mjs && node scripts/check-tokens.mjs",
-		"icons": "sh scripts/icons.sh",
-		"package": "npx --yes @vscode/vsce package"
 	},
 	"dependencies": {
 		"vscode-oniguruma": "^2.0.1",
