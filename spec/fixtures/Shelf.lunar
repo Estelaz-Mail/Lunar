@@ -1,0 +1,3 @@
+<header class="head"><slot name="head" /></header>
+<div class="body"><slot /></div>
+<footer class="foot"><slot name="foot">nothing yet</slot></footer>

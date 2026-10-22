@@ -215,6 +215,31 @@ local function ssr_element(node, w, options)
   w:static("</" .. node.tag .. ">")
 end
 
+local function slot_groups(children)
+  local default, named, order = {}, {}, {}
+  for _, child in ipairs(children) do
+    local target = child.slot_target
+    if target then
+      if not named[target] then
+        named[target] = {}
+        order[#order + 1] = target
+      end
+      local group = named[target]
+      group[#group + 1] = child
+    else
+      default[#default + 1] = child
+    end
+  end
+  if #order > 0 then
+    local meaningful = false
+    for _, child in ipairs(default) do
+      if child.kind ~= "text" or child.value:match("%S") then meaningful = true break end
+    end
+    if not meaningful then default = {} end
+  end
+  return default, named, order
+end
+
 local function ssr_component(node, w, options)
   local parts = sort_attributes(node, nil)
   if #parts.events > 0 then
@@ -238,12 +263,26 @@ local function ssr_component(node, w, options)
     props_table = string.format("__merge(%s, %s)", props_table, spread.code)
   end
 
-  local slot = "nil"
-  if #node.children > 0 then
+  local function ssr_slot(children)
     local inner = writer({ indent = w.indent + 1, counter = w.counter })
     inner.out = "__out"
-    ssr_nodes(node.children, inner, options)
-    slot = "function(__out)\n" .. inner:body() .. "\n" .. string.rep("  ", w.indent) .. "end"
+    ssr_nodes(children, inner, options)
+    return "function(__out)\n" .. inner:body() .. "\n" .. string.rep("  ", w.indent) .. "end"
+  end
+
+  local default, named, order = slot_groups(node.children)
+  local slot = "nil"
+  if #order > 0 then
+    local fields = {}
+    if #default > 0 then
+      fields[#fields + 1] = string.format("[%q] = %s", "default", ssr_slot(default))
+    end
+    for _, name in ipairs(order) do
+      fields[#fields + 1] = string.format("[%q] = %s", name, ssr_slot(named[name]))
+    end
+    slot = "{" .. table.concat(fields, ", ") .. "}"
+  elseif #default > 0 then
+    slot = ssr_slot(default)
   end
 
   w:dynamic(string.format("__rt.render_child(__self, %s, %s, %s)", node.tag, props_table, slot))
@@ -331,7 +370,8 @@ ssr_nodes = function(nodes, w, options)
         fallback = "function(__out)\n" .. inner:body() .. "\n"
           .. string.rep("  ", w.indent) .. "end"
       end
-      w:line(string.format("__rt.render_slot(__self, __out, %s)", fallback))
+      w:line(string.format("__rt.render_slot(__self, __out, %s, %s)", fallback,
+        node.slot_name and string.format("%q", node.slot_name) or "nil"))
     end
   end
 end
@@ -506,7 +546,22 @@ client_nodes = function(nodes, w, options)
       for _, spread in ipairs(parts.spreads) do
         props_table = string.format("__merge(%s, %s)", props_table, spread.code)
       end
-      local slot = #node.children > 0 and builder(node.children, w, options) or "nil"
+      local default, named, order = slot_groups(node.children)
+      local slot = "nil"
+      if #order > 0 then
+        local fields = {}
+        if #default > 0 then
+          fields[#fields + 1] = string.format("[%q] = %s", "default",
+            builder(default, w, options))
+        end
+        for _, name in ipairs(order) do
+          fields[#fields + 1] = string.format("[%q] = %s", name,
+            builder(named[name], w, options))
+        end
+        slot = "{" .. table.concat(fields, ", ") .. "}"
+      elseif #default > 0 then
+        slot = builder(default, w, options)
+      end
       w:line(string.format("__rt.child(__self, __d, %s, %s, function() return %s end, %s)",
         w.parent, node.tag, props_table, slot))
     elseif kind == "if" then
@@ -518,7 +573,8 @@ client_nodes = function(nodes, w, options)
         builder(node.children, w, head_options(options))))
     elseif kind == "slot" then
       local fallback = #node.children > 0 and builder(node.children, w, options) or "nil"
-      w:line(string.format("__rt.slot(__self, __d, %s, %s)", w.parent, fallback))
+      w:line(string.format("__rt.slot(__self, __d, %s, %s, %s)", w.parent, fallback,
+        node.slot_name and string.format("%q", node.slot_name) or "nil"))
     end
   end
 end

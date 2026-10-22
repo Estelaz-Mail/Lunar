@@ -34,7 +34,7 @@ function moonlight.mount_chain(defs, data, target, dom, options)
         local instance = component.create(def, {
           data = data[index] or {}, params = options.params or {},
         }, { dom = dom, client = true, ctx = ctx })
-        instance.slot_client = index < #defs and build(index + 1) or nil
+        instance.slots_client = index < #defs and { default = build(index + 1) } or nil
         instance:with_owner(instance, function()
           instance.render_client(parent, instance)
         end)

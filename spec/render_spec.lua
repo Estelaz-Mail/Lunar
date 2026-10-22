@@ -81,6 +81,41 @@ function T.renders_a_card_with_a_slot_and_its_fallback()
   assert(markup:find("no content", 1, true), "the slot fallback rendered")
 end
 
+function T.fills_the_named_slots_and_falls_back_to_the_rest()
+  local def = support.component("Panel")
+  support.assert_same(def, {})
+  local markup = support.ssr(def, {})
+  assert(markup:find('<header class="head"><h2>Title</h2></header>', 1, true), markup)
+  assert(markup:find('<div class="body"><p>body</p></div>', 1, true), markup)
+  assert(markup:find('<footer class="foot">nothing yet</footer>', 1, true),
+    "the empty named slot took its fallback")
+  assert(not markup:find("slot=", 1, true), "the slot attribute stayed out of the output")
+end
+
+function T.a_named_slot_reaches_the_browser_the_same_way()
+  local def = support.component("Panel")
+  support.assert_claims(def, {})
+end
+
+function T.a_component_with_only_named_children_leaves_no_stray_space()
+  local def = support.source([[
+<script>
+  local Shelf = import("./Shelf.lunar")
+</script>
+<Shelf>
+  <h2 slot="head">Title</h2>
+</Shelf>
+]], support.FIXTURES .. "/Only.lunar")
+
+  local markup = support.assert_same(def, {})
+  assert(markup:find('<div class="body"></div>', 1, true), markup)
+end
+
+function T.refuses_a_slot_attribute_outside_a_component()
+  local ok, err = pcall(support.source, '<div slot="head">x</div>', "Stray.lunar")
+  assert(not ok and tostring(err):find("directly inside a component", 1, true), tostring(err))
+end
+
 function T.renders_the_whole_feature_set_identically()
   local def = support.component("App")
   support.assert_same(def, {})

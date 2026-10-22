@@ -85,6 +85,12 @@ local function builtins_for(instance)
   }
 end
 
+local function slot_table(slot)
+  if slot == nil then return nil end
+  if type(slot) == "function" then return { default = slot } end
+  return slot
+end
+
 function component.create(def, props, options)
   options = options or {}
   local instance = setmetatable({
@@ -92,7 +98,7 @@ function component.create(def, props, options)
     props = props or {},
     parent = options.parent,
     ctx = options.ctx or (options.parent and options.parent.ctx) or {},
-    slot = options.slot,
+    slots = slot_table(options.slot),
     dom = options.dom or (options.parent and options.parent.dom),
     client = options.client or (options.parent and options.parent.client) or false,
     signals = {},
@@ -193,9 +199,10 @@ function component.render_child(parent, def, props, slot)
   return table.concat(out)
 end
 
-function component.render_slot(instance, out, fallback)
-  if instance.slot then
-    instance.slot(out)
+function component.render_slot(instance, out, fallback, name)
+  local build = instance.slots and instance.slots[name or "default"]
+  if build then
+    build(out)
   elseif fallback then
     fallback(out)
   end
@@ -324,7 +331,7 @@ function component.child(instance, dom, parent_node, def, props_fn, slot_builder
   local child = component.create(def, signal.untrack(props_fn), {
     parent = instance, dom = dom, client = true,
   })
-  child.slot_client = slot_builder
+  child.slots_client = slot_table(slot_builder)
   current_owner(instance).children[#current_owner(instance).children + 1] = child
 
   child:with_owner(child, function()
@@ -345,9 +352,10 @@ function component.child(instance, dom, parent_node, def, props_fn, slot_builder
   return child
 end
 
-function component.slot(instance, dom, parent_node, fallback)
-  if instance.slot_client then
-    instance.slot_client(parent_node)
+function component.slot(instance, dom, parent_node, fallback, name)
+  local build = instance.slots_client and instance.slots_client[name or "default"]
+  if build then
+    build(parent_node)
   elseif fallback then
     fallback(parent_node)
   end

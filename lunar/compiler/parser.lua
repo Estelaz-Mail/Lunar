@@ -12,6 +12,20 @@ local function is_component_name(tag)
   return tag:match("^%u") ~= nil
 end
 
+local function take_static_attribute(attributes, wanted)
+  for index, attribute in ipairs(attributes) do
+    if attribute.name == wanted then
+      table.remove(attributes, index)
+      if attribute.type == "parts" and #attribute.parts == 1
+        and attribute.parts[1].kind == "text" then
+        return attribute.parts[1].value, attribute
+      end
+      return nil, attribute
+    end
+  end
+  return nil, nil
+end
+
 function Parser:fail(message, line)
   error(string.format("lunar: %s:%d: %s", self.filename, line or self.line, message), 0)
 end
@@ -417,9 +431,22 @@ function Parser:parse_element(children)
     self:parse_attribute(attributes, tag)
   end
 
+  local target, target_attribute = take_static_attribute(attributes, "slot")
+  if target_attribute and not target then
+    self:fail("slot= wants a plain name, not an expression", target_attribute.line)
+  end
+
   local node
   if tag == "slot" then
-    node = { kind = "slot", tag = tag, attributes = attributes, children = {}, line = line }
+    local name, name_attribute = take_static_attribute(attributes, "name")
+    if name_attribute and not name then
+      self:fail("<slot name=> wants a plain name, not an expression", name_attribute.line)
+    end
+    if #attributes > 0 then
+      self:fail("<slot> takes a name and nothing else", line)
+    end
+    node = { kind = "slot", tag = tag, slot_name = name, attributes = attributes,
+      children = {}, line = line }
   elseif tag == "lunar:head" then
     node = { kind = "head", tag = tag, children = {}, line = line }
   elseif tag:find("^lunar:") then
@@ -431,6 +458,14 @@ function Parser:parse_element(children)
     node = { kind = "element", tag = tag, attributes = attributes,
       children = {}, line = line }
   end
+  if target then
+    local top = self.stack[#self.stack]
+    if not (top and top.kind == "element" and top.node.kind == "component") then
+      self:fail(string.format('slot="%s" wants to sit directly inside a component', target), line)
+    end
+    node.slot_target = target
+  end
+
   children[#children + 1] = node
 
   local void = html.VOID_ELEMENTS[tag]

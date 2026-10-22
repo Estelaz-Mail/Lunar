@@ -1,0 +1,5 @@
+<script>
+  local Shelf = import("./Shelf.lunar")
+</script>
+
+<Shelf><h2 slot="head">Title</h2><p>body</p></Shelf>
