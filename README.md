@@ -67,7 +67,7 @@ Links between application routes load route data and update the page without a f
 
 `bin/lunar bench [app]` measures the framework against the application given to it: how long its components take to compile, how many pages a second one process renders along with the latency spread and the memory each page allocates, what the takeover costs, and how many bytes the browser downloads. The numbers depend on the machine, which the output names. On one core of an ordinary x86-64 Linux machine, the example application renders between 5,500 and 8,000 pages a second, at a median of 0.12 to 0.16 ms and a 99th percentile under 0.5 ms, allocating 42 to 58 KB per page. A page here is every probe, every component, and the whole document, rendered from nothing with no cache in front of it.
 
-The browser downloads about 330 KB uncompressed for the example application: 215 KB of Fengari and 115 KB of application bundle. That is the cost of running Lua in the browser rather than compiling it to JavaScript, and it is paid once per version, after the server-rendered page is already visible.
+The browser downloads about 302 KB uncompressed for the example application: 215 KB of Fengari and 88 KB of application bundle. That is the cost of running Lua in the browser rather than compiling it to JavaScript, and it is paid once per version, after the server-rendered page is already visible. The same application frozen for an edge runtime is 143 KB.
 
 `bin/lunar bench --http URL` drives a running server over keep-alive connections and reports requests a second and the latency spread. Run the server with `RATE_LIMIT=0` for a load test, since the rate limiter exists to stop exactly what a load test does.
 
