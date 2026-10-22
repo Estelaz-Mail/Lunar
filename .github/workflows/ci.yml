@@ -49,10 +49,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - name: Install
-        run: npm install --no-audit --no-fund
       - name: Prettier
-        run: npm run format:check
+        run: npx --yes prettier@3.9.10 --check .
 
   editor:
     name: VS Code extension

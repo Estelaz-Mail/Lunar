@@ -180,15 +180,14 @@ bin/lunar spec
 
 ## Formatting
 
-Everything in the repository that is not Lua is formatted with Prettier: Markdown, YAML, JSON, CSS, HTML, and JavaScript. Prettier is the only development dependency and the only one pinned in `package.json`.
+Everything in the repository that is not Lua is formatted with Prettier: Markdown, YAML, JSON, CSS, HTML, and JavaScript. There is no package manifest at the root and nothing to install, since the version is named at the point of use:
 
 ```sh
-npm install
-npm run format
-npm run format:check
+npx prettier@3.9.10 --write .
+npx prettier@3.9.10 --check .
 ```
 
-Lua files are listed in `.prettierignore`, since Prettier has no Lua support. Lua in this repository uses two-space indentation, `snake_case` names, and no comments. The continuous integration workflow runs `npm run format:check` alongside the test suite.
+The settings are in `.prettierrc`. Lua files are listed in `.prettierignore`, since Prettier has no Lua support; Lua in this repository uses two-space indentation, `snake_case` names, and no comments. The continuous integration workflow runs the check alongside the test suite.
 
 ## Repository structure
 
