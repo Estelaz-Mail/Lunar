@@ -9,6 +9,7 @@ return {
         { href = "/", label = "home" },
         { href = "/blog", label = "blog" },
         { href = "/about", label = "about" },
+        { href = "/wasm", label = "wasm" },
       },
     }
   end,

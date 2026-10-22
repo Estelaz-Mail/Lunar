@@ -1,0 +1,46 @@
+<script>
+  props { data = {} }
+
+  radius = 3
+  area_of = nil
+  rings_of = nil
+
+  local function measure()
+    wasm("area", function(area) area_of = area(radius) end)
+  end
+
+  local function stack()
+    wasm("rings", function(rings) rings_of = rings(3, radius) end)
+  end
+</script>
+
+<h1>{data.title or "Lua in wasm"}</h1>
+
+<p>
+  These functions were written in Lua, compiled to WebAssembly by Lunar itself,
+  and are fetched only when this page asks for them. Point at a button and its
+  part is already on its way before the click.
+</p>
+
+<ul class="parts">
+  {#each data.parts or {} as part (part.name)}
+    <li><code>{part.name}</code> — {part.what}</li>
+  {/each}
+</ul>
+
+<p class="row">
+  <button wasm:preload={"area"} on:click={measure}>area of radius {radius}</button>
+  <output>{area_of or "—"}</output>
+</p>
+
+<p class="row">
+  <button wasm:preload={"rings"} on:click={stack}>three rings</button>
+  <output>{rings_of or "—"}</output>
+</p>
+
+<style>
+  .parts { line-height: 1.8; }
+  .row { display: flex; align-items: center; gap: 0.75rem; }
+  code { background: rgba(127, 127, 127, 0.15); padding: 0 0.25rem; }
+  output { font-variant-numeric: tabular-nums; opacity: 0.8; }
+</style>
