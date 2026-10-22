@@ -1,6 +1,6 @@
 local lunar = {}
 
-lunar.VERSION = "0.1.0"
+lunar.VERSION = "1.0.0"
 
 function lunar.app(options)
   return require("lunar.site.app").new(options)
