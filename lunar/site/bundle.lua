@@ -161,6 +161,8 @@ local SERVER_MODULES = {
   "lunar/http/security.lua",
   "lunar/http/ratelimit.lua",
   "lunar/site/errors.lua",
+  "lunar/site/manifest.lua",
+  "lunar/site/watch.lua",
   "lunar/site/routes.lua",
   "lunar/site/render.lua",
   "lunar/site/app.lua",

@@ -22,8 +22,8 @@ local function frozen_fetch(root)
 
   local path, cpath = package.path, package.cpath
   package.path, package.cpath = "", ""
-  for _, relative in ipairs(bundle.SERVER_MODULES) do
-    package.loaded[(relative:gsub("%.lua$", ""):gsub("/", "."):gsub("%.init$", ""))] = nil
+  for name in pairs(package.loaded) do
+    if name == "lunar" or name:find("^lunar%.") then package.loaded[name] = nil end
   end
 
   local chunk, message = load(source, "@app.lua")
