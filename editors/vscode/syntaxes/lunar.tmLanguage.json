@@ -79,7 +79,7 @@
 		"block-tag": {
 			"patterns": [
 				{
-					"comment": "{#if expr} and {#each list as item, index}",
+					"comment": "{#if expr} and {#each list as item, index (key)}",
 					"begin": "(\\{)(#)(if|each)\\b",
 					"beginCaptures": {
 						"1": { "name": "punctuation.section.embedded.begin.lunar" },
@@ -191,7 +191,7 @@
 					"match": "\\b[A-Z][A-Za-z0-9_.]*\\b"
 				},
 				{
-					"comment": "<slot /> and <lunar:head> are the framework's own.",
+					"comment": "<slot />, <slot name=> and <lunar:head> are the framework's own.",
 					"name": "keyword.control.special.lunar",
 					"match": "\\b(slot|lunar:head)\\b"
 				},

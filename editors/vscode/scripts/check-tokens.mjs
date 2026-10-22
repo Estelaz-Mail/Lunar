@@ -98,6 +98,7 @@ expect("an attribute expression", '"t-"', "source.lua");
 expect("a handler", "function()", "source.lua");
 expect("an {#if} test", "count > 1", "source.lua");
 expect("an {#each} list", "items", "source.lua");
+expect("an {#each} key", "row.id", "source.lua");
 
 expect("{#if}", "if", "keyword.control");
 expect("{#each}", "each", "keyword.control");
@@ -107,6 +108,8 @@ expect("{@html}", "html", "keyword.other.unsafe");
 expect("an element", "h1", "entity.name.tag");
 expect("a component", "Card title", "support.class.component");
 expect("<slot />", "slot", "keyword.control.special");
+expect("a named slot", 'name="body"', "entity.other.attribute-name");
+expect("a slot target", 'slot="head"', "entity.other.attribute-name");
 expect("a directive", "on:click", "keyword.control.directive");
 expect("a modifier", "|prevent", "support.function.modifier");
 expect("a class directive", "class:hot", "keyword.control.directive");
