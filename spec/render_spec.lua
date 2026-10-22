@@ -352,6 +352,61 @@ function T.prevent_marks_the_event()
   assert(instance.scope.submitted == true)
 end
 
+function T.warms_a_wasm_part_when_the_pointer_arrives()
+  local component = require("lunar.runtime.component")
+  local def = support.source([[
+<button wasm:preload={"area"} on:click={function() clicked = true end}>go</button>
+]], "Preload.lunar")
+
+  local markup = support.assert_same(def, {})
+  assert(not markup:find("preload", 1, true), "the directive is behaviour, not markup")
+  assert(not markup:find("wasm", 1, true))
+
+  local asked = {}
+  local loader = {
+    load = function(_, name, on_ready)
+      asked[#asked + 1] = name
+      on_ready(function() return 7 end)
+    end,
+  }
+
+  local _, dom = support.client(def, {}, { ctx = component.context({ wasm = loader }) })
+  local button = support.find(dom, "button")
+  assert(#asked == 0, "nothing is fetched before the pointer is anywhere near")
+
+  support.fire(button, "pointerenter")
+  support.fire(button, "pointerenter")
+  support.fire(button, "focusin")
+  assert(#asked == 1 and asked[1] == "area",
+    "the part is warmed once, when the pointer arrives: " .. #asked)
+end
+
+function T.a_component_asks_for_a_wasm_function_and_gets_it()
+  local component = require("lunar.runtime.component")
+  local def = support.source([[
+<script>
+  answer = 0
+  on_rise(function()
+    wasm("area", function(area) answer = area(2) end)
+  end)
+</script>
+<p>{answer}</p>
+]], "Asks.lunar")
+
+  local loader = {
+    load = function(_, name, on_ready)
+      assert(name == "area")
+      on_ready(function(radius) return radius * 10 end)
+    end,
+  }
+
+  local server = support.ssr(def, {})
+  assert(server:find("<p>0</p>", 1, true), "the server renders without any wasm: " .. server)
+
+  local _, dom = support.client(def, {}, { ctx = component.context({ wasm = loader }) })
+  assert(support.serialize(dom.body):find("<p>20</p>", 1, true), support.serialize(dom.body))
+end
+
 function T.a_block_disposes_of_what_it_created()
   local signal = require("lunar.runtime.signal")
   local def = support.source([[

@@ -296,6 +296,15 @@ function Parser:parse_attribute(attributes, tag)
     attributes[#attributes + 1] = { type = directive, name = argument, code = code, line = line }
     return
   end
+  if directive == "wasm" then
+    if argument ~= "preload" then
+      self:fail("wasm:" .. argument .. " is not a directive; the one there is is wasm:preload", line)
+    end
+    if not code then self:fail("wasm:preload wants a name: wasm:preload={\"area\"}", line) end
+    self:check_expression(code, value_line, "wasm:preload")
+    attributes[#attributes + 1] = { type = "wasm", name = argument, code = code, line = line }
+    return
+  end
   if directive == "bind" then
     if not code then self:fail("bind:" .. argument .. " wants a target", line) end
     self:check_expression(code, value_line, "a binding")

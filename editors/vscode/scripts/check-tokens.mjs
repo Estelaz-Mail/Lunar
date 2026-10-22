@@ -114,6 +114,8 @@ expect("a directive", "on:click", "keyword.control.directive");
 expect("a modifier", "|prevent", "support.function.modifier");
 expect("a class directive", "class:hot", "keyword.control.directive");
 expect("a binding", "bind:value", "keyword.control.directive");
+expect("a preload", "wasm:preload", "keyword.control.directive");
+expect("a preload name", '"area"', "source.lua");
 expect("a spread", "...", "keyword.operator.spread");
 
 expect("a static attribute", "id", "entity.other.attribute-name");

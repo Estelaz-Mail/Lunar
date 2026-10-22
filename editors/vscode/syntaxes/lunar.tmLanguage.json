@@ -212,8 +212,8 @@
 		},
 
 		"directive": {
-			"comment": "on:click, bind:value, class:active, style:color, with their modifiers.",
-			"begin": "\\b(on|bind|class|style|use)(:)([A-Za-z0-9_-]+)((?:\\|[A-Za-z0-9_-]+)*)",
+			"comment": "on:click, bind:value, class:active, style:color, wasm:preload, with their modifiers.",
+			"begin": "\\b(on|bind|class|style|use|wasm)(:)([A-Za-z0-9_-]+)((?:\\|[A-Za-z0-9_-]+)*)",
 			"beginCaptures": {
 				"1": { "name": "keyword.control.directive.lunar" },
 				"2": { "name": "punctuation.separator.directive.lunar" },

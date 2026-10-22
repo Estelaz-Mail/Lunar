@@ -70,6 +70,16 @@ local function builtins_for(instance)
       return nil
     end,
 
+    wasm = function(name, on_ready)
+      local loader = instance.ctx and instance.ctx.wasm
+      if not loader then return false end
+      if type(name) ~= "string" or type(on_ready) ~= "function" then
+        error("lunar: wasm(name, on_ready) wants a name and a function", 2)
+      end
+      loader:load(name, on_ready)
+      return true
+    end,
+
     import = function(path)
       if not component.resolver then
         error("lunar: import() needs a resolver; the app server sets one", 2)
@@ -463,6 +473,22 @@ function component.slot(instance, dom, parent_node, fallback, name)
     build(parent_node)
   elseif fallback then
     fallback(parent_node)
+  end
+end
+
+function component.preload(instance, dom, node, name_fn)
+  local loader = instance.ctx and instance.ctx.wasm
+  if not loader then return end
+  local warmed = false
+  local function warm()
+    if warmed then return end
+    local name = signal.untrack(name_fn)
+    if name == nil or name == "" then return end
+    warmed = true
+    loader:load(name, function() end, function() warmed = false end)
+  end
+  for _, event in ipairs({ "pointerenter", "focusin", "touchstart" }) do
+    dom:on(node, event, warm, { "passive" })
   end
 end
 

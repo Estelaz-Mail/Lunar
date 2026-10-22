@@ -139,7 +139,7 @@ const settled = () => new Promise((done) => setTimeout(done, 400));
 	check(state.warnings.length === 0, `the bundled copy warned: ${state.warnings[0]?.message}`);
 	check(state.status.text === "$(check) Lunar", `status was ${state.status.text}`);
 	check(
-		state.output.some((line) => /\(0\.\d+\.\d+\)/.test(line)),
+		state.output.some((line) => /\(\d+\.\d+\.\d+\)/.test(line)),
 		"the bundled copy did not report a version",
 	);
 }

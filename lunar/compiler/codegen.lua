@@ -70,7 +70,7 @@ local function parts_expression(parts)
 end
 
 local function sort_attributes(node, scope_class)
-  local plain, events, binds, spreads = {}, {}, {}, {}
+  local plain, events, binds, spreads, preloads = {}, {}, {}, {}, {}
   local class_conditions, style_declarations = {}, {}
   local class_value, style_value
   local names = {}
@@ -83,6 +83,8 @@ local function sort_attributes(node, scope_class)
       binds[#binds + 1] = attribute
     elseif kind == "spread" then
       spreads[#spreads + 1] = attribute
+    elseif kind == "wasm" then
+      preloads[#preloads + 1] = attribute
     elseif kind == "class" then
       class_conditions[#class_conditions + 1] = attribute
     elseif kind == "style" then
@@ -112,7 +114,7 @@ local function sort_attributes(node, scope_class)
 
   local needs_class = class_value ~= nil or #class_conditions > 0 or scope_class ~= nil
   return {
-    plain = plain, events = events, binds = binds, spreads = spreads,
+    plain = plain, events = events, binds = binds, spreads = spreads, preloads = preloads,
     class_conditions = class_conditions, style_declarations = style_declarations,
     class_value = class_value, style_value = style_value,
     needs_class = needs_class, names = names,
@@ -451,6 +453,11 @@ local function client_element(node, w, options)
     w:line(string.format(
       "__rt.bind(__self, __d, %s, %q, function() return %s end, function(__value) %s = __value end)",
       target, bind.name, bind.code, bind.code))
+  end
+
+  for _, preload in ipairs(parts.preloads) do
+    w:line(string.format("__rt.preload(__self, __d, %s, function() return %s end)",
+      target, preload.code))
   end
 
   if not node.self_closing then

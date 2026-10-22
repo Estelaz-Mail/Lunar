@@ -14,6 +14,7 @@
 <Card><h2 slot="head">{title}</h2><slot name="body" /></Card>
 <p>{@html body} \{literal\} &amp;</p>
 <input bind:value={title} />
+<button wasm:preload={"area"} on:click={run}>area</button>
 <!-- a comment -->
 
 <style>
