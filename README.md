@@ -12,8 +12,10 @@ Lunar is a web framework for Lua, with reactive components, server rendering, an
 ## Getting started
 
 ```sh
-curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/Glazastyy/Lunar/main/install.sh | sh
+curl --proto '=https' --tlsv1.2 -sSf https://lunar.estelaz.com/install.sh | sh
 ```
+
+The same script is in this repository, and `https://raw.githubusercontent.com/Glazastyy/Lunar/main/install.sh` serves it too, which is the URL to use while the site is being built.
 
 The installer puts a checkout under `~/.lunar`, links a `lunar` launcher into `~/.local/bin`, and builds LuaSocket when the Lua on your machine has none. It writes nothing outside your home directory and never asks for root. `sh install.sh --help` lists the options: `--ref` for a branch or tag, `--prefix` and `--bin-dir` for where things go, `--lua` for an interpreter of your choosing, `--with-lua` to build Lua 5.4 into the prefix as well, `--no-modify-path` to leave your shell profile alone, and `--uninstall` to take it all out again. Lua and LuaSocket are downloaded from their own sites and checked against pinned SHA-256 sums.
 

@@ -23,7 +23,7 @@ usage() {
 	cat <<EOF
 Lunar installer.
 
-  curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/$REPO/main/install.sh | sh
+  curl --proto '=https' --tlsv1.2 -sSf https://lunar.estelaz.com/install.sh | sh
 
 It puts a Lunar checkout under $PREFIX, links a launcher into $BIN_DIR, and
 builds LuaSocket when your Lua has none. It installs nothing outside your home
@@ -41,6 +41,9 @@ Options:
   --uninstall        remove what this installed
   -q, --quiet        say less
   -h, --help         this
+
+Lunar's home is https://lunar.estelaz.com; the source is
+https://github.com/$REPO, which is where this fetches from.
 
 Environment: LUNAR_HOME, LUNAR_BIN_DIR, LUNAR_REF, LUNAR_REPO, CC.
 EOF
