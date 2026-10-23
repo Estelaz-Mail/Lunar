@@ -8,7 +8,7 @@ local Security = {}
 Security.__index = Security
 
 local PERMISSIONS_POLICY = table.concat({
-  "accelerometer=()", "ambient-light-sensor=()", "autoplay=(self)", "bluetooth=()",
+  "accelerometer=()", "autoplay=(self)",
   "camera=()", "display-capture=()", "geolocation=()", "gyroscope=()",
   "idle-detection=()", "magnetometer=()", "microphone=()", "midi=()", "payment=()",
   "screen-wake-lock=()", "serial=()", "usb=()", "xr-spatial-tracking=()",
