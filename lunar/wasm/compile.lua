@@ -72,6 +72,12 @@ local RUNTIME = {
   concat = 2, length = 1, equal = 2, alloc = 1,
   table_new = 0, table_get = 2, table_set = 3,
   less = 2, less_equal = 2, closure_new = 3, closure_put = 3,
+  setmetatable = 2, getmetatable = 1, rawget = 2, rawset = 3, type_of = 1,
+}
+
+local BUILTINS = {
+  setmetatable = "setmetatable", getmetatable = "getmetatable",
+  rawget = "rawget", rawset = "rawset", type = "type_of",
 }
 
 local ORDERING = {
@@ -404,6 +410,17 @@ function Function:call(node)
 
   if self:find(target.name) or self:upvalue(target.name) then
     return self:indirect(node, function() self:emit_read(target.name, node) end)
+  end
+
+  local builtin = BUILTINS[target.name]
+  if builtin and not self.unit.functions_by_name[target.name] then
+    if #node.arguments ~= RUNTIME[builtin] then
+      fail(self, node, string.format("`%s` takes %d, not %d", target.name,
+        RUNTIME[builtin], #node.arguments))
+    end
+    for _, argument in ipairs(node.arguments) do self:number(argument) end
+    self:runtime(builtin)
+    return "number"
   end
 
   local callee = self.unit.functions_by_name[target.name] or self.unit.externals[target.name]
@@ -917,6 +934,14 @@ local function walk(nodes, found)
       if node.kind == "unary" and node.operator == "#" then found.strings = true end
       if node.kind == "binary" and node.operator == ".." then found.strings = true end
       if node.kind == "nil" then found.boxes = true end
+      if node.kind == "name" then
+        found.names = found.names or {}
+        found.names[node.name] = true
+      end
+      if node.kind == "call" and node.target and node.target.kind == "name"
+        and BUILTINS[node.target.name] then
+        found.boxes = true
+      end
       if node.kind == "function" or node.kind == "local_function" then
         found.boxes = true
         found.closures = true
@@ -995,7 +1020,8 @@ function compile.chunk(source, options)
 
   unit.boxes = not options.is_runtime and (found.strings or found.boxes) or false
   local table_base = options.table_base or 0
-  local uses_table = unit.boxes and (found.closures or #nested > 0) or false
+  local uses_table = options.table
+    or (unit.boxes and (found.closures or #nested > 0)) or false
 
   if found.memory or unit.boxes or options.memory then
     builder:import_memory("host", "memory", 1)

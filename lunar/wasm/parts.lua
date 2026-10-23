@@ -88,6 +88,9 @@ function parts.build(units, options)
       filename = "runtime.lua",
       is_runtime = true,
       memory = true,
+      table = true,
+      data_base = runtime_lib.OWN_DATA,
+      table_base = next_slot,
       data_segments = { { offset = 0, bytes = string.pack("<d", cursor) } },
     })
     next_slot = next_slot + info.table_slots

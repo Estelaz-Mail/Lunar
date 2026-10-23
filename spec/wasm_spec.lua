@@ -258,6 +258,40 @@ end
   assert(manifest.parts.a.bytes:sub(1, 4) == "\0asm")
 end
 
+function T.knows_the_names_lua_gives_a_table_its_manners_with()
+  local _, info = compile.chunk([[
+function defaulted()
+  local t = setmetatable({}, { __index = { colour = "blue" } })
+  return t.colour
+end
+
+function kind(value)
+  return type(value)
+end
+
+function raw(t)
+  rawset(t, 1, 2)
+  return rawget(t, 1)
+end
+]], { filename = "meta.lua" })
+  assert(table.concat(info.needs, ",") == "runtime")
+  assert(info.exports[1] == "defaulted")
+
+  assert(compile_error("function f(t) return setmetatable(t) end")
+    :find("takes 2, not 1", 1, true))
+
+  local shadowed = compile.chunk([[
+function type(x)
+  return x
+end
+
+function f(v)
+  return type(v)
+end
+]], { filename = "shadow.lua" })
+  assert(#shadowed > 0, "a part may still name a function `type` itself")
+end
+
 local function fake_browser(manifest)
   local log = {}
 

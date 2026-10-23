@@ -3,6 +3,7 @@ local runtime = {}
 runtime.NAME = "runtime"
 runtime.DATA_START = 1024
 runtime.TABLE_START = 1
+runtime.OWN_DATA = 64
 runtime.STRING = 2
 
 runtime.SOURCE = [[
@@ -252,14 +253,38 @@ function closure_put(value, slot, item)
 end
 
 function table_new()
-  local pointer = alloc(48)
+  local pointer = alloc(56)
   mem.store(pointer, 0)
   mem.store(pointer + 8, 0)
   mem.store(pointer + 16, 0)
   mem.store(pointer + 24, 0)
   mem.store(pointer + 32, 0)
   mem.store(pointer + 40, 0)
+  mem.store(pointer + 48, nil)
   return box.pack(3, pointer)
+end
+
+function type_of(value)
+  if box.is_number(value) then
+    return "number"
+  end
+  local tag = box.tag(value)
+  if tag == 0 then
+    return "nil"
+  end
+  if tag == 1 then
+    return "boolean"
+  end
+  if tag == 2 then
+    return "string"
+  end
+  if tag == 3 then
+    return "table"
+  end
+  if tag == 4 then
+    return "function"
+  end
+  return "userdata"
 end
 
 local function body_of(value)
@@ -340,8 +365,34 @@ local function hash_grow(pointer)
   return 0
 end
 
-function table_set(value, key, item)
-  local pointer = body_of(value)
+function setmetatable(value, meta)
+  mem.store(body_of(value) + 48, meta)
+  return value
+end
+
+function getmetatable(value)
+  return mem.load(body_of(value) + 48)
+end
+
+local function raw_get(pointer, key)
+  if box.is_number(key) then
+    local index = math.floor(key)
+    if index == key and index >= 1 and index <= mem.load(pointer + 8) then
+      return mem.load(mem.load(pointer + 32) + (index - 1) * 8)
+    end
+  end
+  local capacity = mem.load(pointer + 16)
+  if capacity == 0 then
+    return nil
+  end
+  local slot = slot_for(mem.load(pointer + 40), capacity, key)
+  if box.same(mem.load(slot), nil) then
+    return nil
+  end
+  return mem.load(slot + 8)
+end
+
+local function raw_set(pointer, key, item)
   if box.is_number(key) then
     local index = math.floor(key)
     local count = mem.load(pointer + 8)
@@ -372,23 +423,59 @@ function table_set(value, key, item)
   return item
 end
 
-function table_get(value, key)
+function rawget(value, key)
+  return raw_get(body_of(value), key)
+end
+
+function rawset(value, key, item)
+  raw_set(body_of(value), key, item)
+  return value
+end
+
+local function meta_field(pointer, name)
+  local meta = mem.load(pointer + 48)
+  if box.same(meta, nil) then
+    return nil
+  end
+  return raw_get(box.address(meta), name)
+end
+
+function table_set(value, key, item)
   local pointer = body_of(value)
-  if box.is_number(key) then
-    local index = math.floor(key)
-    if index == key and index >= 1 and index <= mem.load(pointer + 8) then
-      return mem.load(mem.load(pointer + 32) + (index - 1) * 8)
+  local existing = raw_get(pointer, key)
+  if box.same(existing, nil) then
+    local handler = meta_field(pointer, "__newindex")
+    if not box.same(handler, nil) then
+      if box.tag(handler) == 3 then
+        return table_set(handler, key, item)
+      end
+      if box.tag(handler) == 4 then
+        return handler(value, key, item)
+      end
+      mem.trap()
     end
   end
-  local capacity = mem.load(pointer + 16)
-  if capacity == 0 then
+  return raw_set(pointer, key, item)
+end
+
+function table_get(value, key)
+  local pointer = body_of(value)
+  local found = raw_get(pointer, key)
+  if not box.same(found, nil) then
+    return found
+  end
+  local handler = meta_field(pointer, "__index")
+  if box.same(handler, nil) then
     return nil
   end
-  local slot = slot_for(mem.load(pointer + 40), capacity, key)
-  if box.same(mem.load(slot), nil) then
-    return nil
+  if box.tag(handler) == 3 then
+    return table_get(handler, key)
   end
-  return mem.load(slot + 8)
+  if box.tag(handler) == 4 then
+    return handler(value, key)
+  end
+  mem.trap()
+  return nil
 end
 ]]
 
