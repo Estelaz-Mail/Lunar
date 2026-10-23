@@ -92,6 +92,16 @@ function T.reports_a_generation_that_moves_when_a_source_changes()
   os.execute("rm -rf " .. root)
 end
 
+function T.watches_the_working_directory_when_the_app_is_the_root()
+  local instance = lunar.app({ root = ".", dev = true, version = "spec",
+    watch_interval = 0 })
+
+  assert(instance.watcher ~= nil, "dev watches")
+  instance:refresh(true)
+  assert(next(instance.watcher.sources) ~= nil,
+    "the working directory is what it watches")
+end
+
 function T.has_no_watcher_and_no_endpoint_in_production()
   local root = temp_app({ ["orbit/page.lunar"] = HOME })
   local instance = lunar.app({ root = root, dev = false, version = "spec" })

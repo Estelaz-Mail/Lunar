@@ -22,8 +22,10 @@ Watcher.__index = Watcher
 
 function watch.new(options)
   options = options or {}
+  local root = options.root
+  if root == nil or root == "" then root = "." end
   return setmetatable({
-    root = options.root or ".",
+    root = root,
     interval = options.interval or 0.4,
     sources = nil,
     generation = 0,
