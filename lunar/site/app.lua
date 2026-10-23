@@ -59,6 +59,10 @@ function app.new(options)
     modules = {},
   }, App)
 
+  if self.dev then
+    self.dev_session = tostring(os.time()) .. "-" .. util.hash(tostring(self))
+  end
+
   self.minify = minify_setting(pick("minify", nil), self.dev)
 
   package.path = table.concat({
@@ -265,7 +269,7 @@ function App:framework_response(req)
 
   if path == "/_lunar/dev" then
     if not self.watcher then return nil end
-    return response.json({ generation = self:generation(), version = self.version }, 200,
+    return response.json({ generation = self:generation(), version = self.version, session = self.dev_session }, 200,
       { ["Cache-Control"] = "no-store" })
   end
 

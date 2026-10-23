@@ -123,7 +123,8 @@ function render.document(app, parts)
     body[#body + 1] = string.format('<script type="application/json" id="lunar-integrity">%s</script>',
       json.encode(integrity))
     body[#body + 1] = string.format('<script type="module" src="%s" integrity="%s" crossorigin="anonymous"></script>',
-      html.escape("/_lunar/runtime/boot?v=" .. app.version),
+      html.escape("/_lunar/runtime/boot?v=" .. app.version .. (app.dev
+        and ("&dev=" .. app.dev_session .. "-" .. app:generation()) or "")),
       html.escape(assert(integrity.assets["/_lunar/runtime/boot"])))
   end
 
@@ -133,9 +134,24 @@ function render.document(app, parts)
     ["%lunar.body%"] = table.concat(body, "\n"),
   }
 
-  return (shell:gsub("%%lunar%.%w+%%", function(key)
+  local document = shell:gsub("%%lunar%.%w+%%", function(key)
     return replacements[key] or ""
-  end))
+  end)
+  if app.dev then
+    local revision = app.dev_session .. "-" .. app:generation()
+    document = document:gsub("<link%s[^>]*>", function(tag)
+      if not tag:match("rel%s*=%s*['\"]stylesheet['\"]") then return tag end
+      return (tag:gsub("(href%s*=%s*)(['\"])(.-)%2", function(attribute, quote, href)
+        if href:match("^%a[%w+.-]*:") or href:sub(1, 2) == "//" then
+          return attribute .. quote .. href .. quote
+        end
+        local path, fragment = href:match("^([^#]*)(.*)$")
+        local separator = path:find("?", 1, true) and "&amp;" or "?"
+        return attribute .. quote .. path .. separator .. "__lunar_dev=" .. revision .. fragment .. quote
+      end))
+    end)
+  end
+  return document
 end
 
 render.DEFAULT_SHELL = DEFAULT_SHELL

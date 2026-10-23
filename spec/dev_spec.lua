@@ -182,4 +182,26 @@ end }
   os.execute("rm -rf " .. root)
 end
 
+function T.development_urls_change_after_edits_and_server_restarts()
+  local root = temp_app({ ["orbit/page.lunar"] = HOME,
+    ["app.html"] = '<html><head><link rel="stylesheet" href="/style.css?theme=dark#top">%lunar.head%</head><body>%lunar.body%</body></html>',
+    ["static/style.css"] = "h1{color:red}",
+  })
+  local instance = lunar.app({ root = root, dev = true, version = "spec", watch_interval = 0 })
+  local function revision(server)
+    return assert(get(server, "/").body:match("__lunar_dev=([^#]+)#top"))
+  end
+  local first = revision(instance)
+  assert(util.write_file(fs.join(root, "static/style.css"), "h1{color:tan}"))
+  assert(revision(instance) ~= first)
+  local restarted = lunar.app({ root = root, dev = true, version = "spec", watch_interval = 0 })
+  assert(revision(restarted) ~= revision(instance))
+  local original_poll = json.decode(get(instance, "/_lunar/dev").body)
+  local restarted_poll = json.decode(get(restarted, "/_lunar/dev").body)
+  assert(original_poll.session ~= restarted_poll.session)
+  local production = lunar.app({ root = root, dev = false, version = "spec" })
+  assert(not get(production, "/").body:find("__lunar_dev=", 1, true))
+  os.execute("rm -rf " .. root)
+end
+
 return T

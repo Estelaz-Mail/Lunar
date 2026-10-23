@@ -15,6 +15,7 @@ function reload.watch(options)
   local window = js.global
   local interval = (options and options.interval) or 800
   local generation = nil
+  local session = nil
 
   local function poll()
     chain(chain(window:fetch("/_lunar/dev"), function(res)
@@ -26,10 +27,12 @@ function reload.watch(options)
       if type(payload) ~= "table" or payload.generation == nil then return end
       if generation == nil then
         generation = payload.generation
+        session = payload.session
         return
       end
-      if payload.generation ~= generation then
+      if payload.generation ~= generation or payload.session ~= session then
         generation = payload.generation
+        session = payload.session
         window.location:reload()
       end
     end, function() end)

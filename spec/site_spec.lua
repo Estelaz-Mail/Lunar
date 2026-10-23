@@ -79,7 +79,7 @@ function T.renders_a_page_inside_its_shell()
   assert(res.body:find("Rendered by Lunar", 1, true))
   assert(res.body:find("A framework in Lua", 1, true))
   assert(res.body:find('class="counter', 1, true))
-  assert(res.body:find('href="/css/app.css"', 1, true))
+  assert(res.body:find('href="/css/app.css?__lunar_dev=', 1, true))
 end
 
 function T.gives_a_page_the_data_of_the_shells_above_it()
