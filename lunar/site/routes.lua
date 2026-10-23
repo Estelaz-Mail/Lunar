@@ -160,6 +160,11 @@ function routes.discover(root)
 
   table.sort(list, function(a, b)
     local x, y = a.specificity, b.specificity
+    local rank = { literal = 3, param = 2, rest = 1 }
+    for index = 1, math.min(#a.segments, #b.segments) do
+      local left, right = a.segments[index], b.segments[index]
+      if left.kind ~= right.kind then return rank[left.kind] > rank[right.kind] end
+    end
     if x.rest ~= y.rest then return x.rest < y.rest end
     if x.literals ~= y.literals then return x.literals > y.literals end
     if x.params ~= y.params then return x.params < y.params end

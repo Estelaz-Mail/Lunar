@@ -146,6 +146,10 @@ Brotli is not generated. It needs a static dictionary and context modelling that
 
 `lunar prerender [app]` renders every route that has no parameter in it and writes each one where a static host expects it: `/` to `index.html`, `/about` to `about/index.html`. It renders through the ordinary request path, so a prerendered page is the page the server would have answered, byte for byte, probes and all — `spec/prerender_spec.lua` asserts exactly that rather than trusting it. A route with a `[parameter]` is not rendered, because nothing says which values exist. `LUNAR_OUT` chooses the directory; it defaults to `output/` beside the application.
 
+Pre-rendered HTML is used only for document requests. Navigation requests that
+ask for JSON still run the route and receive their data and chunk URL. `HEAD`
+responses retain the encoding and length of `GET` without sending its body.
+
 `prerender` in the manifest moves that into the server: `true` holds every fixed route, and a list holds the paths named. Each one is rendered on the first request that needs it and answered from memory afterwards, so a page whose probe reads a database stops touching it. Development never holds anything, and a path that fails to render is remembered as a failure and rendered normally rather than retried on every request. This trades freshness for work, so it belongs on pages that do not change between deploys.
 
 `lunar bench --http URL` drives a running server over keep-alive connections and reports requests a second and the latency spread. On the same machine as the server, with 32 keep-alive connections and the client in one process of its own, the example application answers about 4,200 requests a second at a median of 7.5 ms, 8.7 ms at the 95th percentile and 11.4 ms at the 99th. Both sides are competing for the same cores, so that is a floor rather than a ceiling. Run the server with `RATE_LIMIT=0` for a load test, since the rate limiter exists to stop exactly what a load test does.

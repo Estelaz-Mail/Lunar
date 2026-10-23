@@ -195,4 +195,60 @@ function T.disabling_split_omits_chunks_from_native_and_frozen_apps()
   end)
 end
 
+
+function T.concurrent_requests_share_one_fetch_and_one_execution()
+  local fetched, complete, finished = 0, nil, 0
+  local instance = chunks.loader({ fetch_text = function(_, on_text)
+    fetched = fetched + 1
+    complete = on_text
+  end })
+  _G.LUNAR_SPEC_CHUNK = 0
+  instance:ensure("/shared.lua", function() finished = finished + 1 end)
+  instance:ensure("/shared.lua", function() finished = finished + 1 end)
+  assert(fetched == 1)
+  local source = "LUNAR_SPEC_CHUNK = LUNAR_SPEC_CHUNK + 1"
+  complete(source)
+  complete(source)
+  local executions = _G.LUNAR_SPEC_CHUNK
+  _G.LUNAR_SPEC_CHUNK = nil
+  assert(executions == 1 and finished == 2)
+end
+
+function T.concurrent_failures_notify_every_waiter_and_allow_retry()
+  local reject, complete, fetched, failed = nil, nil, 0, 0
+  local instance = chunks.loader({ fetch_text = function(_, on_text, on_error)
+    fetched = fetched + 1
+    complete, reject = on_text, on_error
+  end })
+  for _ = 1, 2 do
+    instance:ensure("/retry.lua", function() error("not loaded yet") end,
+      function() failed = failed + 1 end)
+  end
+  local stale = complete
+  reject()
+  assert(failed == 2 and instance:has("/retry.lua") == false)
+  local finished = false
+  instance:ensure("/retry.lua", function() finished = true end)
+  stale("error('stale completion must be ignored')")
+  complete("return true")
+  assert(fetched == 2 and finished and instance:has("/retry.lua"))
+end
+
+function T.callback_and_transport_errors_do_not_strand_other_waiters()
+  local complete, finished, failed = nil, false, false
+  local instance = chunks.loader({ fetch_text = function(_, on_text) complete = on_text end })
+  instance:ensure("/callbacks.lua", function() error("callback failed") end,
+    function() failed = true end)
+  instance:ensure("/callbacks.lua", function() finished = true end)
+  complete("return true")
+  assert(failed and finished)
+  local throwing = chunks.loader({ fetch_text = function() error("offline") end })
+  local attempts = 0
+  for _ = 1, 2 do
+    throwing:ensure("/offline.lua", function() error("unreachable") end,
+      function() attempts = attempts + 1 end)
+  end
+  assert(attempts == 2 and next(throwing.pending) == nil)
+end
+
 return T

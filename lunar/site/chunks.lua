@@ -9,6 +9,7 @@ function chunks.loader(options)
     fetch_text = options.fetch_text,
     warn = options.warn or function() end,
     held = {},
+    pending = {},
   }, Loader)
 end
 
@@ -51,10 +52,34 @@ function Loader:ensure(url, carry_on, give_up)
     return give_up()
   end
 
-  self.fetch_text(url, function(source)
-    if not self:run(url, source) then return give_up() end
-    carry_on()
-  end, give_up)
+  local waiting = self.pending[url]
+  if waiting then
+    waiting[#waiting + 1] = { carry_on, give_up }
+    return
+  end
+  waiting = { { carry_on, give_up } }
+  self.pending[url] = waiting
+
+  local function finish(success)
+    if self.pending[url] ~= waiting then return end
+    self.pending[url] = nil
+    for _, callbacks in ipairs(waiting) do
+      local ok, message = pcall(callbacks[success and 1 or 2])
+      if not ok then
+        self.warn("lunar: chunk callback failed: " .. tostring(message))
+        if success then pcall(callbacks[2]) end
+      end
+    end
+  end
+
+  local ok, message = pcall(self.fetch_text, url, function(source)
+    if self.pending[url] ~= waiting then return end
+    finish(self:run(url, source))
+  end, function() finish(false) end)
+  if not ok then
+    self.warn("lunar: chunk fetch failed: " .. tostring(message))
+    finish(false)
+  end
 end
 
 chunks.Loader = Loader

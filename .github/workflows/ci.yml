@@ -51,7 +51,7 @@ jobs:
       - name: Strict TypeScript
         run: bun run --cwd website typecheck
       - name: Lua, host bridge and installer tests
-        run: bun test spec/lua54.test.ts website/worker/install.test.ts
+        run: bun test spec/*.test.ts website/worker/*.test.ts
 
   benchmarks:
     name: Benchmarks

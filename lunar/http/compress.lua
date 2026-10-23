@@ -1,5 +1,5 @@
 local gzip = require("lunar.core.gzip")
-local util = require("lunar.core.util")
+local sha256 = require("lunar.crypto.sha256")
 
 local compress = {}
 
@@ -48,9 +48,9 @@ function compress.worth_it(body, content_type)
 end
 
 function compress.gzip(body)
-  local key = util.hash(body) .. "-" .. #body
+  local key = sha256.digest(body)
   local hit = cache[key]
-  if hit then return hit end
+  if hit ~= nil then return hit end
 
   local packed = gzip.compress(body)
   if #packed >= #body then packed = false end

@@ -87,6 +87,7 @@ function prerender.run(app, options)
 end
 
 function prerender.serve(app, req)
+  if req:wants_json() then return nil end
   if req.method ~= "GET" and req.method ~= "HEAD" then return nil end
   local held = app.prerendered
   if not held then return nil end

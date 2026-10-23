@@ -189,6 +189,19 @@ function App:module(path)
   return module
 end
 
+function App:resolver()
+  if not self.component_resolver then
+    if self.frozen then
+      self.component_resolver = require("lunar.compiler.resolve").registry_resolver({
+        root = self.root, components = self.frozen.components,
+      })
+    else
+      self.component_resolver = function(path, from) return self.cache:resolve(path, from) end
+    end
+  end
+  return self.component_resolver
+end
+
 function App:component(path)
   if self.frozen then
     local name = self.frozen.components[path]
@@ -221,7 +234,7 @@ function App:render_page(req, route, params)
       200, { ["Vary"] = "Accept", ["Cache-Control"] = "no-store" })
   end
 
-  local body, ctx = render.chain(defs, data, { params = params })
+  local body, ctx = render.chain(defs, data, { params = params, ctx = { resolver = self:resolver() } })
   local document = render.document(self, {
     head = ctx.head,
     css = ctx.css,
@@ -243,7 +256,8 @@ function App:render_error(req, status, message)
     local ok, document = pcall(function()
       local def = self:component(path)
       local body, ctx = render.chain({ def },
-        { { status = status, message = message, title = tostring(status) } }, {})
+        { { status = status, message = message, title = tostring(status) } },
+        { ctx = { resolver = self:resolver() } })
       return render.document(self, {
         head = ctx.head, css = ctx.css, body = body, title = tostring(status),
         data = nil,
@@ -392,13 +406,11 @@ function App:handle(req)
   end
 
   if result then
-    if req:is_head() then return response.strip_body(result) end
     return result
   end
 
   local file = self.static and self.static:serve(req, req.path)
   if file then
-    if req:is_head() then return response.strip_body(file) end
     return file
   end
 
@@ -416,6 +428,7 @@ function App:handler()
     end
     local res = self:handle(req)
     if self.compress then res = compress_lib.response(req, res) end
+    if req:is_head() then res = response.strip_body(res) end
     if self.dev then
       local remove = {
         ["cache-control"] = true, ["cdn-cache-control"] = true,

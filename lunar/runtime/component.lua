@@ -81,10 +81,11 @@ local function builtins_for(instance)
     end,
 
     import = function(path)
-      if not component.resolver then
+      local resolver = instance.ctx and instance.ctx.resolver or component.resolver
+      if not resolver then
         error("lunar: import() needs a resolver; the app server sets one", 2)
       end
-      local resolved, err = component.resolver(path, instance.def.path)
+      local resolved, err = resolver(path, instance.def.path)
       if not resolved then
         error(string.format("lunar: cannot import %s: %s", path, tostring(err or "not found")), 2)
       end

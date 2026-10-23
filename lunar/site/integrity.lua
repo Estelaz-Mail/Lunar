@@ -38,7 +38,8 @@ function integrity.build(app)
       assets["/_lunar/wasm/" .. name .. ".wasm"] = integrity.hash(wasm.parts[name].bytes)
     end
   end
-  return { version = 1, assets = assets }
+  return { version = 1, assets = assets,
+    revision = sha256.hex(sha256.digest(json.encode(assets))) }
 end
 
 return integrity

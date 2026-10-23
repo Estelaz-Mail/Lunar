@@ -74,7 +74,7 @@ function worker.handle(app, payload)
   if res.file then
     body = ""
   end
-  if res.stream then
+  if res.stream and not req:is_head() then
     local collected, collect_err = response_lib.collect(res)
     if not collected then
       return worker.encode({

@@ -238,4 +238,40 @@ function T.development_urls_change_after_edits_and_server_restarts()
   os.execute("rm -rf " .. root)
 end
 
+
+function T.production_boot_urls_change_when_content_changes_without_a_version_bump()
+  local root = temp_app({ ["orbit/page.lunar"] = HOME })
+  local first = lunar.app({ root = root, dev = false, version = "unchanged" })
+  local before = get(first, "/").body:match('src="(/_lunar/runtime/boot[^"]+)"')
+  assert(before and before:find("build=", 1, true))
+  assert(util.write_file(fs.join(root, "orbit/page.lunar"), HOME .. "<p>new revision</p>"))
+  local second = lunar.app({ root = root, dev = false, version = "unchanged" })
+  local after = get(second, "/").body:match('src="(/_lunar/runtime/boot[^"]+)"')
+  assert(before ~= after, "an unchanged app version cannot reuse immutable runtime URLs")
+  local chunk = second:chunk_url("/")
+  assert(chunk and chunk:match("/[a-f0-9]+%.lua$"))
+  assert(#chunk:match("/([a-f0-9]+)%.lua$") == 64)
+  os.execute("rm -rf " .. root)
+end
+
+function T.multiple_apps_keep_their_imports_and_error_pages_isolated()
+  local roots, apps = {}, {}
+  for index = 1, 2 do
+    roots[index] = temp_app({
+      ["orbit/page.lunar"] = '<script>local Label = import("/lib/Label.lunar")</script><Label />',
+      ["orbit/eclipse.lunar"] = '<script>local Label = import("/lib/Label.lunar")</script><Label />',
+      ["orbit/failure/api.lua"] = 'return { GET = function() error("fixture failure") end }',
+      ["lib/Label.lunar"] = "<h1>application " .. index .. "</h1>",
+    })
+    apps[index] = lunar.app({ root = roots[index], dev = false, client = false })
+  end
+  for _, index in ipairs({ 1, 2, 1 }) do
+    for _, path in ipairs({ "/", "/failure" }) do
+      local answer = get(apps[index], path)
+      assert(answer.body:find("<h1>application " .. index .. "</h1>", 1, true), path)
+    end
+  end
+  for _, root in ipairs(roots) do os.execute("rm -rf " .. root) end
+end
+
 return T

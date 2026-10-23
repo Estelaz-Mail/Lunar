@@ -107,7 +107,8 @@ export default {
 				ip: request.headers.get("cf-connecting-ip"),
 			});
 
-			return new Response(response.status === 204 ? null : response.body, {
+			const bodyless = request.method === "HEAD" || [204, 205, 304].includes(response.status);
+			return new Response(bodyless ? null : response.body, {
 				status: response.status,
 				headers: response.headers,
 			});

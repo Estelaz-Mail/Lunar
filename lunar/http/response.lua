@@ -3,7 +3,7 @@ local json = require("lunar.core.json")
 local response = {}
 
 local STATUS_TEXT = {
-  [200] = "OK", [201] = "Created", [204] = "No Content",
+  [200] = "OK", [201] = "Created", [204] = "No Content", [205] = "Reset Content",
   [301] = "Moved Permanently", [302] = "Found", [303] = "See Other",
   [304] = "Not Modified", [307] = "Temporary Redirect", [308] = "Permanent Redirect",
   [400] = "Bad Request", [401] = "Unauthorized", [403] = "Forbidden",

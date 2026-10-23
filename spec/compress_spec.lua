@@ -120,4 +120,17 @@ function T.it_leaves_a_stream_and_a_file_response_alone()
   assert(out.headers["Content-Encoding"] == nil, "a file is served by the file path")
 end
 
+
+function T.colliding_short_hashes_never_reuse_another_responses_body()
+  local first = string.rep("x", 2048) .. "AM8fZVTCAbQT"
+  local second = string.rep("x", 2048) .. "DXJaMnFd0el4"
+  assert(first ~= second and #first == #second)
+  local util = require("lunar.core.util")
+  assert(util.hash(first) == util.hash(second), "the regression fixture collides")
+  compress.forget()
+  assert(unpacked(compress.gzip(first)) == first)
+  assert(unpacked(compress.gzip(second)) == second)
+  assert(unpacked(compress.gzip(first)) == first)
+end
+
 return T

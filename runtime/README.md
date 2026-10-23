@@ -14,13 +14,19 @@ values outside JavaScript's safe integer range cross the bridge as `BigInt`.
 
 The browser receives the `boot` endpoint, loads the `bridge` endpoint, fetches `lua54.wasm`
 and the application's `moonlight.lua`. Resources have versioned URLs and
-independent cache entries. A server-only application emits no runtime scripts.
+independent cache entries. Their URL revision includes the integrity manifest,
+so changing code invalidates caches even when the application version stays the
+same. A server-only application emits no runtime scripts.
 Compiled application functions under `wasm/` remain separate Wasm modules,
 requested only when referenced through `wasm(name, callback)`.
 
 The Lua engine is currently a single Wasm module including the parser and
-standard libraries. Per-library lazy loading and per-route application chunks
-are not implemented. Splitting the host files does not make the VM smaller.
+standard libraries. Per-library lazy loading is not implemented. Production
+applications split components into route chunks, named by SHA-256, and keep
+shared components in moonlight. `split = false` disables this, and imports that
+cannot be resolved statically retain the complete bundle. Concurrent navigation
+requests share one chunk download and execution. Splitting application code
+does not make the VM smaller.
 The current engine is about 196 KiB raw and 90 KiB with gzip; the bridge adds
 about 3 KiB with gzip. This is larger with gzip than the runtime it replaces.
 

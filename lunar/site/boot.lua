@@ -62,7 +62,7 @@ function boot.start(registry)
     fetch_text = function(url, on_text, on_error)
       local verified = window.lunarFetchVerified
       if not verified then return on_error() end
-      chain(chain(verified(url), function(res) return res:text() end), on_text, on_error)
+      chain(chain(window:lunarFetchVerified(url), function(res) return res:text() end), on_text, on_error)
     end,
   })
   pieces:hold(payload.chunk)

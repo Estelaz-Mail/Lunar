@@ -245,3 +245,91 @@ io.write(json.encode({source=source, responses=responses}))
 			);
 		}
 	}));
+
+test("the real browser bootstrap passes verified chunk URLs and applies navigation", async () => {
+	const listeners = new Map<string, unknown>();
+	const requested: unknown[] = [];
+	const target = {};
+	const location = {
+		pathname: "/",
+		search: "",
+		hash: "",
+		href: "https://lunar.test/",
+		origin: "https://lunar.test",
+	};
+	const global = {
+		Object,
+		URL,
+		location,
+		console: { warn() {} },
+		document: {
+			getElementById(id: string): object | null {
+				if (id === "lunar") return target;
+				if (id === "lunar-data") return { textContent: '{"route":"/","data":[]}' };
+				return null;
+			},
+			addEventListener(name: string, listener: unknown) {
+				listeners.set(name, listener);
+			},
+		},
+		addEventListener() {},
+		history: { pushState() {} },
+		scrollTo() {},
+		async fetch() {
+			return new Response(
+				JSON.stringify({ route: "/next", data: [], chunk: "/_lunar/chunk/next.lua" }),
+			);
+		},
+		async lunarFetchVerified(url: unknown) {
+			requested.push(url);
+			if (typeof url !== "string") throw new TypeError("missing chunk URL");
+			return new Response("chunk_evaluated = true");
+		},
+	};
+	await using(
+		async (runtime) => {
+			for (const name of ["lunar/core/json.lua", "lunar/site/chunks.lua", "lunar/site/boot.lua"]) {
+				const source = readFileSync(new URL(`../${name}`, import.meta.url), "utf8");
+				runtime.evaluate(
+					`package.preload[${JSON.stringify(name.replace(/\.lua$/, "").replaceAll("/", "."))}] = function()\n${source}\nend`,
+				);
+			}
+			runtime.evaluate(`
+package.preload["lunar.runtime.dom"] = function() return { browser = function() return {} end } end
+package.preload["lunar.runtime.wasm"] = function() return {} end
+package.preload["lunar.site.moonlight"] = function()
+  return { start = function()
+    return {
+      begin_navigation = function() return 1 end,
+      is_current = function() return true end,
+      apply = function(_, _, payload) applied_route = payload.route; return true end,
+    }
+  end }
+end
+require("lunar.site.boot").start({})
+`);
+			const click = listeners.get("click");
+			assert.equal(typeof click, "function");
+			if (typeof click !== "function") throw new TypeError("missing click listener");
+			click({
+				button: 0,
+				target: {
+					tagName: "A",
+					href: "https://lunar.test/next",
+					getAttribute(name: string) {
+						return name === "href" ? "/next" : null;
+					},
+					hasAttribute() {
+						return false;
+					},
+				},
+				preventDefault() {},
+			});
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			assert.deepEqual(requested, ["/_lunar/chunk/next.lua"]);
+			assert.equal(runtime.evaluate("return chunk_evaluated"), true);
+			assert.equal(runtime.evaluate("return applied_route"), "/next");
+		},
+		{ global },
+	);
+});

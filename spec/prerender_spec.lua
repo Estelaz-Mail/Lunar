@@ -115,4 +115,28 @@ function T.reads_the_setting_from_the_manifest()
   os.execute("rm -rf " .. root)
 end
 
+
+function T.prerendered_documents_do_not_replace_navigation_json()
+  local instance = app({ prerender = true })
+  local document = get(instance, "/about")
+  assert(document.headers["Content-Type"]:find("text/html", 1, true))
+  local navigation = get(instance, "/about", { accept = "application/json" })
+  assert(navigation.headers["Content-Type"]:find("application/json", 1, true))
+  assert(require("lunar.core.json").decode(navigation.body).route == "/about")
+end
+
+function T.heads_preserve_get_encoding_and_length_without_a_body()
+  for _, setting in ipairs({ false, true }) do
+    local instance = app({ prerender = setting, compress = true })
+    local headers = { ["accept-encoding"] = "gzip" }
+    local document = get(instance, "/about", headers)
+    local req = request.new({ method = "HEAD", target = "/about", headers = headers }, {})
+    local head = instance:handler()(req)
+    assert(head.status == document.status)
+    assert(head.body == "" and head.file == nil and head.stream == nil)
+    assert(head.headers["Content-Encoding"] == document.headers["Content-Encoding"])
+    assert(tonumber(head.headers["Content-Length"]) == #document.body)
+  end
+end
+
 return T

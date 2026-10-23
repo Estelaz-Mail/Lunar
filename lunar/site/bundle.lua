@@ -3,6 +3,7 @@ local minify = require("lunar.core.minify")
 local json = require("lunar.core.json")
 local resolve = require("lunar.compiler.resolve")
 local util = require("lunar.core.util")
+local sha256 = require("lunar.crypto.sha256")
 
 local bundle = {}
 
@@ -222,7 +223,7 @@ function bundle.chunks(app)
       pieces[#pieces + 1] = piece
     end
     local source = table.concat(pieces, "\n\n") .. "\n"
-    out[id] = { name = util.hash(source) .. ".lua", source = source, paths = paths }
+    out[id] = { name = sha256.hex(sha256.digest(source)) .. ".lua", source = source, paths = paths }
   end
 
   app.chunk_cache = out

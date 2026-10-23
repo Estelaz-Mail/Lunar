@@ -331,4 +331,37 @@ function T.serves_the_wasm_parts_and_the_index_that_points_at_them()
   assert(get("/_lunar/wasm/nothing.wasm").status == 404)
 end
 
+
+function T.framework_and_static_head_responses_have_no_body()
+  local instance = app({ dev = false, compress = true })
+  for _, path in ipairs({ "/about", "/css/app.css", "/_lunar/moonlight.lua",
+    "/_lunar/runtime/boot", "/_lunar/runtime/bridge", "/_lunar/runtime/lua54.wasm" }) do
+    local document = send(instance, "GET", path, { ["accept-encoding"] = "gzip" })
+    local head = send(instance, "HEAD", path, { ["accept-encoding"] = "gzip" })
+    assert(head.status == document.status, path)
+    assert(head.body == "" and head.file == nil and head.stream == nil, path)
+    assert(head.headers["Content-Encoding"] == document.headers["Content-Encoding"], path)
+    local length = document.file and document.file.length or #document.body
+    assert(tonumber(head.headers["Content-Length"]) == length, path)
+  end
+end
+
+function T.static_segments_win_over_parameters_at_the_first_differing_segment()
+  local fs = require("lunar.core.fs")
+  local util = require("lunar.core.util")
+  local root = os.tmpname()
+  os.remove(root)
+  for _, path in ipairs({ "[first]/about", "news/[slug]", "[...rest]" }) do
+    fs.mkdirp(root .. "/" .. path)
+    assert(util.write_file(root .. "/" .. path .. "/page.lunar", "<p>page</p>"))
+  end
+  local discovered = routes_lib.discover(root)
+  os.execute("rm -rf " .. root)
+  local route, params = routes_lib.match(discovered, "/news/about")
+  assert(route.id == "/news/[slug]")
+  assert(params.slug == "about")
+  assert(routes_lib.match(discovered, "/other/about").id == "/[first]/about")
+  assert(routes_lib.match(discovered, "/other/elsewhere/more").id == "/[...rest]")
+end
+
 return T

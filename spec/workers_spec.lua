@@ -248,4 +248,23 @@ function T.an_app_reached_through_its_parent_freezes_the_same_way()
   assert(ok, err)
 end
 
+function T.head_requests_do_not_execute_stream_producers()
+  local worker = require("lunar.site.worker")
+  local response = require("lunar.http.response")
+  local calls = 0
+  local instance = { handler = function()
+    return function(req)
+      local res = response.stream(function(emit)
+        calls = calls + 1
+        emit("stream body")
+      end)
+      return req:is_head() and response.strip_body(res) or res
+    end
+  end }
+  local head = worker.handle(instance, { method = "HEAD", url = "https://lunar.test/" })
+  assert(head.body == "" and calls == 0)
+  local get = worker.handle(instance, { method = "GET", url = "https://lunar.test/" })
+  assert(get.body == "stream body" and calls == 1)
+end
+
 return T

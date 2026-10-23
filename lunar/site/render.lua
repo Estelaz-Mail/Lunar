@@ -123,7 +123,8 @@ function render.document(app, parts)
     body[#body + 1] = string.format('<script type="application/json" id="lunar-integrity">%s</script>',
       json.encode(integrity))
     body[#body + 1] = string.format('<script type="module" src="%s" integrity="%s" crossorigin="anonymous"></script>',
-      html.escape("/_lunar/runtime/boot?v=" .. app.version .. (app.dev
+      html.escape("/_lunar/runtime/boot?v=" .. app.version
+        .. "&build=" .. (integrity.revision or app.version) .. (app.dev
         and ("&dev=" .. app.dev_session .. "-" .. app:generation()) or "")),
       html.escape(assert(integrity.assets["/_lunar/runtime/boot"])))
   end
