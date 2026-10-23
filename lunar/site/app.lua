@@ -3,6 +3,7 @@ local errors = require("lunar.site.errors")
 local fs = require("lunar.core.fs")
 local html = require("lunar.core.html")
 local ratelimit = require("lunar.http.ratelimit")
+local prerender_lib = require("lunar.site.prerender")
 local render = require("lunar.site.render")
 local response = require("lunar.http.response")
 local routes_lib = require("lunar.site.routes")
@@ -66,6 +67,7 @@ function app.new(options)
 
   self.minify = minify_setting(pick("minify", nil), self.dev)
   self.compress = pick("compress", not self.dev) ~= false
+  self.prerender = pick("prerender", false)
 
   package.path = table.concat({
     fs.join(root, "lib") .. "/?.lua",
@@ -114,6 +116,7 @@ function App:refresh(force)
   self.modules = {}
   self.bundle_cache = nil
   self.bundle_inventory = nil
+  self.prerendered = nil
   self.integrity_cache = nil
   return true
 end
@@ -324,6 +327,12 @@ function App:handle(req)
 
   local framework = self:framework_response(req)
   if framework then return framework end
+
+  if self.prerender and not self.dev then
+    prerender_lib.warm(self)
+    local held = prerender_lib.serve(self, req)
+    if held then return held end
+  end
 
   local route, params = routes_lib.match(self.routes, req.path)
 

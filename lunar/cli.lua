@@ -5,6 +5,8 @@ local lunar = require("lunar")
 
 local cli = {}
 
+local function fs_lib() return require("lunar.core.fs") end
+
 local function fail(message)
   io.stderr:write("lunar: ", message, "\n")
   os.exit(1)
@@ -19,6 +21,7 @@ lunar ]] .. lunar.VERSION .. [[ — a framework in Lua
   lunar compile <file>     print the Lua a component compiles to
   lunar wasm <file...>     compile Lua functions into wasm parts
   lunar analyze [app]      report what the browser downloads, part by part
+  lunar prerender [app]    render every fixed route to HTML in LUNAR_OUT
   lunar bench [app]        measure compiling, rendering, the takeover, the download
   lunar bench --http <url> measure a running server over keep-alive sockets
   lunar workers [app]      generate a Cloudflare Workers deploy directory
@@ -116,6 +119,31 @@ function cli.analyze(argument)
   local result, err = analyze.run(root)
   if not result then fail(tostring(err)) end
   analyze.report(result)
+end
+
+function cli.prerender(argument)
+  local root = app_root(argument)
+  local prerender = require("lunar.site.prerender")
+  local app = lunar.app({ root = root, dev = false, rate_limit = { enabled = false } })
+  if #app.routes == 0 then
+    fail(string.format("%s has no orbit/ tree", root))
+  end
+
+  local out = os.getenv("LUNAR_OUT") or fs_lib().join(root ~= "" and root or ".", "output")
+  local result = prerender.run(app, { out = out })
+
+  local total = 0
+  for _, item in ipairs(result.written) do
+    total = total + item.bytes
+    io.write(string.format("  %-34s %8.1f KB\n", item.file, item.bytes / 1024))
+  end
+  for _, item in ipairs(result.failed) do
+    io.write(string.format("  FAIL  %-28s %s\n", item.path, item.reason))
+  end
+
+  io.write(string.format("\n%d pages, %.1f KB in all, in %s\n",
+    #result.written, total / 1024, result.out))
+  if #result.failed > 0 then os.exit(1) end
 end
 
 function cli.map(argument)

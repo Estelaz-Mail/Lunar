@@ -16,6 +16,7 @@ local READ = {
   dev = "boolean",
   minify = "boolean",
   compress = "boolean",
+  prerender = "boolean|table",
   stylesheets = "table",
   security = "table",
   rate_limit = "table",
@@ -50,6 +51,14 @@ function manifest.read(root)
   for key, given in pairs(value) do
     local wanted = READ[key]
     if wanted then
+      if wanted == "boolean|table" then
+        if type(given) ~= "boolean" and type(given) ~= "table" then
+          return nil, string.format("lunar: %s: %s must be a boolean or a list, got a %s",
+            path, key, type(given))
+        end
+        out[key] = given
+        goto continue
+      end
       if type(given) ~= wanted then
         return nil, string.format("lunar: %s: %s must be a %s, got a %s",
           path, key, wanted, type(given))
@@ -58,10 +67,20 @@ function manifest.read(root)
     elseif not IGNORED[key] then
       return nil, string.format("lunar: %s: %s is not something Lunar reads", path, key)
     end
+    ::continue::
   end
 
   if out.port and (out.port < 1 or out.port > 65535 or out.port % 1 ~= 0) then
     return nil, string.format("lunar: %s: port must be a whole number between 1 and 65535", path)
+  end
+
+  if type(out.prerender) == "table" then
+    for index, path_value in ipairs(out.prerender) do
+      if type(path_value) ~= "string" or path_value:sub(1, 1) ~= "/" then
+        return nil, string.format("lunar: %s: prerender[%d] must be a path starting with /",
+          path, index)
+      end
+    end
   end
 
   if out.stylesheets then

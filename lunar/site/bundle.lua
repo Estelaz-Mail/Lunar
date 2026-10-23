@@ -193,6 +193,7 @@ local SERVER_MODULES = {
   "lunar/wasm/runtime.lua",
   "lunar/wasm/parts.lua",
   "lunar/site/watch.lua",
+  "lunar/site/prerender.lua",
   "lunar/site/routes.lua",
   "lunar/site/render.lua",
   "lunar/site/app.lua",
