@@ -7,7 +7,7 @@ description: Como o probe busca dados e como o api.lua responde HTTP.
 
 ## O probe de uma página {#probe}
 
-`page.lua` ao lado do `page.lunar` busca os dados da rota antes de desenhar. O retorno chega no componente como `data`.
+Um `page.lua` ao lado do `page.lunar` obtém os dados da rota antes da renderização. O valor de retorno chega ao componente como `data`.
 
 ```orbit/blog/[slug]/page.lua
 local posts = require("lib.posts")
@@ -38,18 +38,18 @@ return {
 | `event.params`                    | os segmentos dinâmicos da rota           |
 | `event.query`                     | a query string já separada               |
 | `event.request`                   | o pedido, com método, cabeçalhos e corpo |
-| `event.fail(status, mensagem)`    | desenha o `eclipse` mais próximo         |
+| `event.fail(status, mensagem)`    | renderiza o `eclipse` mais próximo       |
 | `event.redirect(status, destino)` | responde com um redirecionamento         |
 
-`fail` e `redirect` param na hora, mesmo chamados de uma função auxiliar.
+`fail` e `redirect` interrompem a execução imediatamente, inclusive quando chamados de uma função auxiliar.
 
 :::warn
-O probe roda no servidor e também quando o navegador navega. Os dados têm que bater. Árvore diferente da que o servidor mandou faz o runtime refazer aquele trecho, em vez de reaproveitar o HTML.
+O probe corre no servidor e também quando o navegador navega para a rota. Ele precisa produzir os mesmos dados para o mesmo estado: uma árvore diferente da que o servidor enviou faz o runtime reconstruir aquele trecho, em vez de reusar o HTML.
 :::
 
 ## Endpoints {#endpoints}
 
-`api.lua` responde a uma URL direto, sem página.
+Um `api.lua` responde a uma URL diretamente, sem página.
 
 ```orbit/api/notas/api.lua
 return {
@@ -68,11 +68,11 @@ return {
 }
 ```
 
-Tabela vira JSON. String vira HTML. Tabela com `status`, `headers` ou `body` o Lunar usa como está.
+Uma tabela devolvida vira JSON; uma string vira HTML; uma tabela com `status`, `headers` ou `body` é usada como está.
 
 ## Formulários {#formularios}
 
-Não tem form action embutida. O form aponta para um endpoint. O endpoint responde com redirecionamento ou JSON. Sem JavaScript isso continua de pé, porque é HTTP.
+Não há form actions integradas. O formulário aponta para um endpoint, e o endpoint responde com redirecionamento ou JSON. O caminho continua funcionando sem JavaScript, porque é HTTP comum.
 
 ```
 <form method="post" action="/api/notas">
@@ -83,7 +83,7 @@ Não tem form action embutida. O form aponta para um endpoint. O endpoint respon
 
 ## Respostas em pedaços {#streaming}
 
-O endpoint pode ir escrevendo, sem juntar tudo na memória.
+Um endpoint pode escrever a resposta aos poucos, sem montar o corpo inteiro na memória.
 
 ```orbit/api/relatorio/api.lua
 local response = require("lunar.http.response")
@@ -99,10 +99,10 @@ return {
 }
 ```
 
-A resposta sai `Transfer-Encoding: chunked`. Cada `write` é um pedaço. Se o socket encher, quem escreve cede a vez: leitor lento segura uma corrotina, não o laço inteiro.
+A resposta usa `Transfer-Encoding: chunked`, um pedaço por `write`. Se o socket encher, o escritor cede a vez, de modo que um leitor lento ocupa uma corrotina e não o laço inteiro.
 
 :::note
-Se o produtor falhar no meio, o que já saiu não volta. A conexão cai sem o pedaço final, e o cliente entende que o texto veio incompleto. HTTP/1.0 recebe os mesmos bytes juntos, com `Content-Length`. No pacote para Workers, o stream vira uma resposta só.
+Se o produtor falhar no meio, o corpo já enviado não pode ser desfeito: a conexão cai sem o pedaço final, o que indica ao cliente que o texto está incompleto. Um cliente HTTP/1.0 recebe os mesmos bytes juntos, com `Content-Length`. Numa aplicação congelada para Workers, o stream é recolhido numa resposta só.
 :::
 
-Página não vai assim. `<lunar:head>` é juntado enquanto o corpo renderiza, então a `<head>` só fica pronta no fim.
+Páginas não são transmitidas assim: o `<lunar:head>` é coletado enquanto o corpo renderiza, então a `<head>` só é conhecida no fim.

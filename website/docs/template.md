@@ -7,7 +7,7 @@ description: Expressões, if, listas, atributos e diretivas da marcação.
 
 ## Expressões {#expressoes}
 
-Entre chaves vai Lua. Texto sai escapado. `{@html}` é o jeito de meter marcação crua, e existe separado para o código deixar isso visível.
+O que fica entre chaves é uma expressão Lua, e o resultado é inserido no HTML já escapado. `{@html}` insere marcação sem escapar; a sintaxe é distinta para o ponto de uso deixar isso explícito.
 
 ```
 <p>{usuario.nome}</p>
@@ -17,7 +17,7 @@ Entre chaves vai Lua. Texto sai escapado. `{@html}` é o jeito de meter marcaç�
 ```
 
 :::warn
-Não passe por `{@html}` coisa que veio de fora.
+Não passe por `{@html}` conteúdo que veio de fora.
 :::
 
 ## Condicionais {#condicionais}
@@ -42,11 +42,11 @@ Não passe por `{@html}` coisa que veio de fora.
 {/each}
 ```
 
-O índice pode ficar de fora. `{:else}` cobre lista vazia.
+A variável de índice é opcional, e o bloco `{:else}` cobre a lista vazia.
 
 ### Listas com chave
 
-Dá para dizer qual valor identifica cada linha de uma atualização para a outra.
+A iteração pode nomear a chave que identifica cada linha entre uma atualização e outra.
 
 ```
 {#each tarefas as tarefa (tarefa.id)}
@@ -54,10 +54,10 @@ Dá para dizer qual valor identifica cada linha de uma atualização para a outr
 {/each}
 ```
 
-Com chave, Lunar olha a lista nova e a que já está na tela. Chave e item iguais: a linha fica. Sumiu: some. Apareceu: cria. O resto ele empurra o mínimo. Linha que ficou guarda elemento, estado de componente e o que o navegador já tinha nela (foco, texto, vídeo).
+Com chave, o runtime compara a lista nova com as linhas já montadas: mantém a linha cuja chave e cujo item continuam os mesmos, remove as que sumiram, cria as que apareceram e reordena o mínimo necessário. Uma linha mantida conserva seus elementos, o estado dos componentes internos e o estado do navegador neles, como foco, valor digitado e reprodução de mídia.
 
 :::note
-Se o item deixa de ser o mesmo valor, a linha nasce de novo. O bloco lê o estado das linhas, não a mutação escondida do objeto. Duas linhas com a mesma chave dão erro.
+A linha é reconstruída quando o item deixa de ser o mesmo valor. O bloco com chave se atualiza pelo estado que as linhas leem, não pela mutação interna dos objetos. Duas linhas com a mesma chave são um erro.
 :::
 
 ## Atributos {#atributos}
@@ -69,18 +69,18 @@ Se o item deixa de ser o mesmo valor, a linha nasce de novo. O bloco lê o estad
 <input disabled />
 ```
 
-Atributo aceita expressão, string com interpolação, ou nada. `{...tabela}` espalha a tabela inteira.
+Um atributo pode receber uma expressão, uma string com interpolação ou nada. `{...tabela}` espalha as chaves da tabela como atributos.
 
 ## Diretivas {#diretivas}
 
-| Diretiva                | O que faz                                               |
-| ----------------------- | ------------------------------------------------------- |
-| `on:click={fn}`         | escuta um evento                                        |
-| `on:submit              | prevent={fn}`                                           | com modificadores: `prevent`, `stop`, `once`, `self`, `capture`, `passive`, `trusted` |
-| `class:ativo={cond}`    | liga uma classe a uma condição                          |
-| `style:color={valor}`   | escreve uma propriedade de estilo                       |
-| `bind:value={nome}`     | liga o valor de um campo ao estado, nos dois sentidos   |
-| `wasm:preload={"area"}` | começa a carregar uma parte WebAssembly antes do clique |
+| Diretiva                | O que faz                                                      |
+| ----------------------- | -------------------------------------------------------------- |
+| `on:click={fn}`         | registra um evento                                             |
+| `on:submit              | prevent={fn}`                                                  | com modificadores: `prevent`, `stop`, `once`, `self`, `capture`, `passive`, `trusted` |
+| `class:ativo={cond}`    | aplica uma classe conforme uma condição                        |
+| `style:color={valor}`   | define uma propriedade de estilo                               |
+| `bind:value={nome}`     | liga o valor de um campo ao estado, nos dois sentidos          |
+| `wasm:preload={"area"}` | inicia o carregamento de uma parte WebAssembly antes do clique |
 
 ```
 <form on:submit|prevent={enviar}>
@@ -92,10 +92,10 @@ Atributo aceita expressão, string com interpolação, ou nada. `{...tabela}` es
 
 ## Elementos especiais {#elementos-especiais}
 
-- `<slot />` e `<slot name="x" />` recebem o que o pai escreveu.
-- `<lunar:head>` manda o conteúdo para a `<head>` do documento.
-- Componente é nome com inicial maiúscula: `<Cartao />`.
+- `<slot />` e `<slot name="x" />` recebem o conteúdo escrito pelo pai.
+- `<lunar:head>` envia o conteúdo para a `<head>` do documento.
+- Um componente é um nome com inicial maiúscula: `<Cartao />`.
 
 :::note
-Expressão do template é checada na compilação. Erro de digitação vem com arquivo e linha, não some em produção.
+Toda expressão do template é verificada na compilação. Um erro de digitação produz erro com arquivo e linha, em vez de falhar só em execução.
 :::

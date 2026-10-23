@@ -5,7 +5,7 @@ title: Componentes
 description: Como montar um arquivo .lunar com script, marcação e estilo.
 ---
 
-Um arquivo `.lunar` tem três pedaços, e nenhum é obrigatório: um `<script>`, a marcação e um `<style>`.
+Um arquivo `.lunar` tem três partes, todas opcionais: um `<script>`, a marcação e um `<style>`.
 
 ```lib/Cartao.lunar
 <script>
@@ -30,7 +30,7 @@ Um arquivo `.lunar` tem três pedaços, e nenhum é obrigatório: um `<script>`,
 
 ## Propriedades {#propriedades}
 
-`props { nome = padrão }` é o que o componente aceita de fora. Se ninguém passar nada, vale o padrão. Dentro do arquivo você lê isso como variável normal.
+`props { nome = padrão }` declara os valores que o componente recebe de fora; se o pai não passar um deles, vale o padrão. Dentro do arquivo, a propriedade se lê como uma variável comum.
 
 ```
 <Cartao title="Relatório" />
@@ -47,11 +47,11 @@ Um arquivo `.lunar` tem três pedaços, e nenhum é obrigatório: um `<script>`,
 <Cartao title="Olá" />
 ```
 
-Nome de componente começa com maiúscula. Barra no começo do caminho sai da raiz da aplicação. Sem barra, sai do arquivo atual.
+O nome do componente começa com letra maiúscula. Um caminho iniciado por barra é relativo à raiz da aplicação; um caminho relativo é resolvido a partir do arquivo atual.
 
 ## Slots {#slots}
 
-O que o pai escreve por dentro cai no `<slot />`. Se o slot já tiver um texto, esse texto aparece quando o pai não mandou nada.
+O conteúdo que o pai coloca dentro do componente é inserido no `<slot />`. Se o slot tiver um conteúdo próprio, esse conteúdo é usado quando o pai não preenche o espaço.
 
 ```lib/Painel.lunar
 <header><slot name="topo" /></header>
@@ -66,11 +66,11 @@ O que o pai escreve por dentro cai no `<slot />`. Se o slot já tiver um texto, 
 </Painel>
 ```
 
-`<slot name="..." />` pega os filhos com o atributo `slot` do mesmo nome. O resto vai para o slot sem nome. Esse atributo não sai no HTML.
+Cada `<slot name="..." />` recebe os filhos com o atributo `slot` correspondente; o restante vai para o slot sem nome. O atributo `slot` não aparece no HTML gerado.
 
 ## Estilos com escopo {#estilos}
 
-O CSS do arquivo ganha uma classe do compilador e só pega os elementos dali. `:global(...)` é a porta de saída, se você quiser.
+O CSS do componente recebe uma classe gerada pelo compilador e só se aplica aos elementos daquele arquivo. `:global(...)` tira um seletor desse escopo.
 
 ```
 <style>
@@ -89,5 +89,5 @@ O CSS do arquivo ganha uma classe do compilador e só pega os elementos dali. `:
 ```
 
 :::note
-Erro no `<script>` aponta a linha do `.lunar`, não a do Lua gerado. A numeração é a do arquivo que você editou.
+Um erro no `<script>` aponta para a linha do arquivo `.lunar`, não para a do módulo gerado: o compilador preserva a numeração.
 :::

@@ -5,19 +5,19 @@ title: Conheça o Lunar
 description: O que é o Lunar e como as pastas da aplicação se organizam.
 ---
 
-Lunar é um framework web em Lua 5.4. Você escreve um arquivo `.lunar` com HTML, um pouco de Lua e CSS se quiser. O servidor renderiza esse arquivo. No navegador, o mesmo arquivo continua dali, sem a página ser montada outra vez.
+Lunar é um framework web em Lua 5.4. Um arquivo `.lunar` contém a marcação, o script e, se houver, o CSS do componente; o servidor renderiza esse arquivo e o navegador hidrata o HTML resultante.
 
-Não tem etapa de build. Os componentes saem compilados na hora, em memória, e o resultado fica em cache. Fora o LuaSocket, que só entra para abrir sockets, o resto é Lua.
+Os `.lunar` são compilados em memória quando a rota precisa deles, e o resultado fica em cache. O servidor HTTP usa LuaSocket; o restante do código da aplicação é Lua.
 
 ## O que já funciona {#o-que-ja-funciona}
 
 - Componentes reativos, com propriedades, efeitos e valores derivados.
 - Template com `if`, listas (com ou sem chave), bindings e slots.
-- CSS que vale só naquele componente.
-- HTML no servidor e hidratação no navegador, reaproveitando o que já chegou.
+- CSS restrito ao componente.
+- Renderização no servidor e hidratação no navegador, reusando o HTML já enviado.
 - Rotas por pasta, com layouts, probes e endpoints HTTP.
-- Funções Lua em WebAssembly, carregadas quando alguém chama.
-- Pacote para Cloudflare Workers.
+- Funções Lua compiladas para WebAssembly, carregadas na primeira chamada.
+- Empacotamento para Cloudflare Workers.
 
 ## Uma estrutura pequena {#uma-estrutura-pequena}
 
@@ -36,11 +36,11 @@ meu-app/
   static/
 ```
 
-Páginas ficam em `orbit/`. Componentes que você reutiliza, em `lib/`. Funções que vão para WebAssembly, em `wasm/`. Arquivo estático, em `static/`.
+As páginas ficam em `orbit/`, os componentes compartilhados em `lib/`, as funções destinadas a WebAssembly em `wasm/` e os arquivos públicos em `static/`.
 
 ## O vocabulário {#o-vocabulario}
 
-Alguns nomes o Lunar inventa. Segue o que cada um é.
+Alguns identificadores são específicos do Lunar:
 
 | Nome      | O que é                                                         |
 | --------- | --------------------------------------------------------------- |
@@ -50,13 +50,13 @@ Alguns nomes o Lunar inventa. Segue o que cada um é.
 | `probe`   | a função que busca os dados da página no servidor               |
 | `api`     | um endpoint HTTP                                                |
 | `eclipse` | o que aparece quando algo falha, ou quando o caminho não existe |
-| moonlight | o pacote que o navegador baixa para rodar a aplicação           |
+| moonlight | o pacote que o navegador baixa para executar a aplicação        |
 | `on_rise` | o componente acabou de entrar no documento                      |
 | `on_set`  | o componente está saindo                                        |
 | congelado | a aplicação empacotada para um ambiente sem sistema de arquivos |
 
 :::note
-Lunar está na 1.0. Ainda não tem `{#await}`, form action pronta nem página em streaming. O runtime não espera Promise, e a `<head>` só fica pronta quando o corpo termina. Formulário no servidor vai para um `api.lua`. Endpoint pode responder em pedaços, se você montar assim.
+Lunar está na versão 1.0. Ainda não existem blocos `{#await}`, form actions prontas nem páginas em streaming: o runtime não espera uma Promise, e a `<head>` só fica completa quando o corpo termina. Formulários no servidor passam por um `api.lua`. Um endpoint pode responder em pedaços.
 :::
 
 A [instalação](/docs/instalacao) está na página seguinte. O código fica no [GitHub](https://github.com/Glazastyy/Lunar).

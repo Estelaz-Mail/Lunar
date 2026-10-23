@@ -2,10 +2,10 @@
 slug: rotas
 group: Aplicação
 title: Rotas
-description: Como as pastas em orbit viram URL.
+description: Como as pastas em orbit correspondem a URLs.
 ---
 
-A pasta `orbit/` é o mapa. Um diretório vira URL.
+O diretório `orbit/` define as rotas: cada pasta corresponde a um segmento da URL.
 
 ```
 orbit/
@@ -37,11 +37,11 @@ orbit/
 
 ## Segmentos dinâmicos {#segmentos}
 
-- `[nome]` pega um pedaço do caminho e chega em `event.params.nome`.
-- `[...nome]` pega o resto.
-- `(grupo)` só organiza arquivo. Não entra na URL.
+- `[nome]` corresponde a um segmento e fica em `event.params.nome`.
+- `[...nome]` captura os segmentos restantes.
+- `(grupo)` organiza arquivos sem entrar na URL.
 
-Na hora de casar, vale o nome literal, depois o parâmetro, depois o que come o resto.
+A correspondência prefere o segmento literal, depois o parâmetro, depois o que captura o resto.
 
 ## Layouts {#shell}
 
@@ -55,16 +55,16 @@ Na hora de casar, vale o nome literal, depois o parâmetro, depois o que come o 
 <main><slot /></main>
 ```
 
-O conteúdo da página entra no `<slot />` do shell. Dados do `shell.lua` se juntam aos da página em `data`.
+O conteúdo da página é inserido no `<slot />` do shell, e os dados do `shell.lua` se juntam aos da página em `data`.
 
 ## Navegação {#navegacao}
 
-Link interno pede os dados e troca a página sem recarregar o documento. Abrir a URL direto manda o HTML pronto. Mesma rota.
+Um link entre rotas da aplicação carrega os dados e substitui a página sem recarregar o documento. Uma visita direta à mesma URL continua recebendo HTML renderizado no servidor.
 
 ## Arquivos públicos {#estaticos}
 
-O que está em `static/` sai na raiz do site. Se existir o irmão comprimido e o pedido aceitar, vai ele: `app.js.br` para `br`, `app.js.gz` para `gzip`.
+O conteúdo de `static/` é servido a partir da raiz do site. Se existir a cópia comprimida e o pedido aceitar a codificação, o servidor envia `app.js.br` para `br` e `app.js.gz` para `gzip`.
 
 :::note
-Um `app.html` na raiz troca o documento em volta de tudo isso.
+Um `app.html` na raiz da aplicação substitui o documento em volta das páginas.
 :::

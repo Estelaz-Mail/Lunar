@@ -5,7 +5,7 @@ title: Reatividade
 description: Como o estado do componente atualiza a tela.
 ---
 
-No `<script>` de um componente, atribuição comum atualiza a tela. Lunar roda esse script com `_ENV` no escopo do componente, então `conta = conta + 1` mexe no que o template lê de `conta`. `local` continua Lua puro, sem isso.
+Atribuições no `<script>` de um componente são reativas por padrão. Lunar executa o script com `_ENV` ligado ao escopo do componente, de modo que `conta = conta + 1` atualiza as partes do template que dependem de `conta`. Variáveis declaradas com `local` continuam sendo variáveis Lua comuns.
 
 ```
 <script>
@@ -37,7 +37,7 @@ No `<script>` de um componente, atribuição comum atualiza a tela. Lunar roda e
 <p>{conta} — {dobro}</p>
 ```
 
-`derived(nome, fn)` guarda um valor calculado. `watch(fn)` dispara um efeito. Nos dois, a dependência é o que a última execução leu. Não tem lista para declarar.
+`derived(nome, fn)` mantém um valor calculado e `watch(fn)` executa um efeito. Em ambos, as dependências são o que a última execução leu; não há lista para declarar.
 
 ## Entrar e sair {#ciclo-de-vida}
 
@@ -54,7 +54,7 @@ No `<script>` de um componente, atribuição comum atualiza a tela. Lunar roda e
 </script>
 ```
 
-`on_rise` roda quando o componente entra no documento. Se devolver uma função, essa função roda na saída. `on_set` roda antes de sair.
+`on_rise` é chamado quando o componente entra no documento; se a função devolver outra, essa outra corre na saída. `on_set` é chamado antes da remoção.
 
 ## Contexto {#contexto}
 
@@ -70,7 +70,7 @@ No `<script>` de um componente, atribuição comum atualiza a tela. Lunar roda e
 </script>
 ```
 
-`set_context` e `get_context` passam valor para os filhos sem ficar empurrando propriedade em todo mundo.
+`set_context` e `get_context` compartilham um valor com os descendentes, sem encaminhar a propriedade por cada nível.
 
 ## Bindings {#bindings}
 
@@ -86,5 +86,5 @@ No `<script>` de um componente, atribuição comum atualiza a tela. Lunar roda e
 ```
 
 :::note
-O estado mora no componente que declarou a variável. `bind:` no filho escreve no pai que passou a propriedade. Os dois acompanham.
+O estado permanece no componente que declarou a variável. Um `bind:` no filho escreve no estado do pai que passou a propriedade, e os dois templates acompanham o valor.
 :::
