@@ -45,9 +45,178 @@ local function digits_of(value)
   return count
 end
 
+local function fill_digits(where, value, count)
+  local index = count - 1
+  local rest = value
+  while index >= 0 do
+    mem.set_byte(where + index, 48 + (rest - math.floor(rest / 10) * 10))
+    rest = math.floor(rest / 10)
+    index = index - 1
+  end
+  return 0
+end
+
+local function copy_digits(pointer, at, where, from, count)
+  local index = 0
+  while index < count do
+    mem.set_byte(pointer + 8 + at + index, mem.byte(where + from + index))
+    index = index + 1
+  end
+  return at + count
+end
+
+local function fill_zeros(pointer, at, count)
+  local index = 0
+  while index < count do
+    mem.set_byte(pointer + 8 + at + index, 48)
+    index = index + 1
+  end
+  return at + count
+end
+
+local function float_string(value)
+  local negative = 0
+  local magnitude = value
+  if value < 0 then
+    negative = 1
+    magnitude = -value
+  end
+
+  local exponent = 0
+  while magnitude >= 1e16 do
+    magnitude = magnitude / 1e16
+    exponent = exponent + 16
+  end
+  while magnitude >= 1e4 do
+    magnitude = magnitude / 1e4
+    exponent = exponent + 4
+  end
+  while magnitude >= 10 do
+    magnitude = magnitude / 10
+    exponent = exponent + 1
+  end
+  while magnitude < 1e-15 do
+    magnitude = magnitude * 1e16
+    exponent = exponent - 16
+  end
+  while magnitude < 1e-3 do
+    magnitude = magnitude * 1e4
+    exponent = exponent - 4
+  end
+  while magnitude < 1 do
+    magnitude = magnitude * 10
+    exponent = exponent - 1
+  end
+
+  local digits = math.floor(magnitude * 1e13 + 0.5)
+  if digits >= 1e14 then
+    digits = math.floor(digits / 10)
+    exponent = exponent + 1
+  end
+
+  local count = 14
+  while count > 1 and digits - math.floor(digits / 10) * 10 == 0 do
+    digits = math.floor(digits / 10)
+    count = count - 1
+  end
+  fill_digits(128, digits, count)
+
+  if exponent < -4 or exponent >= 14 then
+    local power = exponent
+    local sign = 43
+    if power < 0 then
+      sign = 45
+      power = -power
+    end
+    local power_count = digits_of(power)
+    if power_count < 2 then
+      power_count = 2
+    end
+    fill_digits(160, power, power_count)
+
+    local total = negative + 1 + 2 + power_count
+    if count > 1 then
+      total = total + 1 + count - 1
+    end
+    local pointer = alloc(8 + total)
+    mem.store(pointer, total)
+    local at = 0
+    if negative == 1 then
+      mem.set_byte(pointer + 8, 45)
+      at = 1
+    end
+    at = copy_digits(pointer, at, 128, 0, 1)
+    if count > 1 then
+      mem.set_byte(pointer + 8 + at, 46)
+      at = copy_digits(pointer, at + 1, 128, 1, count - 1)
+    end
+    mem.set_byte(pointer + 8 + at, 101)
+    mem.set_byte(pointer + 8 + at + 1, sign)
+    copy_digits(pointer, at + 2, 160, 0, power_count)
+    return box.pack(2, pointer)
+  end
+
+  if exponent >= count - 1 then
+    local zeros = exponent + 1 - count
+    local total = negative + count + zeros + 2
+    local pointer = alloc(8 + total)
+    mem.store(pointer, total)
+    local at = 0
+    if negative == 1 then
+      mem.set_byte(pointer + 8, 45)
+      at = 1
+    end
+    at = copy_digits(pointer, at, 128, 0, count)
+    at = fill_zeros(pointer, at, zeros)
+    mem.set_byte(pointer + 8 + at, 46)
+    mem.set_byte(pointer + 8 + at + 1, 48)
+    return box.pack(2, pointer)
+  end
+
+  if exponent >= 0 then
+    local whole = exponent + 1
+    local total = negative + count + 1
+    local pointer = alloc(8 + total)
+    mem.store(pointer, total)
+    local at = 0
+    if negative == 1 then
+      mem.set_byte(pointer + 8, 45)
+      at = 1
+    end
+    at = copy_digits(pointer, at, 128, 0, whole)
+    mem.set_byte(pointer + 8 + at, 46)
+    copy_digits(pointer, at + 1, 128, whole, count - whole)
+    return box.pack(2, pointer)
+  end
+
+  local zeros = -exponent - 1
+  local total = negative + 2 + zeros + count
+  local pointer = alloc(8 + total)
+  mem.store(pointer, total)
+  local at = 0
+  if negative == 1 then
+    mem.set_byte(pointer + 8, 45)
+    at = 1
+  end
+  mem.set_byte(pointer + 8 + at, 48)
+  mem.set_byte(pointer + 8 + at + 1, 46)
+  at = fill_zeros(pointer, at + 2, zeros)
+  copy_digits(pointer, at, 128, 0, count)
+  return box.pack(2, pointer)
+end
+
 local function number_string(value)
-  if math.floor(value) ~= value then
-    mem.trap()
+  if value ~= value then
+    return "nan"
+  end
+  if value > 179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 then
+    return "inf"
+  end
+  if value < -179769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 then
+    return "-inf"
+  end
+  if math.floor(value) ~= value or value >= 9007199254740992 or value <= -9007199254740992 then
+    return float_string(value)
   end
   local negative = 0
   local magnitude = value
