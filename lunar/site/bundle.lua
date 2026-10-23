@@ -69,12 +69,18 @@ function bundle.build(app)
   end
 
   local parts = {}
+  local inventory = {}
+  local function keep(kind, name, piece)
+    parts[#parts + 1] = piece
+    inventory[#inventory + 1] = { kind = kind, name = name, bytes = #piece,
+      piece = bundle.detailed and piece or nil }
+  end
 
   for _, relative in ipairs(MODULES) do
     local path = fs.join(app.framework, relative)
     local source = framework_source(app, path)
     if not source then return nil, path .. " is missing from the framework" end
-    parts[#parts + 1] = preload(module_name(relative), source, relative)
+    keep("framework", module_name(relative), preload(module_name(relative), source, relative))
   end
 
   local components = {}
@@ -82,7 +88,7 @@ function bundle.build(app)
     local def, generated = app.cache:get(path)
     if not def then return nil, generated end
     components[path] = resolve.module_name(path)
-    parts[#parts + 1] = preload(resolve.module_name(path), generated, path)
+    keep("component", path, preload(resolve.module_name(path), generated, path))
   end
 
   local registry = {
@@ -91,15 +97,16 @@ function bundle.build(app)
     routes = route_map(app),
   }
 
-  parts[#parts + 1] = string.format(
+  keep("registry", "lunar.app.registry", string.format(
     "package.preload[%q] = function() return %s end",
-    "lunar.app.registry", bundle.literal(registry))
+    "lunar.app.registry", bundle.literal(registry)))
 
   if app.dev then
     local path = fs.join(app.framework, "lunar/site/reload.lua")
     local source = framework_source(app, path)
     if source then
-      parts[#parts + 1] = preload("lunar.site.reload", source, "lunar/site/reload.lua")
+      keep("framework", "lunar.site.reload",
+        preload("lunar.site.reload", source, "lunar/site/reload.lua"))
     end
   end
 
@@ -115,11 +122,24 @@ function bundle.build(app)
     tail[#tail + 1] = 'pcall(function() require("lunar.site.reload").watch() end)'
   end
   tail[#tail + 1] = 'return registry'
-  parts[#parts + 1] = table.concat(tail, "\n")
+  keep("boot", "the start-up tail", table.concat(tail, "\n"))
 
   local source = table.concat(parts, "\n\n") .. "\n"
   app.bundle_cache = source
+  app.bundle_inventory = inventory
   return source
+end
+
+function bundle.inventory(app)
+  bundle.detailed = true
+  app.bundle_cache = nil
+  local source, err = bundle.build(app)
+  bundle.detailed = false
+  if not source then return nil, err end
+
+  local inventory = app.bundle_inventory
+  app.bundle_cache, app.bundle_inventory = nil, nil
+  return inventory, source
 end
 
 function bundle.literal(value)

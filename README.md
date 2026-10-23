@@ -141,6 +141,8 @@ It costs about 2.4 MB a second, which is a real cost and the reason the result i
 
 Brotli is not generated. It needs a static dictionary and context modelling that this source is not going to carry, and guessing at a worse brotli than every browser already has is not a trade worth making. A static file is still served from the precompressed file beside it when the request accepts that encoding: `app.js.br` for `br` and `app.js.gz` for `gzip`, preferred in that order and over compressing anything on the fly, with the original's content type, the compressed length, its own entity tag, and `Content-Encoding` set. Nothing generates those files, so they are the operator's to produce and to keep in step with the source. `Vary: Accept-Encoding` is on any response that could have been compressed, added to a `Vary` that was already there rather than replacing it, and an entity tag gains a `-gzip` suffix when the body is compressed, so a cache cannot hand a compressed body to a client that did not ask for one.
 
+`lunar analyze [app]` weighs what it ships. Every resource the browser fetches is listed raw and gzipped, and the moonlight bundle is broken into the parts it is made of — each framework module, each component, the route registry, the start-up tail — sorted by weight, with each part's share of the bundle and what it costs compressed on its own. Those compressed figures add up to more than the bundle does, because the bundle is one stream and a part is not, and the report says so rather than presenting a sum that does not hold. The inventory is collected by building the bundle once with the parts kept; the server never holds that copy, and an ordinary build keeps none.
+
 `lunar bench --http URL` drives a running server over keep-alive connections and reports requests a second and the latency spread. On the same machine as the server, with 32 keep-alive connections and the client in one process of its own, the example application answers about 4,200 requests a second at a median of 7.5 ms, 8.7 ms at the 95th percentile and 11.4 ms at the 99th. Both sides are competing for the same cores, so that is a floor rather than a ceiling. Run the server with `RATE_LIMIT=0` for a load test, since the rate limiter exists to stop exactly what a load test does.
 
 The takeover is also measured, against the table DOM the tests use rather than a browser. Claiming is not faster than rebuilding there, and is not meant to look like it: in a table DOM a node costs a table. What claiming buys is the node itself, and in a browser a created node also costs layout and paint, which that measurement cannot capture.
@@ -339,6 +341,7 @@ The command-line interface is available through `lunar`:
 lunar dev [app]
 lunar build [app]
 lunar map [app]
+lunar analyze [app]
 lunar compile file
 lunar wasm file...
 lunar bench [app]
@@ -347,7 +350,7 @@ lunar workers [app]
 lunar spec
 ```
 
-`dev` starts the development server, `build` compiles the application's components to check for errors, and `map` prints the discovered routes. `compile` writes the generated Lua for a component to standard output and `wasm` compiles Lua files into wasm parts, reporting what each one exports and needs, writing them to `WASM_OUT` when that is set. `bench` measures compiling, rendering, the takeover, and the download, `workers` creates a Cloudflare Workers deployment, and `spec` runs the test suite.
+`dev` starts the development server, `build` compiles the application's components to check for errors, and `map` prints the discovered routes. `compile` writes the generated Lua for a component to standard output and `wasm` compiles Lua files into wasm parts, reporting what each one exports and needs, writing them to `WASM_OUT` when that is set. `analyze` reports what a browser downloads for the application and what is inside the bundle, `bench` measures compiling, rendering, the takeover, and the download, `workers` creates a Cloudflare Workers deployment, and `spec` runs the test suite.
 
 ## Formatting
 

@@ -113,6 +113,7 @@ function App:refresh(force)
   self.shell = util.read_file(fs.join(self.root, "app.html"))
   self.modules = {}
   self.bundle_cache = nil
+  self.bundle_inventory = nil
   self.integrity_cache = nil
   return true
 end

@@ -18,6 +18,7 @@ lunar ]] .. lunar.VERSION .. [[ — a framework in Lua
   lunar map [app]          print the route table as it was discovered
   lunar compile <file>     print the Lua a component compiles to
   lunar wasm <file...>     compile Lua functions into wasm parts
+  lunar analyze [app]      report what the browser downloads, part by part
   lunar bench [app]        measure compiling, rendering, the takeover, the download
   lunar bench --http <url> measure a running server over keep-alive sockets
   lunar workers [app]      generate a Cloudflare Workers deploy directory
@@ -107,6 +108,14 @@ function cli.build(argument)
     io.write(string.format("%d failed\n", failures))
     os.exit(1)
   end
+end
+
+function cli.analyze(argument)
+  local root = app_root(argument)
+  local analyze = require("lunar.analyze")
+  local result, err = analyze.run(root)
+  if not result then fail(tostring(err)) end
+  analyze.report(result)
 end
 
 function cli.map(argument)

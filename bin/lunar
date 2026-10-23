@@ -30,7 +30,7 @@ command="${1:-help}"
 
 case "$command" in
 	spec) exec "${LUA:-lua5.4}" "$root/spec/runner.lua" "$@" ;;
-	dev|build|map|compile|wasm|serve|workers|bench|help|--help|-h)
+	dev|build|map|compile|wasm|serve|workers|bench|analyze|help|--help|-h)
 		exec "${LUA:-lua5.4}" "$root/lunar/cli.lua" "$command" "$@" ;;
 	*)
 		echo "lunar: unknown command '$command'" >&2
