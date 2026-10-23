@@ -91,9 +91,9 @@ function T.asks_the_host_only_for_what_it_cannot_do_itself()
 end
 
 function T.refuses_what_the_subset_does_not_cover()
-  assert(compile_error("function f(...) return ... end"):find("only read as", 1, true))
+  assert(compile_error("local function f(...) return ... end"):find("only read as", 1, true))
   assert(compile_error("function f(a) return a:upper() end"):find("is not an expression", 1, true))
-  assert(compile_error("function f(...) local t = ... return t end"):find("only read as", 1, true))
+  assert(compile_error("local function f(...) local t = ... return t end"):find("only read as", 1, true))
   assert(compile_error("function f() return 1 % 0 ^ coroutine end")
     :find("is not a value this part knows", 1, true))
   assert(compile_error('function f() return math.pi end')
@@ -319,26 +319,50 @@ end
 
 function T.takes_a_vararg_and_reads_it_as_a_table()
   local _, info = compile.chunk([[
-function total(...)
+local function total(...)
   local values = {...}
   return #values
 end
 
-function how_many(...)
+local function how_many(...)
   return select("#", ...)
 end
 
 function pass()
-  return total(1, 2, 3)
+  return total(1, 2, 3) + how_many(4, 5)
 end
 ]], { filename = "va.lua" })
   assert(table.concat(info.needs, ",") == "runtime")
-  assert(info.arities.total == 0, "the fixed parameters are what the arity counts")
+  assert(table.concat(info.exports, ",") == "pass", "only what the host can call is exported")
 
   assert(compile_error("function f() local t = {...} return #t end")
     :find("outside a function that takes it", 1, true))
-  assert(compile_error("function f(a, ...) return 0 end function g() return f() end")
+  assert(compile_error("local function f(a, ...) return 0 end function g() return f() end")
     :find("at least 1, not 0", 1, true))
+  assert(compile_error("function shown(...) return select(\"#\", ...) end")
+    :find("cannot be exported", 1, true))
+end
+
+function T.hands_the_heap_back_where_it_was_asked_to()
+  local _, info = compile.chunk([[
+function churn(rounds)
+  local round = 1
+  local last = 0
+  while round <= rounds do
+    local mark = heap.mark()
+    local scratch = { round }
+    last = scratch[1]
+    heap.release(mark)
+    round = round + 1
+  end
+  return last
+end
+]], { filename = "arena.lua" })
+  assert(table.concat(info.needs, ",") == "runtime")
+
+  assert(compile_error("function f() return heap.sweep() end")
+    :find("is not something Lunar has", 1, true))
+  assert(compile_error("function f() return heap.release() end"):find("takes 1", 1, true))
 end
 
 local function fake_browser(manifest)

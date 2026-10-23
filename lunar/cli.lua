@@ -182,23 +182,22 @@ function cli.compile(path)
   io.write(generated, "\n")
 end
 
-function cli.wasm(path, extra)
-  if not path then fail("wasm needs a file: lunar wasm hot.lua") end
+function cli.wasm(...)
+  local paths = { ... }
+  if #paths == 0 then fail("wasm needs a file: lunar wasm hot.lua") end
   local fs = require("lunar.core.fs")
   local parts_lib = require("lunar.wasm.parts")
   local util = require("lunar.core.util")
 
   local units = {}
-  for _, candidate in ipairs({ path, extra }) do
-    if candidate then
-      local source = util.read_file(candidate)
-      if not source then fail(candidate .. ": no such file") end
-      units[#units + 1] = {
-        name = (fs.basename(candidate):gsub("%.lua$", "")),
-        source = source,
-        filename = candidate,
-      }
-    end
+  for _, candidate in ipairs(paths) do
+    local source = util.read_file(candidate)
+    if not source then fail(candidate .. ": no such file") end
+    units[#units + 1] = {
+      name = (fs.basename(candidate):gsub("%.lua$", "")),
+      source = source,
+      filename = candidate,
+    }
   end
 
   local ok, manifest = pcall(parts_lib.build, units)
@@ -224,8 +223,7 @@ function cli.wasm(path, extra)
 end
 
 local command = ...
-local argument = select(2, ...)
-local extra = select(3, ...)
+local arguments = { select(2, ...) }
 
 local handler = cli[command]
 if not handler or command == "help" then
@@ -233,4 +231,4 @@ if not handler or command == "help" then
   os.exit(command == "help" and 0 or 1)
 end
 
-handler(argument, extra)
+handler(table.unpack(arguments))

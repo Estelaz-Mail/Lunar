@@ -22,6 +22,21 @@ function alloc(size)
   return pointer
 end
 
+function heap_mark()
+  return mem.load(0)
+end
+
+function heap_release(mark)
+  if mark < 1024 then
+    mem.trap()
+  end
+  if mark > mem.load(0) then
+    mem.trap()
+  end
+  mem.store(0, mark)
+  return mark
+end
+
 function length(value)
   if box.is_number(value) then
     mem.trap()

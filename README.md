@@ -164,15 +164,49 @@ function basel(count)
 end
 ```
 
-A `function` is exported from its part; a `local function` stays inside it. The subset covers arithmetic with `+ - * / // % ^`, comparisons, `and`, `or`, `not`, `if`, `while`, a numeric `for` with a literal step, `break`, `local`, assignment, calls, `..`, `#`, table constructors, indexing with `t[k]` and `t.k`, and `math.abs`, `math.ceil`, `math.floor`, `math.max`, `math.min`, `math.sqrt` and `math.trunc`. `//` and `%` floor the way Lua does, so `-7 % 3` is `2` and not `-1`. A function returns exactly one value, and falling off the end returns zero. Closures, varargs, coroutines, metatables, methods and multiple returns are not in the subset and are refused at compile time, with the file and the line. `^` is the one thing with no instruction behind it, so a part that raises a power imports `pow` from the host.
+A `function` is exported from its part; a `local function` stays inside it. The subset covers arithmetic with `+ - * / // % ^`, comparisons, `and`, `or`, `not`, `if`, `while`, a numeric `for` with a literal step, `break`, `local`, assignment, calls, `..`, `#`, table constructors, indexing with `t[k]` and `t.k`, functions as values, closures over the variables around them, several returns, a trailing `...`, and `math.abs`, `math.ceil`, `math.floor`, `math.max`, `math.min`, `math.sqrt` and `math.trunc`. `//` and `%` floor the way Lua does, so `-7 % 3` is `2` and not `-1`. `^` is the one thing with no instruction behind it, so a part that raises a power imports `pow` from the host. Coroutines, methods with `:`, `goto` and the standard library beyond `math` are refused at compile time, with the file and the line.
 
 Every value is one `f64`, because a Lua number already is one. The others ride in the quiet NaNs a double is not otherwise using: a tag and a 32-bit payload, which is `nil`, a boolean, or an address in the memory. Arithmetic therefore costs nothing extra, and `if v then` is false for exactly `nil` and `false`, as in Lua. A comparison used as a value becomes a real boolean rather than a `1`.
 
-Strings are bytes in that memory with their length in front. A literal is written into the module's data section at compile time, so reaching for it costs no allocation, and the same literal appears once however often it is written. `..` allocates and copies, and coerces an integer the way Lua does, so `"key" .. 3` is `"key3"`; a fractional number has no formatting yet and traps. `==` compares strings by content, `#` is the length. Ordering with `<` stays numeric.
+Strings are bytes in that memory with their length in front. A literal is written into the module's data section at compile time, so reaching for it costs no allocation, and the same literal appears once however often it is written. `..` allocates and copies, `==` compares by content, `#` is the length, and `<`, `<=`, `>` and `>=` compare byte by byte as Lua does. A number concatenated onto a string is written the way Lua writes it, to fourteen significant digits with the exponent where Lua puts one, so `1/3` is `0.33333333333333` and `1e20` is `1e+20`. The one difference is the whole numbers: the subset has no integer subtype, every number being a float, so `3` is written `3` rather than `3.0`.
 
-A table has an array part for the keys `1..n` and an open-addressed hash part for the rest, which grows and rehashes as it fills. `{ 1, 2, name = "lunar" }`, `t[k]`, `t.k`, `t[k] = v` and `#t` all work. Assigning `nil` to a key stores the nothing but keeps the slot.
+A table has an array part for the keys `1..n` and an open-addressed hash part for the rest, which grows and rehashes as it fills. `{ 1, 2, name = "lunar" }`, `t[k]`, `t.k`, `t[k] = v` and `#t` all work. Assigning `nil` to a key stores the nothing but keeps the slot. `setmetatable`, `getmetatable`, `rawget`, `rawset` and `type` are there, and a table consults its metatable's `__index` and `__newindex`, each of which may be a table or a function. The metamethods for arithmetic, comparison and calling are not consulted.
 
-**There is no garbage collector.** The allocator moves a pointer forward and never moves it back, so memory a part allocates is held until the page is gone. The subset is for work that computes, not for a long-lived heap of objects.
+A function is a value: `local f = function(x) ... end`, `local g = area`, `f(2)`, a function in a table. A closure keeps the variables around it rather than copies of them, so the counter below counts, and a variable a closure captures lives in the memory rather than in a register. Every function a part compiles gets a slot in one table the host shares between parts, which is how a value made in one part can be called from another.
+
+```lua
+function counter(start)
+  local total = start
+  local function bump(by)
+    total = total + by
+    return total
+  end
+  bump(1)
+  bump(2)
+  return total
+end
+```
+
+A function can return several values and a caller can take them: `return total, mean` and `local sum, average = stats(...)`. The extra values travel through a small fixed region of the memory, which is why there are at most eight of them, and why only the first crosses from one part to another. A trailing `...` collects the arguments a named function was given beyond its own; it is read as `{...}`, which is a fresh table, or as `select("#", ...)`, and anything else is refused rather than quietly meaning something slightly different. A function value cannot take `...`, and neither can one a part exports, since the host calling it has no way to pass the extras: a `local function` takes them and an exported one calls it.
+
+**There is no garbage collector**, and `heap.mark()` with `heap.release(mark)` is what there is instead. The allocator moves a pointer forward; `heap.mark` reads it and `heap.release` puts it back, which frees everything allocated in between at once. It is an arena, with an arena's contract: nothing allocated after the mark may be held once it is released. For work that computes, allocates while it computes and returns a number, that is the whole story:
+
+```lua
+function churn(rounds)
+  local round = 1
+  local last = 0
+  while round <= rounds do
+    local mark = heap.mark()
+    local scratch = { round }
+    last = scratch[1]
+    heap.release(mark)
+    round = round + 1
+  end
+  return last
+end
+```
+
+A tracing collector would need to find the live values, and they sit in WebAssembly locals, which a module cannot look at. Giving it roots means moving every value that might be a reference into a shadow stack in the memory, which costs every function something, numeric ones included; that is the price, and it has not been paid here. Coroutines are a harder no: the MVP WebAssembly this compiles to cannot switch stacks at all, so they would mean either a transform of every function into a state machine or a toolchain pass, and the honest place for a coroutine is still the Lua that runs on Fengari, which may call into a part.
 
 The memory itself comes from the host: the loader makes one `WebAssembly.Memory`, hands it to every part, and the heap grows into it. A part that needs strings or tables imports Lunar's own runtime part, which carries the allocator, the string and the table operations, and is itself compiled from Lua by the same compiler. It is emitted only when something needs it, loaded before the parts that do, and its exports are not names an application can ask for.
 
@@ -328,7 +362,7 @@ The number is read the way Lua's own is. `1.0` is the series and the last number
 
 ## Testing and development status
 
-The test suite contains 188 tests. It compares the HTML generated by the server renderer with the markup serialized from the Lua-based DOM renderer, checks the browser bundle against data produced by the server, and tests the packaged Workers application without filesystem access. It also parses the server's own markup the way a browser would and runs the takeover against it, for every route of the example application, asserting that each element afterwards is the one the server sent. The connection scheduling is tested by driving concurrent connections through the real server loop.
+The test suite contains 193 tests. It compares the HTML generated by the server renderer with the markup serialized from the Lua-based DOM renderer, checks the browser bundle against data produced by the server, and tests the packaged Workers application without filesystem access. It also parses the server's own markup the way a browser would and runs the takeover against it, for every route of the example application, asserting that each element afterwards is the one the server sent. The connection scheduling is tested by driving concurrent connections through the real server loop.
 
 The compiler, component model, reactivity, routing, HTTP server, hydration, browser navigation, security defaults, keyed iteration, named slots, Workers target, and VS Code extension are implemented. An endpoint can stream a chunked response. `{#await}` and built-in form actions are not supported, and a page is always sent with a `Content-Length`: the runtime has no asynchronous primitive to await, and a page's `<head>` is only known once its body has rendered. Server-side form handling can be implemented through `api.lua` endpoints.
 

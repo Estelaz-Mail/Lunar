@@ -50,6 +50,7 @@ local I64 = {
 }
 
 local INTRINSICS = { mem = true, bit = true, box = true }
+local NAMESPACES = { mem = true, bit = true, box = true, math = true, heap = true }
 
 local BOX_BASE = 0xfff8000000000000
 local TAG_MASK = 0x7fff
@@ -76,7 +77,7 @@ local RUNTIME = {
   table_new = 0, table_get = 2, table_set = 3,
   less = 2, less_equal = 2, closure_new = 3, closure_put = 3,
   setmetatable = 2, getmetatable = 1, rawget = 2, rawset = 3, type_of = 1,
-  varargs_table = 1, table_copy = 1,
+  varargs_table = 1, table_copy = 1, heap_mark = 0, heap_release = 1,
 }
 
 local VARARG_REGION = 256
@@ -86,6 +87,8 @@ local BUILTINS = {
   setmetatable = "setmetatable", getmetatable = "getmetatable",
   rawget = "rawget", rawset = "rawset", type = "type_of",
 }
+
+local HEAP = { mark = "heap_mark", release = "heap_release" }
 
 local ORDERING = {
   ["<"] = { name = "less", swap = false },
@@ -391,6 +394,18 @@ function Function:call(node)
   end
 
   if target.kind == "field" and target.target.kind == "name"
+    and target.target.name == "heap" then
+    local name = HEAP[target.name]
+    if not name then fail(self, node, "heap." .. target.name .. " is not something Lunar has") end
+    if #node.arguments ~= RUNTIME[name] then
+      fail(self, node, string.format("heap.%s takes %d", target.name, RUNTIME[name]))
+    end
+    for _, argument in ipairs(node.arguments) do self:number(argument) end
+    self:runtime(name)
+    return "number"
+  end
+
+  if target.kind == "field" and target.target.kind == "name"
     and target.target.name == "math" then
     local name = target.name
     local single = MATH_OPS[name]
@@ -571,8 +586,7 @@ function Function:expression(node)
   end
 
   if kind == "field" then
-    if node.target.kind == "name" and (INTRINSICS[node.target.name]
-      or node.target.name == "math") then
+    if node.target.kind == "name" and NAMESPACES[node.target.name] then
       fail(self, node, node.target.name .. "." .. node.name .. " is something to call, not a value")
     end
     self:number(node.target)
@@ -1107,6 +1121,10 @@ local function walk(nodes, found)
         and BUILTINS[node.target.name] then
         found.boxes = true
       end
+      if node.kind == "call" and node.target and node.target.kind == "field"
+        and node.target.target.kind == "name" and node.target.target.name == "heap" then
+        found.boxes = true
+      end
       if node.kind == "function" or node.kind == "local_function" then
         found.boxes = true
         found.closures = true
@@ -1119,7 +1137,7 @@ local function walk(nodes, found)
         found.tables = true
       end
       if node.kind == "field" and node.target and node.target.kind == "name"
-        and not (INTRINSICS[node.target.name] or node.target.name == "math") then
+        and not NAMESPACES[node.target.name] then
         found.boxes = true
         found.tables = true
       end
@@ -1233,6 +1251,11 @@ function compile.chunk(source, options)
   for index, declaration in ipairs(declarations) do
     if unit.functions_by_name[declaration.name] then
       error(string.format("lunar: %s:%d: `%s` is declared twice", filename,
+        declaration.line, declaration.name), 0)
+    end
+    if declaration.exported and declaration.parameters.vararg then
+      error(string.format("lunar: %s:%d: `%s` takes `...`, so it cannot be exported: "
+        .. "make it a `local function` and export one that calls it", filename,
         declaration.line, declaration.name), 0)
     end
     ordinals[#ordinals + 1] = declaration
