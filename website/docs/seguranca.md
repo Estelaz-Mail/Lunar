@@ -7,26 +7,26 @@ description: Escapamento, CSP, cabeçalhos e o que ainda é da aplicação.
 
 ## Escapamento {#escapamento}
 
-Texto no template sai escapado: corpo, atributo, string interpolada. `{@html}` é a única saída, e existe separado para o código mostrar que aquilo é cru. Os dados da página vão num bloco `application/json`, que o navegador não executa.
+Texto no template é escapado por padrão, no corpo, em atributos e em strings interpoladas. `{@html}` é a única forma de inserir marcação sem escapar, e a sintaxe é distinta para o ponto de uso deixar isso explícito. Os dados da página viajam num bloco `application/json`, que o navegador não executa.
 
 ## Content Security Policy {#csp}
 
-A política sai da resposta. Documento começa em `default-src 'none'`. Script embutido passa pelo SHA-256 dos bytes, nunca nonce, nunca `unsafe-eval`. O que Lunar entrega não precisa dos dois: o Fengari vendorizado não tem `eval` nem `new Function`.
+A política é gerada a partir da resposta, com `default-src 'none'` como ponto de partida para documentos. Um script embutido é autorizado pelo SHA-256 dos seus bytes, nunca por nonce e nunca com `unsafe-eval`. O Fengari vendorizado não contém `eval` nem `new Function`.
 
-Resposta que não é documento usa política mais fechada, com `frame-ancestors 'none'` e `sandbox`.
+Respostas que não são documentos usam uma política mais fechada, com `frame-ancestors 'none'` e `sandbox`.
 
 ## Cabeçalhos {#cabecalhos}
 
-O servidor manda `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, política de origem cruzada e um `Permissions-Policy` que desliga API de dispositivo.
+O servidor define `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, as políticas de origem cruzada e um `Permissions-Policy` que desliga APIs de dispositivo.
 
 ## Limite de requisições {#limite}
 
-Tem limitador por endereço, em balde de fichas, com teto separado para página, arquivo e escrita. Rastro é limitado e entrada parada some. Em teste de carga, `RATE_LIMIT=0`. O limitador existe para barrar exatamente o que o teste de carga faz.
+Há um limitador por endereço, em balde de fichas, com limites separados para páginas, arquivos e escritas. O rastreamento é limitado e entradas inativas são descartadas. Num teste de carga, suba o servidor com `RATE_LIMIT=0`.
 
 ## Arquivos públicos {#estaticos}
 
-Caminho é normalizado antes de ler. Nada fora de `static/` sai. Cada arquivo leva `ETag`, `Cache-Control` e `Vary: Accept-Encoding`, porque o servidor manda `.br` ou `.gz` quando existe e o pedido aceita.
+Caminhos são normalizados antes de qualquer leitura, e nada fora da raiz de `static/` é servido. Cada arquivo sai com `ETag` e `Cache-Control`, e com `Vary: Accept-Encoding`, porque o servidor envia o irmão `.br` ou `.gz` quando ele existe e o pedido aceita.
 
 :::warn
-Isso não substitui validar o que chega nos endpoints. O framework cuida do transporte e do documento. O significado dos dados é da aplicação.
+Nada disso substitui validar o que chega nos endpoints. O framework trata do transporte e do documento; o significado dos dados é da aplicação.
 :::

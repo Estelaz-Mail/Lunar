@@ -7,13 +7,13 @@ description: Como instalar o Lunar e rodar o primeiro exemplo.
 
 ## Instale o Lunar {#instale}
 
-Você vai precisar de Lua 5.4. O instalador oficial joga os arquivos numa pasta do seu usuário e não pede root. Vale ler o [script](https://lunar.estelaz.com/install.sh) antes de rodar.
+É necessário Lua 5.4. O instalador oficial grava os arquivos numa pasta do seu usuário, sem pedir root; leia o [script](https://lunar.estelaz.com/install.sh) antes de executá-lo.
 
 ```
 curl --proto '=https' --tlsv1.2 -sSf https://lunar.estelaz.com/install.sh | sh
 ```
 
-A release mais nova cai em `~/.lunar`, e o comando `lunar` em `~/.local/bin`. Se a máquina não tiver Lua 5.4, use `--with-lua` para o instalador baixar o interpretador e o LuaSocket. Outra revisão: `--ref` com tag, branch ou commit.
+A release mais recente fica em `~/.lunar` e o executável `lunar` em `~/.local/bin`. Se a máquina não tiver Lua 5.4, `--with-lua` faz o instalador obter o interpretador e o LuaSocket. Para outra revisão, use `--ref` com uma tag, um branch ou um commit.
 
 ## Rode o exemplo {#rode-o-exemplo}
 
@@ -21,11 +21,11 @@ A release mais nova cai em `~/.lunar`, e o comando `lunar` em `~/.local/bin`. Se
 lunar dev "$HOME/.lunar/examples/tranquility"
 ```
 
-Abra `http://localhost:3000`. O servidor gera o que for pedido e recarrega quando um arquivo muda.
+Abra `http://localhost:3000`. O servidor compila os componentes conforme a rota e recarrega a página quando um arquivo muda.
 
 ## Crie sua aplicação {#crie-sua-aplicacao}
 
-Uma aplicação é um diretório com `orbit/` dentro. Dá para começar com uma página só:
+Uma aplicação é um diretório com `orbit/` dentro. O menor caso é uma página só:
 
 ```orbit/page.lunar
 <script>
@@ -46,7 +46,7 @@ Uma aplicação é um diretório com `orbit/` dentro. Dá para começar com uma 
 lunar dev meu-app
 ```
 
-O HTML já chega renderizado. O navegador só assume os cliques.
+O HTML chega já renderizado; o navegador associa os eventos ao markup existente.
 
 ## Ou a partir de um clone {#de-um-clone}
 
@@ -57,5 +57,5 @@ bin/lunar dev examples/tranquility
 ```
 
 :::note
-LuaSocket só entra para servir. Compilar, inspecionar e empacotar rodam num Lua 5.4 puro.
+O LuaSocket só é necessário para servir. Compilar, inspecionar e empacotar funcionam com um Lua 5.4 puro.
 :::

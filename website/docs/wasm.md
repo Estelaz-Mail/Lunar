@@ -5,7 +5,7 @@ title: Lua em WebAssembly
 description: Como gerar wasm a partir de funções Lua e chamar de um componente.
 ---
 
-A pasta `wasm/`, ao lado de `orbit/`, guarda Lua comum. Essas funções viram WebAssembly. O compilador é Lua: sem toolchain extra, sem binário no repo, sem etapa de build. A parte nasce em memória e fica em cache, igual componente.
+O diretório `wasm/`, ao lado de `orbit/`, contém arquivos Lua comuns cujas funções são compiladas para WebAssembly. O compilador é escrito em Lua, sem toolchain extra nem binário no repositório: cada parte é compilada em memória e fica em cache, como um componente.
 
 ```wasm/geometria.lua
 function area(raio)
@@ -25,7 +25,7 @@ function basileia(quantidade)
 end
 ```
 
-`function` é exportado pela parte. `local function` fica só dentro.
+Um `function` é exportado pela parte; um `local function` permanece interno.
 
 ## O que o subconjunto cobre {#subconjunto}
 
@@ -33,24 +33,24 @@ end
 - `if`, `while`, `for` numérico com passo literal, `break`, `local`, atribuição.
 - Strings com `..`, `#`, `==` e ordenação byte a byte.
 - Tabelas, construtores, `t[k]`, `t.k`, `#t`, `setmetatable`, `getmetatable`, `rawget`, `rawset`, `type`.
-- Função como valor, closure, vários retornos e `...` no fim.
+- Funções como valor, closures, vários retornos e um `...` final.
 - `math.abs`, `math.ceil`, `math.floor`, `math.max`, `math.min`, `math.sqrt`, `math.trunc`.
 
-`//` e `%` arredondam como no Lua, então `-7 % 3` é `2`. Corrotina, método com `:`, `goto` e o resto da biblioteca padrão caem na compilação, com arquivo e linha.
+`//` e `%` arredondam como no Lua, então `-7 % 3` é `2`. Corrotinas, métodos com `:`, `goto` e o restante da biblioteca padrão são recusados na compilação, com arquivo e linha.
 
 ## Como os valores são guardados {#valores}
 
-Todo valor é um `f64`, porque número em Lua já é isso. O resto viaja nos NaN que um double não usa: etiqueta e endereço. Conta não paga extra. `if v then` é falso só para `nil` e `false`.
+Todo valor é um `f64`, porque um número de Lua já é um. Os demais usam os NaN silenciosos que um double não emprega: uma etiqueta e um endereço na memória. Aritmética não tem custo extra, e `if v then` é falso exatamente para `nil` e `false`.
 
-String é bytes com o tamanho na frente. Literal vai para a seção de dados, então ler não aloca. Tabela tem array para `1..n` e hash para o resto. Número colado em string sai como o Lua escreve, quatorze dígitos. Sem subtipo inteiro, `3` sai `3`, não `3.0`.
+Strings são bytes na memória, com o tamanho na frente; um literal vai para a seção de dados do módulo, de modo que lê-lo não aloca. Uma tabela tem parte array para as chaves `1..n` e parte hash para o resto. Um número concatenado numa string é escrito como o Lua escreve, com quatorze dígitos significativos; sem subtipo inteiro, `3` sai `3` e não `3.0`.
 
 ## A memória, e o que fazer sem coletor {#memoria}
 
 :::warn
-Não tem coletor de lixo. O alocador empurra um ponteiro e não traz sozinho.
+Não há coletor de lixo. O alocador avança um ponteiro e não o recua sozinho.
 :::
 
-No lugar tem arena: `heap.mark()` lê o ponteiro e `heap.release(marca)` devolve, soltando o que foi alocado no meio. Nada alocado depois da marca pode viver depois do release.
+No lugar dele há uma arena explícita: `heap.mark()` lê o ponteiro e `heap.release(marca)` o devolve, liberando de uma vez o que foi alocado no intervalo. Nada alocado depois da marca pode ser retido depois do release.
 
 ```
 function moer(rodadas)
@@ -69,7 +69,7 @@ end
 
 ## Partes carregadas sob demanda {#partes}
 
-Cada arquivo é uma parte. Só baixa quando alguém chama uma função dela. Se uma parte chama função de outra, importa pelo nome. A dependência fica de verdade, não só no papel.
+Cada arquivo é uma parte, buscada apenas quando alguma chamada a referencia. Uma parte que usa uma função exportada por outra a importa pelo nome, o que torna a dependência efetiva.
 
 ```
 $ lunar wasm wasm/*.lua
@@ -78,7 +78,7 @@ geometria.wasm      171 bytes  exports area hypotenuse
 texto.wasm         1014 bytes  exports label summary  needs geometria runtime
 ```
 
-O servidor gera as partes sob demanda e serve em `/_lunar/wasm/`, com um `index.json` de quem exporta o quê. Pacote para Workers escreve os mesmos arquivos em `public/`. Quem monta o WebAssembly é o navegador, não o Worker. Os dois alvos baixam os mesmos bytes.
+O servidor compila as partes sob demanda e as serve em `/_lunar/wasm/`, com um `index.json` que lista exportações e dependências. Uma aplicação congelada para Workers grava os mesmos arquivos em `public/`; o WebAssembly é compilado no navegador, não no Worker, de modo que os dois alvos recebem os mesmos bytes.
 
 ## Usar de um componente {#no-componente}
 
@@ -95,10 +95,10 @@ O servidor gera as partes sob demanda e serve em `/_lunar/wasm/`, com um `index.
 <output>{area_de or "—"}</output>
 ```
 
-`wasm(nome, pronto)` pede a função e entrega quando a parte chegou. É busca na rede, então a resposta vem no callback. A página no servidor desenha sem isso. O que volta já vem lido: número, `nil`, booleano, string.
+`wasm(nome, pronto)` solicita uma função e a entrega quando a parte chegou. O carregamento é uma busca na rede, então a resposta vem num callback, e a página no servidor renderiza sem isso. O valor retornado já vem convertido: número, `nil`, booleano ou string.
 
-`wasm:preload={"area"}` pede a parte antes do clique (ponteiro, foco ou toque), uma vez só. Não desenha nada.
+`wasm:preload={"area"}` inicia o carregamento da parte antes do clique, no pointerenter, no foco ou no toque, uma vez só. A diretiva não produz markup.
 
 :::note
-Função com `...` não exporta: de fora não tem como passar o resto. Deixe `local` e exporte outra que a chama. Corrotina não existe no wasm. Isso fica no Lua do Fengari, que pode chamar a parte.
+Uma função que recebe `...` não pode ser exportada por uma parte, porque a chamada externa não tem como passar os extras: deixe-a `local` e exporte outra que a chame. Corrotinas não existem no wasm; permanecem no Lua executado pelo Fengari, que pode chamar a parte.
 :::

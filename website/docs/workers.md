@@ -9,7 +9,7 @@ description: Como empacotar a mesma aplicação para a borda.
 lunar workers meu-app
 ```
 
-O comando escreve `.lunar/workers/`, pronto para publicar.
+O comando grava o diretório `.lunar/workers/`, pronto para publicar.
 
 | Caminho          | O que é                                                                 |
 | ---------------- | ----------------------------------------------------------------------- |
@@ -20,10 +20,10 @@ O comando escreve `.lunar/workers/`, pronto para publicar.
 
 ## O que muda em uma aplicação congelada {#congelado}
 
-- Nada lê arquivo na hora do pedido. Compilador e servidor HTTP ficam de fora.
-- Pedido e resposta cruzam como JSON, então a resposta vira string. Stream junta numa só.
-- O limitador vale por isolate.
-- WebAssembly vai para `public/` e o navegador monta, não o Worker.
+- Nada lê um arquivo na hora do pedido: o compilador e o servidor HTTP ficam de fora do pacote.
+- A ponte troca pedido e resposta como JSON, então as respostas são montadas como strings; um stream é recolhido numa só.
+- O limitador de requisições vale por isolate.
+- As partes WebAssembly são gravadas em `public/` e compiladas pelo navegador, não pelo Worker.
 
 ## Publicar {#publicar}
 
@@ -34,5 +34,5 @@ npx wrangler deploy
 ```
 
 :::note
-A suíte carrega o pacote congelado sem `io` e sem `package.path`, e compara as páginas byte a byte com as do servidor comum. Se o alvo saiu do lugar, esse teste pega.
+A suíte do framework carrega o pacote congelado com `io` e `package.path` retirados e compara as páginas dele, byte a byte, com as do servidor comum.
 :::

@@ -7,25 +7,25 @@ description: Como o HTML do servidor vira a tela no navegador.
 
 ## Um componente, dois destinos {#dois-destinos}
 
-Do mesmo arquivo o compilador tira duas funções Lua. Uma escreve HTML no servidor. A outra monta a interface no navegador. A suíte compara as duas saídas byte a byte. Se divergir, é bug.
+O compilador gera, a partir da mesma árvore, um módulo Lua com duas funções: uma escreve HTML no servidor e a outra constrói a interface no navegador. A suíte de testes compara as duas saídas byte a byte; divergência é tratada como defeito.
 
 ## O primeiro carregamento {#primeiro-carregamento}
 
-O servidor acha a rota, roda os probes e desenha a página. Os dados vão num bloco `application/json`, que o navegador não executa. O conteúdo aparece antes de qualquer Lua no cliente.
+O servidor resolve a rota, executa os probes e renderiza a página. Os dados seguem num bloco `application/json`, que o navegador não executa. O conteúdo já está visível antes de qualquer Lua no cliente.
 
 ## Fengari e moonlight {#moonlight}
 
-Fengari é Lua no navegador. Moonlight é o pacote da aplicação no cliente: componente, estado e DOM no mesmo arquivo.
+O Fengari executa Lua no navegador. O moonlight é o pacote da aplicação no cliente, com componentes, estado e DOM num arquivo só.
 
 ## A tomada de controle {#hidratacao}
 
-Na hora de assumir, o runtime não joga o HTML fora. Percorre o template, casa cada nó com o que já está no documento, pendura evento e efeito, e só escreve o que mudou. Elemento continua o mesmo: foco, texto digitado, imagem já carregada.
+Na hidratação, o runtime percorre o mesmo template, associa cada nó ao que já está no documento, registra eventos e efeitos, e só reescreve atributos e textos que diferem. Os elementos mantêm identidade, inclusive foco, valor digitado e imagens já carregadas.
 
-Se a árvore não bater, ele não remenda. Avisa a diferença e refaz aquele container.
+Se a árvore não corresponder, o runtime registra a diferença e reconstrói o conteúdo daquele container.
 
 ## Atualizações {#atualizacoes}
 
-Texto e atributo são escritos direto. Não tem DOM virtual. `if` e lista sem chave desenham de novo quando o que eles leem muda. Lista com chave é reconciliada: linha que fica guarda os nós, e só o mínimo se move.
+Textos e atributos são escritos no DOM diretamente, sem árvore virtual. Blocos condicionais e listas sem chave são renderizados de novo quando o que leem muda. Uma lista com chave é reconciliada: as linhas que permanecem conservam seus nós e o estado interno, e apenas o mínimo é reordenado.
 
 ## O que o navegador baixa {#custo}
 
@@ -34,8 +34,8 @@ Texto e atributo são escritos direto. Não tem DOM virtual. `if` e lista sem ch
 | Fengari                     | 219 KB         | 68 KB    |
 | Pacote moonlight do exemplo | 88 KB          | 18 KB    |
 
-Esse é o preço de rodar Lua no navegador em vez de gerar JavaScript. Paga uma vez por versão, depois que a página já está visível. Lunar não comprime sozinho (isso pediria DEFLATE em Lua). Ele serve o `.br` ou `.gz` que estiver ao lado. Proxy ou borda na frente fazem o mesmo.
+Esses números são o tamanho de executar Lua no navegador em vez de gerar JavaScript, pagos uma vez por versão, depois que a página já está visível. Lunar não comprime por conta própria, porque isso exigiria DEFLATE em Lua; serve o arquivo `.br` ou `.gz` ao lado do original, e um proxy ou uma borda na frente fazem o mesmo.
 
 :::note
-Aplicação congelada para Cloudflare Workers fica por volta de 143 KB. A plataforma comprime o que entrega.
+Uma aplicação congelada para Cloudflare Workers ocupa cerca de 143 KB, e a plataforma comprime o que entrega.
 :::
