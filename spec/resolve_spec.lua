@@ -29,6 +29,10 @@ function T.resolves_an_import_against_the_file_that_asked()
     { "../../shared/Card.lunar", "app/orbit/deep/page.lunar", "app", "app/shared/Card.lunar" },
     { "/lib/Nav.lunar", "app/orbit/page.lunar", "app", "app/lib/Nav.lunar" },
     { "/lib/Nav.lunar", "/srv/app/orbit/page.lunar", "/srv/app", "/srv/app/lib/Nav.lunar" },
+    { "/lib/Nav.lunar", "orbit/page.lunar", "", "lib/Nav.lunar" },
+    { "/lib/Nav.lunar", "orbit/page.lunar", ".", "lib/Nav.lunar" },
+    { "/lib/Nav.lunar", "orbit/page.lunar", nil, "lib/Nav.lunar" },
+    { "/lib/Nav.lunar", "/orbit/page.lunar", "/", "/lib/Nav.lunar" },
     { "./Card", "app/orbit/page.lunar", "app", "app/orbit/Card.lunar" },
   }
   for _, case in ipairs(cases) do

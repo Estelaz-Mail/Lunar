@@ -28,7 +28,9 @@ function resolve.path(request, from, root)
   local path = request
 
   if request:sub(1, 1) == "/" then
-    path = (root or ""):gsub("/+$", "") .. request
+    local base = root
+    if not base or base == "" then base = "." end
+    path = base:gsub("/+$", "") .. request
   elseif request:sub(1, 2) == "./" or request:sub(1, 3) == "../" then
     local directory = (from or ""):match("^(.*)/[^/]*$") or "."
     path = directory .. "/" .. request
