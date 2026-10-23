@@ -54,7 +54,22 @@ function boot.start(registry)
     end,
   })
 
+  local current_page = window.location.pathname .. window.location.search
+
+  local function scroll_to_url(url)
+    if url.hash ~= "" then
+      local ok, id = pcall(function() return window:decodeURIComponent(url.hash:sub(2)) end)
+      local anchor = present(document:getElementById(ok and id or url.hash:sub(2)))
+      if anchor then
+        anchor:scrollIntoView()
+        return
+      end
+    end
+    window:scrollTo(0, 0)
+  end
+
   local function navigate(path, push)
+    local destination = js.new(window.URL, path, window.location.href)
     local generation = session:begin_navigation(path)
 
     local function give_up()
@@ -90,7 +105,8 @@ function boot.start(registry)
         return
       end
       if push then window.history:pushState(nil, "", path) end
-      window:scrollTo(0, 0)
+      current_page = destination.pathname .. destination.search
+      scroll_to_url(destination)
     end, give_up)
   end
 
@@ -108,14 +124,16 @@ function boot.start(registry)
     if not href then return end
     local url = js.new(window.URL, node.href)
     if url.origin ~= window.location.origin then return end
-    if url.pathname == window.location.pathname and url.hash ~= "" then return end
+    if url.pathname .. url.search == current_page and url.hash ~= "" then return end
 
     event:preventDefault()
-    navigate(url.pathname .. url.search, true)
+    navigate(url.pathname .. url.search .. url.hash, true)
   end)
 
   window:addEventListener("popstate", function()
-    navigate(window.location.pathname .. window.location.search, false)
+    local page = window.location.pathname .. window.location.search
+    if page == current_page then return end
+    navigate(page .. window.location.hash, false)
   end)
 
   window.lunar = js_object(js, window, {})
