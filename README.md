@@ -76,6 +76,23 @@ The framework includes Lunaris UI, its visual library under the `lunar/ui` names
 
 The same directory contains the Lunar tokens and reset stylesheet. They are served at `/_lunar/ui/` and copied into generated Workers deployments.
 
+## Formatting
+
+`lunar fmt` formats `.lunar` components with no additional dependencies:
+
+```sh
+lunar fmt                         # format components in the working directory
+lunar fmt website                 # format a directory recursively
+lunar fmt orbit/page.lunar        # format individual files
+lunar fmt --check website         # check formatting without writing, for CI
+lunar fmt --indent 4 --width 100   # customize indentation and attribute wrapping
+lunar fmt --stdin page.lunar      # read stdin and write formatted source to stdout
+```
+
+The defaults are two spaces and a 100-character width for opening tags. Long attribute lists wrap onto separate lines. Template elements and conditional and iteration blocks are indented; Lua scripts receive consistent spacing and indentation, and CSS rules and declarations receive line breaks. Lua expressions inside template braces retain their original spelling. Lua strings and comments, inline text spacing, and the contents of `<pre>`, `<code>` and `<textarea>` are preserved. This is a whitespace formatter, not a Lua or CSS code rewriter; long expressions and mixed text may exceed the requested width.
+
+Before writing, the formatter compiles every selected component without executing its script. It also checks that the Lua tokens and parsed template content remain equivalent. Invalid components stop the command before any file is written. Running it twice produces the same result. Directory scans skip hidden entries, `node_modules` and generated `output` directories; explicit file arguments remain available. Exit codes are `0` for success, `1` when `--check` finds formatting changes, and `2` for invalid input or other errors. `--stdin` prints only source for editor integration and cannot be combined with `--check`.
+
 ## Compilation and rendering
 
 A `.lunar` file compiles to a Lua module with separate functions for server rendering and browser DOM creation. The compiler parses the script, template, and styles, and reports errors against the original file and line numbers. Compiled components are cached by their source contents.

@@ -559,6 +559,67 @@ function parser.parse(source, options)
   return self.root
 end
 
+function parser.tokens(source, options)
+  options = options or {}
+  local self = setmetatable({ source = source, position = 1, line = 1,
+    filename = options.filename or "component.lunar", stack = {}, root = {} }, Parser)
+  local out = {}
+  while not self:eof() do
+    local start, line = self.position, self.line
+    local token = { start = start, line = line }
+    if self:peek(4) == "<!--" then
+      local stop = source:find("-->", start + 4, true)
+      if not stop then self:fail("a comment is never closed", line) end
+      self:advance(stop + 3 - start)
+      token.kind = "comment"
+    elseif self:peek() == "<" and (source:match("^<[%a]", start) or source:match("^</%s*[%a]", start)) then
+      local closing = self:peek(2) == "</"
+      self:advance(closing and 2 or 1)
+      if closing then self:skip_space() end
+      token.tag = source:match("^[%a][%w_%-%.:]*", self.position)
+      self:advance(#token.tag)
+      token.kind, token.attributes = closing and "close" or "open", {}
+      while true do
+        self:skip_space()
+        if self:peek(2) == "/>" then
+          token.self_closing = true
+          self:advance(2)
+          break
+        elseif self:peek() == ">" then
+          self:advance(1)
+          break
+        end
+        local first = self.position
+        self:parse_attribute({}, token.tag)
+        token.attributes[#token.attributes + 1] = source:sub(first, self.position - 1):gsub("%s+$", "")
+      end
+      token.open = source:sub(start, self.position - 1)
+      if not closing and (token.tag == "script" or token.tag == "style" or token.tag == "textarea")
+        and not token.self_closing then
+        token.kind = "raw"
+        token.content = self:read_raw_text(token.tag)
+      end
+      token.void = html.VOID_ELEMENTS[token.tag] == true
+    elseif self:peek() == "{" then
+      local code = self:read_braced()
+      local marker = util.trim(code):sub(1, 1)
+      token.kind = marker == "#" and "block" or marker == ":" and "branch"
+        or marker == "/" and "endblock" or "expr"
+    else
+      token.kind = "text"
+      repeat
+        if self:peek(2) == "\\{" or self:peek(2) == "\\}" then self:advance(2)
+        else self:advance(1) end
+      until self:eof() or self:peek() == "{" or (self:peek() == "<"
+        and (self:peek(4) == "<!--" or source:match("^<[%a]", self.position) or source:match("^</%s*[%a]", self.position)))
+    end
+    token.finish = self.position - 1
+    token.raw = source:sub(start, token.finish)
+    out[#out + 1] = token
+  end
+  return out
+end
+
 parser.is_component_name = is_component_name
 
 return parser

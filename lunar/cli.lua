@@ -19,6 +19,7 @@ lunar ]] .. lunar.VERSION .. [[ — a framework in Lua
   lunar build [app]        compile everything once and report what failed
   lunar map [app]          print the route table as it was discovered
   lunar compile <file>     print the Lua a component compiles to
+  lunar fmt [paths...]     format .lunar files; --check verifies without writing
   lunar wasm <file...>     compile Lua functions into wasm parts
   lunar analyze [app]      report what the browser downloads, part by part
   lunar prerender [app]    render every fixed route to HTML in LUNAR_OUT
@@ -279,6 +280,90 @@ function cli.compile(path)
   local ok, generated = pcall(compiler.compile, source, { path = path })
   if not ok then fail(tostring(generated)) end
   io.write(generated, "\n")
+end
+
+function cli.fmt(...)
+  local arguments, paths, options = { ... }, {}, {}
+  local check, stdin, positional = false, false, false
+  local index = 1
+  while index <= #arguments do
+    local argument = arguments[index]
+    if positional then paths[#paths + 1] = argument
+    elseif argument == "--" then positional = true
+    elseif argument == "--help" or argument == "-h" then
+      io.write([[lunar fmt [files or directories...] [--check] [--indent 2] [--width 100]
+lunar fmt --stdin [filename.lunar]
+
+Formats .lunar components recursively, excluding hidden and generated directories.
+Without paths, formats the working directory. --check never writes and exits 1
+when formatting is needed. --stdin prints only formatted source. Errors exit 2.
+]])
+      return
+    elseif argument == "--check" then check = true
+    elseif argument == "--stdin" then stdin = true
+    elseif argument == "--indent" or argument == "--width" then
+      index = index + 1
+      options[argument:sub(3)] = tonumber(arguments[index])
+      if not options[argument:sub(3)] then
+        io.stderr:write("lunar fmt: ", argument, " needs a number\n"); os.exit(2)
+      end
+    elseif argument:sub(1, 1) == "-" then
+      io.stderr:write("lunar fmt: unknown option ", argument, "\n"); os.exit(2)
+    else paths[#paths + 1] = argument end
+    index = index + 1
+  end
+  local fs, formatter = fs_lib(), require("lunar.format")
+  local ok, message = pcall(function()
+    formatter.source("", options)
+    if stdin then
+      assert(not check and #paths <= 1, "lunar fmt: --stdin takes at most one filename and cannot use --check")
+      options.filename = paths[1] or "stdin.lunar"
+      io.write(formatter.source(io.read("*a"), options))
+      return
+    end
+    if #paths == 0 then paths[1] = "." end
+    local files, seen = {}, {}
+    local function add(path)
+      path = path:gsub("^%./", ""):gsub("/+", "/")
+      if not seen[path] then files[#files + 1] = path; seen[path] = true end
+    end
+    for _, path in ipairs(paths) do
+      if fs.is_directory(path) then
+        for _, relative in ipairs(fs.files(path)) do
+          local excluded = false
+          for segment in relative:gmatch("[^/]+") do
+            if segment:sub(1, 1) == "." or segment == "node_modules" or segment == "output" then excluded = true; break end
+          end
+          if not excluded and relative:match("%.lunar$") then add(fs.join(path, relative)) end
+        end
+      else
+        assert(path:match("%.lunar$"), "lunar fmt: expected a .lunar file or directory: " .. path)
+        assert(fs.exists(path), "lunar fmt: no such file: " .. path)
+        add(path)
+      end
+    end
+    table.sort(files)
+    local changes = {}
+    for _, path in ipairs(files) do
+      local source = assert(fs.read(path), "lunar fmt: cannot read " .. path)
+      options.filename = path
+      local result = formatter.source(source, options)
+      if source ~= result then changes[#changes + 1] = { path = path, source = result } end
+    end
+    for _, change in ipairs(changes) do
+      if not check then
+        local handle, open_error = io.open(change.path, "wb")
+        assert(handle, "lunar fmt: cannot write " .. change.path .. ": " .. tostring(open_error))
+        local written, write_error = handle:write(change.source)
+        local closed, close_error = handle:close()
+        assert(written and closed, "lunar fmt: cannot write " .. change.path .. ": " .. tostring(write_error or close_error))
+      end
+      io.write(check and "  would format  " or "  formatted  ", change.path, "\n")
+    end
+    io.write(string.format("\n%d checked, %d %s\n", #files, #changes, check and "need formatting" or "formatted"))
+    if check and #changes > 0 then os.exit(1) end
+  end)
+  if not ok then io.stderr:write(tostring(message), "\n"); os.exit(2) end
 end
 
 function cli.wasm(...)
