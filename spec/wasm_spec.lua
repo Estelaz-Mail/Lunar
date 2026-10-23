@@ -91,9 +91,9 @@ function T.asks_the_host_only_for_what_it_cannot_do_itself()
 end
 
 function T.refuses_what_the_subset_does_not_cover()
-  assert(compile_error("function f() return ... end"):find("is not an expression", 1, true))
+  assert(compile_error("function f(...) return ... end"):find("only read as", 1, true))
   assert(compile_error("function f(a) return a:upper() end"):find("is not an expression", 1, true))
-  assert(compile_error("function f() return 1, 2 end"):find("is not an expression", 1, true))
+  assert(compile_error("function f(...) local t = ... return t end"):find("only read as", 1, true))
   assert(compile_error("function f() return 1 % 0 ^ coroutine end")
     :find("is not a value this part knows", 1, true))
   assert(compile_error('function f() return math.pi end')
@@ -290,6 +290,55 @@ function f(v)
 end
 ]], { filename = "shadow.lua" })
   assert(#shadowed > 0, "a part may still name a function `type` itself")
+end
+
+function T.hands_back_more_than_one_value()
+  local _, info = compile.chunk([[
+function pair(n)
+  return n, n * 2
+end
+
+function sum(n)
+  local a, b = pair(n)
+  return a + b
+end
+
+function swap(x, y)
+  local a, b = x, y
+  a, b = b, a
+  return a - b
+end
+]], { filename = "multi.lua" })
+  assert(info.memory, "the extra values travel through the memory")
+  assert(#info.needs == 0, "and need nothing else")
+  assert(table.concat(info.exports, ",") == "pair,sum,swap")
+
+  assert(compile_error("function f() return 1, 2, 3, 4, 5, 6, 7, 8, 9 end")
+    :find("at most", 1, true))
+end
+
+function T.takes_a_vararg_and_reads_it_as_a_table()
+  local _, info = compile.chunk([[
+function total(...)
+  local values = {...}
+  return #values
+end
+
+function how_many(...)
+  return select("#", ...)
+end
+
+function pass()
+  return total(1, 2, 3)
+end
+]], { filename = "va.lua" })
+  assert(table.concat(info.needs, ",") == "runtime")
+  assert(info.arities.total == 0, "the fixed parameters are what the arity counts")
+
+  assert(compile_error("function f() local t = {...} return #t end")
+    :find("outside a function that takes it", 1, true))
+  assert(compile_error("function f(a, ...) return 0 end function g() return f() end")
+    :find("at least 1, not 0", 1, true))
 end
 
 local function fake_browser(manifest)

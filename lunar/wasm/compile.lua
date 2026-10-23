@@ -57,6 +57,9 @@ local TAG_MASK = 0x7fff
 local TAG = { nothing = 0, boolean = 1, string = 2, table = 3, ["function"] = 4 }
 
 local CLOSURE_UPVALUES = 24
+local RESULT_COUNT = 16
+local RESULT_EXTRAS = 24
+local RESULT_ROOM = 7
 
 local function boxed(tag, address)
   return string.pack("<I8", BOX_BASE | (tag << 32) | address)
@@ -73,7 +76,11 @@ local RUNTIME = {
   table_new = 0, table_get = 2, table_set = 3,
   less = 2, less_equal = 2, closure_new = 3, closure_put = 3,
   setmetatable = 2, getmetatable = 1, rawget = 2, rawset = 3, type_of = 1,
+  varargs_table = 1, table_copy = 1,
 }
+
+local VARARG_REGION = 256
+local VARARG_ROOM = 32
 
 local BUILTINS = {
   setmetatable = "setmetatable", getmetatable = "getmetatable",
@@ -412,6 +419,17 @@ function Function:call(node)
     return self:indirect(node, function() self:emit_read(target.name, node) end)
   end
 
+  if target.name == "select" and #node.arguments == 2
+    and node.arguments[1].kind == "string" and node.arguments[1].value == "#"
+    and node.arguments[2].kind == "vararg" then
+    if not self.varargs then
+      fail(self, node, "`...` outside a function that takes it")
+    end
+    self:emit(OP.local_get, encode.unsigned(self.varargs))
+    self:runtime("length")
+    return "number"
+  end
+
   local builtin = BUILTINS[target.name]
   if builtin and not self.unit.functions_by_name[target.name] then
     if #node.arguments ~= RUNTIME[builtin] then
@@ -427,10 +445,41 @@ function Function:call(node)
   if not callee then
     fail(self, node, "`" .. target.name .. "` is not a function this part can call")
   end
-  if #node.arguments ~= callee.arity then
+  if not callee.vararg and #node.arguments ~= callee.arity then
     fail(self, node, string.format("`%s` takes %d, not %d",
       target.name, callee.arity, #node.arguments))
   end
+
+  if callee.vararg then
+    local fixed = callee.arity
+    if #node.arguments < fixed then
+      fail(self, node, string.format("`%s` takes at least %d, not %d",
+        target.name, fixed, #node.arguments))
+    end
+    local extra = #node.arguments - fixed
+    if extra > VARARG_ROOM then
+      fail(self, node, "`" .. target.name .. "` was given more than " .. VARARG_ROOM .. " extras")
+    end
+    local held = {}
+    for index, argument in ipairs(node.arguments) do
+      held[index] = self:scratch()
+      self:number(argument)
+      self:emit(OP.local_set, encode.unsigned(held[index]))
+    end
+    for index = 1, extra do
+      self:emit(OP.i32_const, encode.signed(VARARG_REGION + (index - 1) * 8))
+      self:emit(OP.local_get, encode.unsigned(held[fixed + index]))
+      self:emit(F64.store)
+    end
+    self:emit(OP.f64_const, BOX["nil"])
+    for index = 1, fixed do
+      self:emit(OP.local_get, encode.unsigned(held[index]))
+    end
+    self:emit(OP.f64_const, encode.float(extra))
+    self:emit(OP.call, encode.unsigned(callee.index))
+    return "number"
+  end
+
   if callee.internal then self:emit(OP.f64_const, BOX["nil"]) end
   for _, argument in ipairs(node.arguments) do self:number(argument) end
   self:emit(OP.call, encode.unsigned(callee.index))
@@ -480,7 +529,19 @@ function Function:expression(node)
     return self:call(node)
   end
 
+  if kind == "vararg" then
+    fail(self, node, "`...` is only read as `{...}` or `select(\"#\", ...)` here")
+  end
+
   if kind == "table" then
+    if #node.items == 1 and #node.fields == 0 and node.items[1].kind == "vararg" then
+      if not self.varargs then
+        fail(self, node, "`...` outside a function that takes it")
+      end
+      self:emit(OP.local_get, encode.unsigned(self.varargs))
+      self:runtime("table_copy")
+      return "number"
+    end
     local slot = self:scratch()
     self:runtime("table_new")
     self:emit(OP.local_set, encode.unsigned(slot))
@@ -699,9 +760,102 @@ function Function:statement(node)
   end
 
   if kind == "return" then
-    if node.value then self:number(node.value)
+    local values = node.values or (node.value and { node.value }) or {}
+    if #values > RESULT_ROOM + 1 then
+      fail(self, node, "a function returns at most " .. (RESULT_ROOM + 1) .. " values here")
+    end
+
+    if self.unit.multi then
+      local held = {}
+      for index, value in ipairs(values) do
+        held[index] = self:scratch()
+        self:number(value)
+        self:emit(OP.local_set, encode.unsigned(held[index]))
+      end
+      for index = 2, #values do
+        self:emit(OP.i32_const, encode.signed(RESULT_EXTRAS + (index - 2) * 8))
+        self:emit(OP.local_get, encode.unsigned(held[index]))
+        self:emit(F64.store)
+      end
+      self:emit(OP.i32_const, encode.signed(RESULT_COUNT))
+      self:emit(OP.f64_const, encode.float(#values))
+      self:emit(F64.store)
+      if #values > 0 then
+        self:emit(OP.local_get, encode.unsigned(held[1]))
+      else
+        self:emit(OP.f64_const, BOX["nil"])
+      end
+      self:emit(OP["return"])
+      return
+    end
+
+    if #values > 1 then
+      fail(self, node, "this part was not planned for several values")
+    end
+    if values[1] then self:number(values[1])
     else self:emit(OP.f64_const, encode.float(0)) end
     self:emit(OP["return"])
+    return
+  end
+
+  if kind == "local_list" or kind == "assign_list" then
+    local values = node.values
+    local held = {}
+
+    if #values == 1 and values[1].kind == "call" and self.unit.multi then
+      local count = self:scratch()
+      self:number(values[1])
+      held[1] = self:scratch()
+      self:emit(OP.local_set, encode.unsigned(held[1]))
+      self:emit(OP.i32_const, encode.signed(RESULT_COUNT), F64.load)
+      self:emit(OP.local_set, encode.unsigned(count))
+      for index = 2, #node.names do
+        held[index] = self:scratch()
+        self:emit(OP.local_get, encode.unsigned(count))
+        self:emit(OP.f64_const, encode.float(index))
+        self:emit(COMPARE[">="])
+        self:emit(OP["if"], BLOCK.f64)
+        self:emit(OP.i32_const, encode.signed(RESULT_EXTRAS + (index - 2) * 8), F64.load)
+        self:emit(OP["else"], OP.f64_const, BOX["nil"], OP["end"])
+        self:emit(OP.local_set, encode.unsigned(held[index]))
+      end
+    else
+      for index = 1, #node.names do
+        held[index] = self:scratch()
+        if values[index] then
+          self:number(values[index])
+        else
+          self:emit(OP.f64_const, BOX["nil"])
+        end
+        self:emit(OP.local_set, encode.unsigned(held[index]))
+      end
+      for index = #node.names + 1, #values do
+        self:number(values[index])
+        self:emit(OP.drop)
+      end
+    end
+
+    for index, name in ipairs(node.names) do
+      local slot = held[index]
+      if kind == "local_list" then
+        local entry = self:declare(name)
+        if entry.celled then
+          self:emit(OP.local_get, encode.unsigned(entry.slot), I32.trunc_f64_u)
+          self:emit(OP.local_get, encode.unsigned(slot))
+          self:emit(F64.store)
+        else
+          self:emit(OP.local_get, encode.unsigned(slot))
+          self:emit(OP.local_set, encode.unsigned(entry.slot))
+        end
+      else
+        local done = self:emit_write(name, node, function()
+          self:emit(OP.local_get, encode.unsigned(slot))
+        end)
+        if not done then
+          fail(self, node, "`" .. name .. "` is not a local of this function")
+        end
+      end
+    end
     return
   end
 
@@ -842,8 +996,9 @@ end
 local function new_function(unit, parameters, body, parent)
   local self = setmetatable({
     unit = unit, filename = unit.filename, body = {}, scopes = { {} },
-    slots = #parameters + 1, depth = 0, exits = nil, parent = parent,
-    upvalues = {}, upvalue_index = {}, captured = captured_by_closures(body),
+    slots = #parameters + (parameters.vararg and 2 or 1), depth = 0, exits = nil,
+    parent = parent, upvalues = {}, upvalue_index = {},
+    captured = captured_by_closures(body),
   }, Function)
 
   for index, name in ipairs(parameters) do
@@ -863,6 +1018,13 @@ local function new_function(unit, parameters, body, parent)
       self:emit(OP.local_set, encode.unsigned(entry.slot))
       entry.celled = true
     end
+  end
+
+  if parameters.vararg then
+    self.varargs = self:scratch()
+    self:emit(OP.local_get, encode.unsigned(#parameters + 1))
+    self:runtime("varargs_table")
+    self:emit(OP.local_set, encode.unsigned(self.varargs))
   end
 
   self:statements(body)
@@ -934,6 +1096,9 @@ local function walk(nodes, found)
       if node.kind == "unary" and node.operator == "#" then found.strings = true end
       if node.kind == "binary" and node.operator == ".." then found.strings = true end
       if node.kind == "nil" then found.boxes = true end
+      if node.kind == "vararg" then found.boxes = true end
+      if node.kind == "return" and node.values and #node.values > 1 then found.multi = true end
+      if node.kind == "local_list" or node.kind == "assign_list" then found.multi = true end
       if node.kind == "name" then
         found.names = found.names or {}
         found.names[node.name] = true
@@ -1007,6 +1172,10 @@ function compile.chunk(source, options)
   local nested = {}
   for _, declaration in ipairs(declarations) do
     plan_functions(declaration.body, unit.plans, nested)
+    if declaration.parameters.vararg then found.boxes = true end
+  end
+  for _, node in ipairs(nested) do
+    if node.parameters.vararg then found.boxes = true end
   end
   for _, declaration in ipairs(declarations) do
     if found.names and found.names[declaration.name] then found.closures = true end
@@ -1019,11 +1188,12 @@ function compile.chunk(source, options)
   table.sort(external_names)
 
   unit.boxes = not options.is_runtime and (found.strings or found.boxes) or false
+  unit.multi = found.multi or false
   local table_base = options.table_base or 0
   local uses_table = options.table
     or (unit.boxes and (found.closures or #nested > 0)) or false
 
-  if found.memory or unit.boxes or options.memory then
+  if found.memory or unit.boxes or unit.multi or options.memory then
     builder:import_memory("host", "memory", 1)
   end
 
@@ -1068,6 +1238,7 @@ function compile.chunk(source, options)
     ordinals[#ordinals + 1] = declaration
     unit.functions_by_name[declaration.name] = {
       arity = #declaration.parameters,
+      vararg = declaration.parameters.vararg or false,
       index = base + index - 1,
       table_slot = uses_table and (table_base + index - 1) or nil,
       exported = declaration.exported,
@@ -1091,6 +1262,7 @@ function compile.chunk(source, options)
     local piece = bodies[index]
     local parameters = { "f64" }
     for position = 1, #piece.parameters do parameters[position + 1] = "f64" end
+    if piece.parameters.vararg then parameters[#parameters + 1] = "f64" end
     builder:add_function(parameters, { "f64" }, piece.locals, piece.body)
   end
 
@@ -1109,6 +1281,9 @@ function compile.chunk(source, options)
       for position = 1, #declaration.parameters do
         parameters[position] = "f64"
         wrapper[#wrapper + 1] = OP.local_get .. encode.unsigned(position - 1)
+      end
+      if declaration.parameters.vararg then
+        wrapper[#wrapper + 1] = OP.f64_const .. encode.float(0)
       end
       wrapper[#wrapper + 1] = OP.call .. encode.unsigned(base + index - 1)
       local wrapper_index = builder:add_function(parameters, { "f64" }, {},
@@ -1152,7 +1327,7 @@ function compile.chunk(source, options)
     arities = arities,
     table_slots = #declarations + #nested,
     table_base = table_base,
-    memory = found.memory or unit.boxes or options.memory or false,
+    memory = found.memory or unit.boxes or unit.multi or options.memory or false,
     data = table.concat(unit.blob),
     data_size = unit.blob_size,
     externals = external_names,

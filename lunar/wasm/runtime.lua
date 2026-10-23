@@ -646,6 +646,30 @@ function table_get(value, key)
   mem.trap()
   return nil
 end
+
+function varargs_table(count)
+  local value = table_new()
+  local pointer = box.address(value)
+  local index = 0
+  while index < count do
+    raw_set(pointer, index + 1, mem.load(256 + index * 8))
+    index = index + 1
+  end
+  return value
+end
+
+function table_copy(value)
+  local from = body_of(value)
+  local fresh = table_new()
+  local pointer = box.address(fresh)
+  local count = mem.load(from + 8)
+  local index = 0
+  while index < count do
+    raw_set(pointer, index + 1, mem.load(mem.load(from + 32) + index * 8))
+    index = index + 1
+  end
+  return fresh
+end
 ]]
 
 return runtime

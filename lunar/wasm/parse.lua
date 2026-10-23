@@ -185,6 +185,11 @@ function Parser:primary()
     self:advance()
     return { kind = "nil", line = token.line }
   end
+  if self:check("...") then
+    self:advance()
+    return { kind = "vararg", line = token.line }
+  end
+
   if self:check("{") then
     return self:table_constructor()
   end
@@ -224,6 +229,10 @@ function Parser:parameters()
   local parameters = {}
   if not self:check(")") then
     repeat
+      if self:accept("...") then
+        parameters.vararg = true
+        break
+      end
       parameters[#parameters + 1] = self:expect("name", "a parameter name").value
     until not self:accept(",")
   end
@@ -318,10 +327,19 @@ function Parser:statement()
       return { kind = "local_function", name = name.value, parameters = parameters,
         body = body, line = token.line }
     end
-    local name = self:expect("name", "a name")
+    local names = { self:expect("name", "a name").value }
+    while self:accept(",") do
+      names[#names + 1] = self:expect("name", "a name").value
+    end
     self:expect("=", "`=`: a local in the wasm subset is always given a value")
-    local value = self:expression(0)
-    return { kind = "local", name = name.value, value = value, line = token.line }
+    local values = { self:expression(0) }
+    while self:accept(",") do
+      values[#values + 1] = self:expression(0)
+    end
+    if #names == 1 and #values == 1 then
+      return { kind = "local", name = names[1], value = values[1], line = token.line }
+    end
+    return { kind = "local_list", names = names, values = values, line = token.line }
   end
 
   if self:accept("if") then
@@ -377,12 +395,14 @@ function Parser:statement()
   end
 
   if self:accept("return") then
-    local value
+    local values = {}
     if not (self:check("end") or self:check("eof") or self:check(";")) then
-      value = self:expression(0)
+      repeat
+        values[#values + 1] = self:expression(0)
+      until not self:accept(",")
     end
     self:accept(";")
-    return { kind = "return", value = value, line = token.line }
+    return { kind = "return", value = values[1], values = values, line = token.line }
   end
 
   local target = self:primary()
@@ -395,6 +415,18 @@ function Parser:statement()
   end
   if target.kind ~= "name" then
     self:error("this cannot be assigned to", token.line)
+  end
+  if self:check(",") then
+    local names = { target.name }
+    while self:accept(",") do
+      names[#names + 1] = self:expect("name", "a name").value
+    end
+    self:expect("=", "`=`")
+    local values = { self:expression(0) }
+    while self:accept(",") do
+      values[#values + 1] = self:expression(0)
+    end
+    return { kind = "assign_list", names = names, values = values, line = token.line }
   end
   self:expect("=", "`=`")
   return { kind = "assign", name = target.name, value = self:expression(0), line = token.line }
