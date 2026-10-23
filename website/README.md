@@ -45,7 +45,8 @@ Para Workers Builds: instalação `npm ci`, build `npm run build`, deploy `npx w
 ## Estrutura
 
 - `orbit/`: páginas, probes e shell compartilhado.
-- `lib/`: componentes reutilizáveis e documentação editorial em `docs.lua`.
+- `docs/`: páginas da documentação em Markdown, renderizadas em `/docs`.
+- `lib/`: componentes reutilizáveis, `markdown.lua` e o índice em `docs.lua`.
 - `static/`: CSS, marca original, fonte local, robots e sitemap.
 - `scripts/`: bootstrap do framework, empacotamento e verificações.
 - `lunar.json`: nome, idioma e versão do site.
