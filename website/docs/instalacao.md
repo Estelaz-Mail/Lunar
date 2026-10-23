@@ -51,7 +51,7 @@ O HTML chega já renderizado; o navegador associa os eventos ao markup existente
 ## Ou a partir de um clone {#de-um-clone}
 
 ```
-git clone https://github.com/Glazastyy/Lunar.git
+git clone https://github.com/Estelaz-Mail/Lunar.git
 cd Lunar
 bin/lunar dev examples/tranquility
 ```

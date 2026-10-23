@@ -1,4 +1,4 @@
-const UPSTREAM = "https://raw.githubusercontent.com/Glazastyy/Lunar/refs/heads/main/install.sh";
+const UPSTREAM = "https://raw.githubusercontent.com/Estelaz-Mail/Lunar/refs/heads/main/install.sh";
 
 export interface InstallerCache {
 	match(request: Request): Promise<Response | undefined>;

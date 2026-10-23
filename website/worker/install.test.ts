@@ -48,7 +48,7 @@ test("streams unchanged bytes, caches success and shares query-string variants",
 		calls++;
 		assert.equal(
 			url,
-			"https://raw.githubusercontent.com/Glazastyy/Lunar/refs/heads/main/install.sh",
+			"https://raw.githubusercontent.com/Estelaz-Mail/Lunar/refs/heads/main/install.sh",
 		);
 		assert.ok(options);
 		assert.equal(options.method, "GET");

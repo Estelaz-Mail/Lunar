@@ -59,4 +59,4 @@ Alguns identificadores são específicos do Lunar:
 Lunar está na versão 1.0. Ainda não existem blocos `{#await}`, form actions prontas nem páginas em streaming: o runtime não espera uma Promise, e a `<head>` só fica completa quando o corpo termina. Formulários no servidor passam por um `api.lua`. Um endpoint pode responder em pedaços.
 :::
 
-A [instalação](/docs/instalacao) está na página seguinte. O código fica no [GitHub](https://github.com/Glazastyy/Lunar).
+A [instalação](/docs/instalacao) está na página seguinte. O código fica no [GitHub](https://github.com/Estelaz-Mail/Lunar).

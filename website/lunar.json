@@ -4,5 +4,5 @@
 	"description": "O framework web em Lua. Componentes reativos, renderização no servidor e rotas por arquivos.",
 	"lang": "pt-BR",
 	"homepage": "https://lunar.estelaz.com",
-	"repository": "https://github.com/Glazastyy/Lunar"
+	"repository": "https://github.com/Estelaz-Mail/Lunar"
 }

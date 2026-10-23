@@ -62,11 +62,11 @@ O site usa a VM oficial Lua 5.4 em WebAssembly e a ponte do Lunar, tanto no nave
 
 ## Licenças
 
-Código do site: MIT. Marca: assets originais do projeto [Lunar](https://github.com/Glazastyy/Lunar/tree/main/brand), preservados sem redesenho. Fonte Inter distribuída localmente sob SIL Open Font License, em `static/fonts/OFL.txt`.
+Código do site: MIT. Marca: assets originais do projeto [Lunar](https://github.com/Estelaz-Mail/Lunar/tree/main/brand), preservados sem redesenho. Fonte Inter distribuída localmente sob SIL Open Font License, em `static/fonts/OFL.txt`.
 
 ## Proxy do instalador
 
-`/install.sh` é atendido por `worker/index.ts` antes da aplicação Lunar. O proxy em `worker/install.ts` transmite sem alterar os bytes de `https://raw.githubusercontent.com/Glazastyy/Lunar/refs/heads/main/install.sh` e guarda respostas HTTP 200 na Cache API do Workers por **300 segundos**. O cache é local ao datacenter; não usa banco ou KV. Query strings compartilham a mesma chave, sem encaminhar headers do visitante ao GitHub.
+`/install.sh` é atendido por `worker/index.ts` antes da aplicação Lunar. O proxy em `worker/install.ts` transmite sem alterar os bytes de `https://raw.githubusercontent.com/Estelaz-Mail/Lunar/refs/heads/main/install.sh` e guarda respostas HTTP 200 na Cache API do Workers por **300 segundos**. O cache é local ao datacenter; não usa banco ou KV. Query strings compartilham a mesma chave, sem encaminhar headers do visitante ao GitHub.
 
 Aceita GET e HEAD. O header `X-Cache` indica `MISS` ou `HIT`. Falhas do upstream retornam 502 com `Cache-Control: no-store`; os demais métodos retornam 405. O timeout do fetch é de 10 segundos. A documentação usa o endereço do site para instalar:
 

@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-REPO=${LUNAR_REPO:-Glazastyy/Lunar}
+REPO=${LUNAR_REPO:-Estelaz-Mail/Lunar}
 REF=${LUNAR_REF:-}
 PREFIX=${LUNAR_HOME:-$HOME/.lunar}
 BIN_DIR=${LUNAR_BIN_DIR:-$HOME/.local/bin}

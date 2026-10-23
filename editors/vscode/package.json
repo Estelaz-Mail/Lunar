@@ -26,11 +26,11 @@
 	],
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/Glazastyy/Lunar.git"
+		"url": "https://github.com/Estelaz-Mail/Lunar.git"
 	},
 	"homepage": "https://lunar.estelaz.com",
 	"bugs": {
-		"url": "https://github.com/Glazastyy/Lunar/issues"
+		"url": "https://github.com/Estelaz-Mail/Lunar/issues"
 	},
 	"qna": "marketplace",
 	"main": "./src/extension.js",

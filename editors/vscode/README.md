@@ -2,7 +2,7 @@
 
 Editor support for [Lunar](https://lunar.estelaz.com): a web framework in Lua,
 where the same components render on the server and run in the browser. The
-source is on [GitHub](https://github.com/Glazastyy/Lunar).
+source is on [GitHub](https://github.com/Estelaz-Mail/Lunar).
 
 ## What it does
 
