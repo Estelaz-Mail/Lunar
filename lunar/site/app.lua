@@ -79,7 +79,8 @@ function app.new(options)
   self.static = static_lib.new({
     root = fs.join(root, "static"),
     version = self.version,
-    immutable_patterns = { "^fonts/", "^videos/" },
+    cache_control = self.dev and "no-store" or nil,
+    immutable_patterns = self.dev and {} or { "^fonts/", "^videos/" },
   })
   self.framework_static = static_lib.new({
     root = fs.join(self.framework, "static"),
@@ -288,13 +289,13 @@ function App:framework_response(req)
     local source = require("lunar.site.integrity").source(self, runtime_file)
     return response.new(200, source, {
       ["Content-Type"] = "text/javascript; charset=utf-8",
-      ["Cache-Control"] = "public, max-age=31536000, immutable",
+      ["Cache-Control"] = self.dev and "no-store" or "public, max-age=31536000, immutable",
     })
   end
   if runtime_file == "lua54.wasm" then
     local res = self.framework_static:serve(req, "/runtime/" .. runtime_file)
     if res then
-      res.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+      res.headers["Cache-Control"] = self.dev and "no-store" or "public, max-age=31536000, immutable"
       return res
     end
     return response.text("lunar: " .. runtime_file .. " is missing from the framework's static/runtime\n", 500)
@@ -362,7 +363,26 @@ function App:handle(req)
 end
 
 function App:handler()
-  return self.security:wrap(function(req) return self:handle(req) end)
+  return self.security:wrap(function(req)
+    if self.dev then
+      req.headers["if-none-match"] = nil
+      req.headers["if-modified-since"] = nil
+    end
+    local res = self:handle(req)
+    if self.dev then
+      local remove = {
+        ["cache-control"] = true, ["cdn-cache-control"] = true,
+        ["cloudflare-cdn-cache-control"] = true, ["surrogate-control"] = true,
+        etag = true, ["last-modified"] = true, expires = true, age = true,
+      }
+      for name in pairs(res.headers) do
+        if remove[name:lower()] then res.headers[name] = nil end
+      end
+      res.headers["Cache-Control"] = "no-store"
+      res.headers["CDN-Cache-Control"] = "no-store"
+    end
+    return res
+  end)
 end
 
 function app.frozen(manifest)

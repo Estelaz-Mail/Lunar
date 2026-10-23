@@ -5,6 +5,8 @@ local watch = {}
 
 local WATCHED = {
   lunar = true, lua = true, html = true, css = true, js = true, json = true,
+  ts = true, svg = true, wasm = true, png = true, jpg = true, jpeg = true,
+  webp = true, ico = true, woff = true, woff2 = true,
 }
 
 local function clock()

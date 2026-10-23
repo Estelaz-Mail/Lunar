@@ -122,4 +122,64 @@ function T.the_dev_bundle_carries_the_reloader_and_the_other_does_not()
   os.execute("rm -rf " .. root)
 end
 
+function T.development_assets_do_not_use_stale_browser_caches()
+  local root = temp_app({
+    ["orbit/page.lunar"] = HOME,
+    ["static/style.css"] = "body{color:red}",
+    ["static/fonts/test.woff2"] = "font",
+    ["static/icon.svg"] = '<svg xmlns="http://www.w3.org/2000/svg"/>',
+  })
+  local instance = lunar.app({ root = root, dev = true, version = "spec", watch_interval = 0 })
+  local first = get(instance, "/style.css")
+  assert(first.headers["Cache-Control"] == "no-store")
+  assert(get(instance, "/fonts/test.woff2").headers["Cache-Control"] == "no-store")
+  for _, name in ipairs({ "boot", "bridge", "lua54.wasm" }) do
+    assert(get(instance, "/_lunar/runtime/" .. name).headers["Cache-Control"] == "no-store")
+  end
+  assert(util.write_file(fs.join(root, "static/style.css"), "body{color:tan}"))
+  local edited = get(instance, "/style.css", { ["if-none-match"] = first.headers.ETag })
+  assert(edited.status == 200, "an equal-length edit must not return a stale 304")
+  assert(edited.headers.ETag == nil and first.headers.ETag == nil)
+  assert(get(instance, "/style.css", { ["if-none-match"] = "*" }).status == 200)
+  local before = instance:generation()
+  assert(util.write_file(fs.join(root, "static/icon.svg"), '<svg xmlns="http://www.w3.org/2000/svg"><path/></svg>'))
+  get(instance, "/_lunar/dev")
+  assert(instance:generation() > before, "SVG edits trigger a reload")
+  local production = lunar.app({ root = root, dev = false, version = "spec" })
+  for _, name in ipairs({ "boot", "bridge", "lua54.wasm" }) do
+    assert(get(production, "/_lunar/runtime/" .. name).headers["Cache-Control"]:find("immutable", 1, true))
+  end
+  assert(get(production, "/style.css").headers["Cache-Control"] == "public, max-age=3600")
+  assert(get(production, "/fonts/test.woff2").headers["Cache-Control"]:find("immutable", 1, true))
+  os.execute("rm -rf " .. root)
+end
+
+function T.every_development_response_disables_caching()
+  local root = temp_app({
+    ["orbit/page.lunar"] = HOME,
+    ["orbit/cached/api.lua"] = [[
+local response = require("lunar.http.response")
+return { GET = function()
+  return response.text("fresh", 200, {
+    ["cache-control"] = "public, max-age=3600",
+    ["Cloudflare-CDN-Cache-Control"] = "public, max-age=3600",
+    ["ETag"] = '"cached"', ["Last-Modified"] = "yesterday", ["Expires"] = "tomorrow",
+  })
+end }
+]],
+  })
+  local instance = lunar.app({ root = root, dev = true, version = "spec" })
+  for _, path in ipairs({ "/", "/cached", "/missing", "/_lunar/dev", "/_lunar/moonlight.lua" }) do
+    local answer = get(instance, path)
+    assert(answer.headers["Cache-Control"] == "no-store", path)
+    assert(answer.headers["CDN-Cache-Control"] == "no-store", path)
+    assert(answer.headers["cache-control"] == nil)
+    assert(answer.headers["Cloudflare-CDN-Cache-Control"] == nil)
+    assert(answer.headers.ETag == nil and answer.headers["Last-Modified"] == nil)
+    assert(answer.headers.Expires == nil)
+  end
+  assert(get(instance, "/cached").body == "fresh")
+  os.execute("rm -rf " .. root)
+end
+
 return T

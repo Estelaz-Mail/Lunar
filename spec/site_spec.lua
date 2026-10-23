@@ -217,13 +217,14 @@ function T.serves_the_apps_static_files()
   local res = get("/css/app.css")
   assert(res.status == 200)
   assert(res.headers["Content-Type"] == "text/css; charset=utf-8")
-  assert(res.headers["ETag"]:find("spec", 1, true))
+  assert(res.headers["ETag"] == nil)
   assert(res.file.length > 0)
 end
 
 function T.revalidates_a_file_against_its_etag()
-  local etag = get("/css/app.css").headers["ETag"]
-  local res = get("/css/app.css", { ["if-none-match"] = etag })
+  local production = app({ dev = false })
+  local etag = get("/css/app.css", nil, production).headers["ETag"]
+  local res = get("/css/app.css", { ["if-none-match"] = etag }, production)
   assert(res.status == 304)
   assert(res.file == nil)
 end
@@ -243,7 +244,7 @@ function T.serves_the_moonlight_bundle_and_lua54_runtime()
   for _, name in ipairs({ "boot", "bridge", "lua54.wasm" }) do
     local runtime = get("/_lunar/runtime/" .. name)
     assert(runtime.status == 200, name)
-    assert(runtime.headers["Cache-Control"]:find("immutable", 1, true))
+    assert(runtime.headers["Cache-Control"] == "no-store")
     assert(runtime.headers["Content-Type"]:find(name:match("%.wasm$")
       and "application/wasm" or "text/javascript", 1, true))
   end
@@ -325,7 +326,7 @@ function T.serves_the_wasm_parts_and_the_index_that_points_at_them()
   assert(part.status == 200)
   assert(part.headers["Content-Type"] == "application/wasm")
   assert(part.body:sub(1, 4) == "\0asm", "those are wasm bytes")
-  assert(part.headers["ETag"] == string.format('"%s"', decoded.parts.geometry.digest))
+  assert(part.headers["ETag"] == nil)
 
   assert(get("/_lunar/wasm/nothing.wasm").status == 404)
 end
