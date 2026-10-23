@@ -59,6 +59,7 @@ function app.new(options)
     stylesheets = pick("stylesheets", {}),
     manifest = declared,
     modules = {},
+    error_stream = options.error_stream,
   }, App)
 
   if self.dev then
@@ -121,6 +122,8 @@ function App:refresh(force)
   self.split_plan = nil
   self.prerendered = nil
   self.integrity_cache = nil
+  self.reported_errors = nil
+  self.reported_error_count = 0
   return true
 end
 
@@ -250,6 +253,33 @@ function App:render_page(req, route, params)
   })
 end
 
+function App:report_error(message, req, title)
+  local terminal = require("lunar.core.terminal")
+  local info = terminal.diagnostic(message)
+  if self.dev then
+    local signature = (title or "") .. "\0" .. (info.file or "") .. ":"
+      .. tostring(info.line or "") .. ":" .. info.message
+    self.reported_errors = self.reported_errors or {}
+    if self.reported_errors[signature] then return end
+    if (self.reported_error_count or 0) >= 32 then
+      self.reported_errors, self.reported_error_count = {}, 0
+    end
+    self.reported_errors[signature] = true
+    self.reported_error_count = (self.reported_error_count or 0) + 1
+    if info.file then
+      local prefix = self.root ~= "" and (self.root .. "/") or ""
+      if prefix ~= "" and info.file:sub(1, #prefix) == prefix then
+        info.file = info.file:sub(#prefix + 1)
+      end
+      info.source = self.watcher and self.watcher.sources and self.watcher.sources[info.file]
+    end
+  end
+  info.title = title
+  info.route = req and (req.method .. " " .. req.path) or nil
+  info.watch = self.watcher ~= nil
+  terminal.new({ error_stream = self.error_stream }).error(info)
+end
+
 function App:render_error(req, status, message)
   local path = routes_lib.eclipse_for(self.routes, req.path)
   if path then
@@ -260,20 +290,21 @@ function App:render_error(req, status, message)
         { ctx = { resolver = self:resolver() } })
       return render.document(self, {
         head = ctx.head, css = ctx.css, body = body, title = tostring(status),
-        data = nil,
+        data = nil, client = false,
       })
     end)
     if ok then
       return response.html(document, status, { ["Cache-Control"] = "no-store" })
     end
-    io.stderr:write("lunar: the error page itself failed: ", tostring(document), "\n")
+    self:report_error(document, req, "Error page failed")
   end
 
-  return response.html(string.format(
-    "<!doctype html><html lang=\"%s\"><head><meta charset=\"utf-8\">"
-    .. "<title>%d</title></head><body><h1>%d %s</h1><p>%s</p></body></html>\n",
-    html.escape(self.lang), status, status, response.status_text(status),
-    html.escape(message or "")), status, { ["Cache-Control"] = "no-store" })
+  local body = string.format("<main><h1>%d %s</h1><pre>%s</pre></main>",
+    status, response.status_text(status), html.escape(message or ""))
+  local ok, document = pcall(render.document, self, {
+    body = body, title = tostring(status), client = false,
+  })
+  return response.html(ok and document or body, status, { ["Cache-Control"] = "no-store" })
 end
 
 local function endpoint_handler(module, method)
@@ -339,7 +370,7 @@ function App:framework_response(req)
   if part then return part end
 
   local runtime_file = path:match("^/_lunar/runtime/([%w%-%.]+)$")
-  if runtime_file == "boot" or runtime_file == "bridge" then
+  if runtime_file == "boot" or runtime_file == "bridge" or (self.dev and runtime_file == "reload") then
     local source = require("lunar.site.integrity").source(self, runtime_file)
     return response.new(200, source, {
       ["Content-Type"] = "text/javascript; charset=utf-8",
@@ -401,7 +432,7 @@ function App:handle(req)
     if errors.is(result, "error") then
       return self:render_error(req, result.status, result.message)
     end
-    io.stderr:write("lunar: ", tostring(result), "\n")
+    self:report_error(result, req)
     return self:render_error(req, 500, self.dev and tostring(result) or nil)
   end
 

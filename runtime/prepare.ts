@@ -3,7 +3,7 @@ import { Transpiler } from "bun";
 
 const transpiler = new Transpiler({ loader: "ts", target: "browser" });
 
-for (const name of ["boot.ts", "bridge.ts"]) {
+for (const name of ["boot.ts", "bridge.ts", "reload.ts"]) {
 	const source = readFileSync(new URL(name, import.meta.url), "utf8");
 	const executable = transpiler.transformSync(source);
 	writeFileSync(

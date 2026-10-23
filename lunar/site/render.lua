@@ -118,7 +118,7 @@ function render.document(app, parts)
       json.encode(parts.data))
   end
 
-  if app.client ~= false then
+  if app.client ~= false and parts.client ~= false then
     local integrity = app:client_integrity()
     body[#body + 1] = string.format('<script type="application/json" id="lunar-integrity">%s</script>',
       json.encode(integrity))
@@ -127,6 +127,16 @@ function render.document(app, parts)
         .. "&build=" .. (integrity.revision or app.version) .. (app.dev
         and ("&dev=" .. app.dev_session .. "-" .. app:generation()) or "")),
       html.escape(assert(integrity.assets["/_lunar/runtime/boot"])))
+  elseif app.dev and parts.client == false then
+    local integrity = require("lunar.site.integrity")
+    local ok, source = pcall(integrity.source, app, "reload")
+    if ok then
+      body[#body + 1] = string.format('<script type="application/json" id="lunar-reload-data">%s</script>',
+        json.encode({ generation = app:generation(), session = app.dev_session }))
+      body[#body + 1] = string.format('<script type="module" src="%s" integrity="%s" crossorigin="anonymous"></script>',
+        html.escape("/_lunar/runtime/reload?dev=" .. app.dev_session .. "-" .. app:generation()),
+        html.escape(integrity.hash(source)))
+    end
   end
 
   local replacements = {

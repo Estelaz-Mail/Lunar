@@ -274,4 +274,52 @@ function T.multiple_apps_keep_their_imports_and_error_pages_isolated()
   for _, root in ipairs(roots) do os.execute("rm -rf " .. root) end
 end
 
+function T.compile_errors_are_reported_once_and_do_not_break_the_error_page()
+  local root = temp_app({
+    ["orbit/page.lunar"] = "<h1>Broken page</h1>\n</code>",
+    ["orbit/eclipse.lunar"] = '<script>props { data = {} }</script><h1>Custom error</h1><p>{data.status}</p>',
+  })
+  local output = {}
+  local stream = { write = function(_, ...)
+    for index = 1, select("#", ...) do output[#output + 1] = tostring(select(index, ...)) end
+  end, flush = function() end }
+  local instance = lunar.app({ root = root, dev = true, watch_interval = 0, error_stream = stream })
+  local answer = get(instance, "/")
+  assert(answer.status == 500 and answer.body:find("Custom error", 1, true))
+  assert(not answer.body:find("/_lunar/runtime/boot", 1, true))
+  assert(answer.body:find("/_lunar/runtime/reload?", 1, true))
+  assert(answer.body:find('integrity="sha256-', 1, true))
+  local count = #output
+  get(instance, "/")
+  get(instance, "/missing")
+  assert(#output == count, "repeated requests must not duplicate the compilation error")
+  local log = table.concat(output)
+  assert(log:find("orbit/page.lunar:2", 1, true))
+  assert(log:find("</code> with no element open", 1, true))
+  assert(not log:find("Error page failed", 1, true))
+  local reload = get(instance, "/_lunar/runtime/reload")
+  assert(reload.status == 200 and reload.headers["Cache-Control"] == "no-store")
+  assert(util.write_file(fs.join(root, "orbit/page.lunar"), "<h1>Fixed page</h1>"))
+  assert(get(instance, "/").status == 200)
+  assert(util.write_file(fs.join(root, "orbit/page.lunar"), "<h1>Broken again</h1>\n</code>"))
+  assert(get(instance, "/").status == 500)
+  assert(#output > count, "a new edit may report the error again")
+  os.execute("rm -rf " .. root)
+end
+
+function T.broken_error_components_still_return_a_reloadable_fallback()
+  local root = temp_app({
+    ["orbit/page.lunar"] = "</code>",
+    ["orbit/eclipse.lunar"] = "</h1>",
+  })
+  local instance = lunar.app({ root = root, dev = true,
+    error_stream = { write = function() end, flush = function() end } })
+  local answer = get(instance, "/")
+  assert(answer.status == 500)
+  assert(answer.body:find("500 Internal Server Error", 1, true))
+  assert(answer.body:find("/_lunar/runtime/reload?", 1, true))
+  assert(not answer.body:find("/_lunar/runtime/boot", 1, true))
+  os.execute("rm -rf " .. root)
+end
+
 return T

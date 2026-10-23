@@ -23,7 +23,9 @@ export LUA_PATH LUA_CPATH
 
 LUNAR_TTY=0
 if [ -t 1 ]; then LUNAR_TTY=1; fi
-export LUNAR_TTY
+LUNAR_STDERR_TTY=0
+if [ -t 2 ]; then LUNAR_STDERR_TTY=1; fi
+export LUNAR_TTY LUNAR_STDERR_TTY
 
 command="${1:-help}"
 [ $# -gt 0 ] && shift

@@ -11,7 +11,7 @@ end
 
 function integrity.source(app, name)
   local path = fs.join(app.framework, "static/runtime", name)
-  if name == "boot" or name == "bridge" then
+  if name == "boot" or name == "bridge" or name == "reload" then
     local artifact = assert(json.decode(assert(fs.read(path .. ".json"))), "lunar: invalid runtime artifact")
     assert(type(artifact.source) == "string", "lunar: missing runtime source")
     return artifact.source

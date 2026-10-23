@@ -10,7 +10,7 @@ const module = await WebAssembly.compile(
 );
 
 test("distributed TypeScript assets match their typed sources", () => {
-	for (const name of ["boot.ts", "bridge.ts"]) {
+	for (const name of ["boot.ts", "bridge.ts", "reload.ts"]) {
 		const source = readFileSync(new URL(`../runtime/${name}`, import.meta.url), "utf8");
 		const artifact: unknown = JSON.parse(
 			readFileSync(

@@ -28,6 +28,8 @@ lunar dev examples/tranquility
 
 The development server listens on port 3000. It compiles components when they are requested and caches them by their own bytes, so an edit is live on the next request; it also notices files that appear or disappear, so a new route works without a restart. Pages opened from it reload themselves when anything in the application changes: the browser half polls `/_lunar/dev` for a counter the server moves when it sees a difference, and that endpoint and the script that polls it exist only in development.
 
+Development errors show the source file, line and surrounding code in the terminal. Repeated requests report the same error once until a watched file changes. Error pages use an independent reload module so fixing a broken component restores the page without compiling the failed bundle first.
+
 Interactive terminals display a lunar theme, and the installer animates download and compilation progress. Set `NO_COLOR=1` for plain output, or `LUNAR_ANIMATIONS=0` to disable installer animations while keeping colors. Redirected output and CI logs stay plain; `--quiet` silences installer progress.
 
 ## Components

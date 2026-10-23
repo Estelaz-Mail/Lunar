@@ -353,6 +353,7 @@ end
 
 local SERVER_MODULES = {
   "lunar/init.lua",
+  "lunar/core/terminal.lua",
   "lunar/core/util.lua",
   "lunar/core/html.lua",
   "lunar/core/json.lua",
