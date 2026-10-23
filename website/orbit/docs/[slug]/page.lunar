@@ -11,10 +11,14 @@
         <span class="eyebrow">DOCUMENTAÇÃO</span>
         <nav class="doc-navigation" aria-label="Tópicos da documentação">
           {#each data.groups as group (group.title)}
-            <span class="doc-group">{group.title}</span>
-            {#each group.links as link (link.slug)}
-              <a href={"/docs/" .. link.slug} class:selected={link.slug == data.page.slug} aria-current={link.slug == data.page.slug and "page" or "false"}>{link.title}</a>
-            {/each}
+            <details class="doc-topic" name="lunar-doc-topics" open={group.title == data.page.group}>
+              <summary class="doc-group">{group.title}<span class="doc-topic-indicator" aria-hidden="true"></span></summary>
+              <div>
+                {#each group.links as link (link.slug)}
+                  <a href={"/docs/" .. link.slug} class:selected={link.slug == data.page.slug} aria-current={link.slug == data.page.slug and "page" or "false"}>{link.title}</a>
+                {/each}
+              </div>
+            </details>
           {/each}
         </nav>
       </div>

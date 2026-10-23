@@ -919,8 +919,8 @@ nav > a:hover {
 	overflow: auto;
 }
 .doc-sidebar .eyebrow {
-	color: #72809a;
-	font-size: 9px;
+	color: #aab8cf;
+	font-size: 10px;
 	display: block;
 	margin-bottom: 16px;
 }
@@ -928,16 +928,17 @@ nav > a:hover {
 	display: block;
 	padding: 9px 13px;
 	border-left: 1px solid #2a3244;
-	font-size: 12px;
-	color: #8f9cb2;
+	font-size: 13px;
+	font-weight: 500;
+	color: #c4cede;
 }
 .doc-sidebar a:hover {
 	color: white;
 	background: #111725;
 }
 .doc-sidebar a.selected {
-	background: #141d39;
-	color: #adbaff;
+	background: #1b2850;
+	color: #e0e6ff;
 	border-left-color: var(--blue);
 }
 .doc-article {
@@ -1535,7 +1536,7 @@ nav > a:hover {
 	display: none;
 }
 @media (min-width: 701px) {
-	.doc-sidebar details > div {
+	.doc-sidebar > details > div {
 		display: block;
 	}
 }
@@ -1551,16 +1552,44 @@ nav > a:hover {
 	}
 }
 
-.doc-group {
-	display: block;
-	font-size: 9px;
-	letter-spacing: 0.14em;
-	text-transform: uppercase;
-	color: #6c7a94;
-	margin: 22px 0 8px 13px;
+.doc-topic + .doc-topic {
+	margin-top: 12px;
 }
-.doc-group:first-child {
-	margin-top: 0;
+.doc-group {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	cursor: pointer;
+	padding: 10px 13px;
+	transition: color 0.2s ease;
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: #b7c4da;
+	margin: 0;
+}
+.doc-group:hover,
+.doc-topic[open] > .doc-group {
+	color: #e0e6ff;
+}
+.doc-group:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: -2px;
+}
+.doc-topic-indicator {
+	width: 10px;
+	height: 10px;
+	flex: 0 0 auto;
+	background:
+		linear-gradient(currentColor, currentColor) center / 10px 1px no-repeat,
+		linear-gradient(currentColor, currentColor) center / 1px 10px no-repeat;
+}
+.doc-topic[open] > .doc-group .doc-topic-indicator {
+	background-size:
+		10px 1px,
+		1px 0;
 }
 .doc-outline {
 	position: sticky;
@@ -1570,8 +1599,8 @@ nav > a:hover {
 	padding-top: 118px;
 }
 .doc-outline .eyebrow {
-	color: #72809a;
-	font-size: 9px;
+	color: #aab8cf;
+	font-size: 10px;
 	display: block;
 	margin-bottom: 14px;
 }
@@ -1582,9 +1611,10 @@ nav > a:hover {
 }
 .doc-outline a {
 	padding: 7px 0 7px 14px;
-	font-size: 12px;
-	color: #808ea6;
-	line-height: 1.45;
+	font-size: 13px;
+	font-weight: 500;
+	color: #bdc9dc;
+	line-height: 1.6;
 }
 .doc-outline a:hover {
 	color: #c6d2ee;
