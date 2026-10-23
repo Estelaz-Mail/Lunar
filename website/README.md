@@ -31,8 +31,10 @@ npm run deploy:check
 
 ```sh
 npx wrangler login
-npm run deploy
+CLOUDFLARE_ACCOUNT_ID=<id> npm run deploy
 ```
+
+A conta não está escrita no `wrangler.jsonc`: ela vem do ambiente, porque a chave OAuth do Wrangler alcança mais de uma e o repositório não carrega identificadores de ninguém. `npx wrangler whoami` lista as contas disponíveis.
 
 O arquivo `wrangler.jsonc` da raiz é a configuração permanente. Define o Worker `lunar-website`, o binding `ASSETS`, observabilidade e o Custom Domain `lunar.estelaz.com`. A zona `estelaz.com` deve estar ativa na conta Cloudflare utilizada e o usuário deve ter permissão para gerenciar o Worker e o domínio. A rota é `lunar.estelaz.com/*` na zona `baioneta.com`, para onde `lunar.estelaz.com` aponta por CNAME.
 
