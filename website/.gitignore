@@ -1,4 +1,5 @@
 .lunar/
+lib/docs_catalog.lua
 node_modules/
 .wrangler/
 output/
