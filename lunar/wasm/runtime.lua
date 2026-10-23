@@ -2,6 +2,7 @@ local runtime = {}
 
 runtime.NAME = "runtime"
 runtime.DATA_START = 1024
+runtime.TABLE_START = 1
 runtime.STRING = 2
 
 runtime.SOURCE = [[
@@ -135,6 +136,72 @@ function equal(a, b)
   return 1
 end
 
+local function compare_bytes(from, to)
+  local first = mem.load(from)
+  local second = mem.load(to)
+  local shortest = first
+  if second < shortest then
+    shortest = second
+  end
+  local index = 0
+  while index < shortest do
+    local left = mem.byte(from + 8 + index)
+    local right = mem.byte(to + 8 + index)
+    if left < right then
+      return -1
+    end
+    if left > right then
+      return 1
+    end
+    index = index + 1
+  end
+  if first < second then
+    return -1
+  end
+  if first > second then
+    return 1
+  end
+  return 0
+end
+
+function less(a, b)
+  if box.is_number(a) and box.is_number(b) then
+    if a < b then
+      return 1
+    end
+    return 0
+  end
+  if box.is_number(a) or box.is_number(b) then
+    mem.trap()
+  end
+  if box.tag(a) ~= 2 or box.tag(b) ~= 2 then
+    mem.trap()
+  end
+  if compare_bytes(box.address(a), box.address(b)) < 0 then
+    return 1
+  end
+  return 0
+end
+
+function less_equal(a, b)
+  if box.is_number(a) and box.is_number(b) then
+    if a <= b then
+      return 1
+    end
+    return 0
+  end
+  if box.is_number(a) or box.is_number(b) then
+    mem.trap()
+  end
+  if box.tag(a) ~= 2 or box.tag(b) ~= 2 then
+    mem.trap()
+  end
+  if compare_bytes(box.address(a), box.address(b)) <= 0 then
+    return 1
+  end
+  return 0
+end
+
 local function fold(value)
   return value - math.floor(value / 4294967296) * 4294967296
 end
@@ -158,6 +225,30 @@ local function hash_of(key)
     return string_hash(box.address(key))
   end
   return bit.band(fold(box.address(key) * 2654435761 + 97), 2147483647)
+end
+
+function closure_new(index, arity, count)
+  local pointer = alloc(24 + count * 8)
+  mem.store(pointer, index)
+  mem.store(pointer + 8, arity)
+  mem.store(pointer + 16, count)
+  local slot = 0
+  while slot < count do
+    mem.store(pointer + 24 + slot * 8, nil)
+    slot = slot + 1
+  end
+  return box.pack(4, pointer)
+end
+
+function closure_put(value, slot, item)
+  if box.is_number(value) then
+    mem.trap()
+  end
+  if box.tag(value) ~= 4 then
+    mem.trap()
+  end
+  mem.store(box.address(value) + 24 + slot * 8, item)
+  return value
 end
 
 function table_new()

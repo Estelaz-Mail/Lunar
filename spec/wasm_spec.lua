@@ -93,8 +93,7 @@ end
 function T.refuses_what_the_subset_does_not_cover()
   assert(compile_error("function f() return ... end"):find("is not an expression", 1, true))
   assert(compile_error("function f(a) return a:upper() end"):find("is not an expression", 1, true))
-  assert(compile_error("function f() return function() return 1 end end")
-    :find("is not an expression", 1, true))
+  assert(compile_error("function f() return 1, 2 end"):find("is not an expression", 1, true))
   assert(compile_error("function f() return 1 % 0 ^ coroutine end")
     :find("is not a value this part knows", 1, true))
   assert(compile_error('function f() return math.pi end')
@@ -112,8 +111,8 @@ function T.refuses_what_the_subset_does_not_cover()
     :find("a step that is a plain number", 1, true))
   assert(compile_error("function f() return unknown end")
     :find("is not a value this part knows", 1, true))
-  assert(compile_error("function f() local function g() end return 0 end")
-    :find("nested `local function`", 1, true))
+  assert(compile_error("function f() for i = 1, 3 do local g = function() return i end end return 0 end")
+    :find("a closure keeps", 1, true))
 end
 
 function T.points_at_the_line_that_is_wrong()
@@ -227,6 +226,36 @@ end
 ]], { filename = "tables.lua" })
   assert(table.concat(info.needs, ",") == "runtime")
   assert(info.memory)
+end
+
+function T.gives_every_function_a_slot_in_the_shared_table()
+  local _, info = compile.chunk([[
+function counter(start)
+  local total = start
+  local function bump(by)
+    total = total + by
+    return total
+  end
+  bump(1)
+  return total
+end
+
+function plain(x)
+  return x + 1
+end
+]], { filename = "closures.lua", table_base = 7 })
+
+  assert(info.table_slots == 3, "two declarations and one closure: " .. info.table_slots)
+  assert(info.table_base == 7)
+  assert(table.concat(info.needs, ",") == "runtime", "a closure needs the allocator")
+  assert(info.memory, "and the memory the cell lives in")
+
+  local manifest = parts_lib.build({
+    { name = "a", source = "function one() local f = function() return 1 end return f() end" },
+    { name = "b", source = "function two() return 2 end" },
+  })
+  assert(manifest.table_size >= 4, "the slots of every part fit in one table: " .. manifest.table_size)
+  assert(manifest.parts.a.bytes:sub(1, 4) == "\0asm")
 end
 
 local function fake_browser(manifest)

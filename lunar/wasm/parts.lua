@@ -30,6 +30,7 @@ function parts.build(units, options)
   end
 
   local bases, cursor = {}, runtime_lib.DATA_START
+  local slots, next_slot = {}, runtime_lib.TABLE_START
   for _, unit in ipairs(units) do
     local _, measured = compile.chunk(unit.source, {
       filename = unit.filename or ((unit.name or "part") .. ".lua"),
@@ -37,6 +38,8 @@ function parts.build(units, options)
     })
     bases[unit.name] = cursor
     cursor = cursor + aligned(measured.data_size)
+    slots[unit.name] = next_slot
+    next_slot = next_slot + measured.table_slots
   end
 
   for _, unit in ipairs(units) do
@@ -49,6 +52,7 @@ function parts.build(units, options)
       filename = unit.filename or (name .. ".lua"),
       externals = externals,
       data_base = bases[name],
+      table_base = slots[name],
     })
 
     manifest.parts[name] = {
@@ -86,6 +90,7 @@ function parts.build(units, options)
       memory = true,
       data_segments = { { offset = 0, bytes = string.pack("<d", cursor) } },
     })
+    next_slot = next_slot + info.table_slots
     manifest.parts[runtime_lib.NAME] = {
       name = runtime_lib.NAME,
       bytes = bytes,
@@ -100,6 +105,7 @@ function parts.build(units, options)
   end
 
   manifest.heap = cursor
+  manifest.table_size = next_slot
   return manifest
 end
 

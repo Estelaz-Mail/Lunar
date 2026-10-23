@@ -80,6 +80,13 @@ function Module:export_function(name, index)
   self.exports[#self.exports + 1] = encode.name(name) .. "\x00" .. encode.unsigned(index)
 end
 
+function Module:element(offset, indices)
+  local items = {}
+  for index, value in ipairs(indices) do items[index] = encode.unsigned(value) end
+  self.elements[#self.elements + 1] = "\x00\x41" .. encode.signed(offset) .. "\x0b"
+    .. encode.vector(items)
+end
+
 function Module:data(offset, bytes)
   self.segments[#self.segments + 1] = "\x00\x41" .. encode.signed(offset) .. "\x0b"
     .. encode.unsigned(#bytes) .. bytes
@@ -109,6 +116,7 @@ function Module:encode()
   end
 
   add(encode.SECTIONS.export, #self.exports > 0 and encode.vector(self.exports) or "")
+  add(encode.SECTIONS.element, #self.elements > 0 and encode.vector(self.elements) or "")
   add(encode.SECTIONS.code, #bodies > 0 and encode.vector(bodies) or "")
   add(encode.SECTIONS.data, #self.segments > 0 and encode.vector(self.segments) or "")
 

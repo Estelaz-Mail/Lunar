@@ -189,6 +189,14 @@ function Parser:primary()
     return self:table_constructor()
   end
 
+  if self:check("function") then
+    self:advance()
+    local parameters = self:parameters()
+    local body = self:block({ ["end"] = true })
+    self:expect("end")
+    return { kind = "function", parameters = parameters, body = body, line = token.line }
+  end
+
   if token.kind == "name" then
     self:advance()
     local node = { kind = "name", name = token.value, line = token.line }
@@ -209,6 +217,18 @@ function Parser:primary()
     end
   end
   self:error("`" .. tostring(token.value or token.kind) .. "` is not an expression")
+end
+
+function Parser:parameters()
+  self:expect("(")
+  local parameters = {}
+  if not self:check(")") then
+    repeat
+      parameters[#parameters + 1] = self:expect("name", "a parameter name").value
+    until not self:accept(",")
+  end
+  self:expect(")")
+  return parameters
 end
 
 function Parser:table_constructor()
@@ -290,8 +310,13 @@ function Parser:statement()
   if self:accept(";") then return { kind = "empty", line = token.line } end
 
   if self:accept("local") then
-    if self:check("function") then
-      self:error("a nested `local function` is not part of the wasm subset", token.line)
+    if self:accept("function") then
+      local name = self:expect("name", "a name")
+      local parameters = self:parameters()
+      local body = self:block({ ["end"] = true })
+      self:expect("end")
+      return { kind = "local_function", name = name.value, parameters = parameters,
+        body = body, line = token.line }
     end
     local name = self:expect("name", "a name")
     self:expect("=", "`=`: a local in the wasm subset is always given a value")
@@ -383,14 +408,7 @@ function Parser:chunk()
     if self:accept("local") then exported = false end
     self:expect("function", "a function declaration")
     local name = self:expect("name", "a function name")
-    self:expect("(")
-    local parameters = {}
-    if not self:check(")") then
-      repeat
-        parameters[#parameters + 1] = self:expect("name", "a parameter name").value
-      until not self:accept(",")
-    end
-    self:expect(")")
+    local parameters = self:parameters()
     local body = self:block({ ["end"] = true })
     self:expect("end")
     functions[#functions + 1] = { name = name.value, parameters = parameters,

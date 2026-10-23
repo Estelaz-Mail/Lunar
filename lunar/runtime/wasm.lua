@@ -28,7 +28,18 @@ function Loader:host_imports()
   local object = self.js.new(self.window.Object)
   object.pow = self.window.Math.pow
   object.memory = self:memory()
+  object.table = self:table()
   return object
+end
+
+function Loader:table()
+  if not self.functions then
+    local descriptor = self.js.new(self.window.Object)
+    descriptor.element = "anyfunc"
+    descriptor.initial = (self.index and self.index.table_size or 0) + 1
+    self.functions = self.js.new(self.window.WebAssembly.Table, descriptor)
+  end
+  return self.functions
 end
 
 function Loader:memory()

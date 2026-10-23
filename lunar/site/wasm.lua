@@ -53,7 +53,13 @@ function wasm.index(manifest)
       host = part.host,
     }
   end
-  return { version = manifest.digest, index = manifest.index, parts = parts }
+  return {
+    version = manifest.digest,
+    index = manifest.index,
+    parts = parts,
+    table_size = manifest.table_size or 0,
+    heap = manifest.heap or 0,
+  }
 end
 
 function wasm.respond(manifest, path, immutable)
