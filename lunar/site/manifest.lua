@@ -15,6 +15,7 @@ local READ = {
   client = "boolean",
   dev = "boolean",
   minify = "boolean",
+  compress = "boolean",
   stylesheets = "table",
   security = "table",
   rate_limit = "table",

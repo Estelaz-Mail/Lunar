@@ -102,6 +102,30 @@ function T.watches_the_working_directory_when_the_app_is_the_root()
     "the working directory is what it watches")
 end
 
+function T.does_not_compress_in_development()
+  local page = "<script>\n  props { data = {} }\n</script>\n<p>"
+    .. string.rep("ordinary prose ", 200) .. "</p>\n"
+  local root = temp_app({ ["orbit/page.lunar"] = page })
+
+  local instance = lunar.app({ root = root, dev = true, version = "spec",
+    watch_interval = 0 })
+  local answer = get(instance, "/", { ["accept-encoding"] = "gzip" })
+  assert(answer.headers["Content-Encoding"] == nil,
+    "development keeps the bytes readable")
+
+  local shipped = lunar.app({ root = root, dev = false, version = "spec" })
+  local packed = get(shipped, "/", { ["accept-encoding"] = "gzip" })
+  assert(packed.headers["Content-Encoding"] == "gzip", "production squeezes it")
+  assert(#packed.body < #answer.body, "and it is smaller than the page")
+
+  local asked = lunar.app({ root = root, dev = false, version = "spec",
+    compress = false })
+  local raw = get(asked, "/", { ["accept-encoding"] = "gzip" })
+  assert(raw.headers["Content-Encoding"] == nil, "unless the app turns it off")
+
+  os.execute("rm -rf " .. root)
+end
+
 function T.has_no_watcher_and_no_endpoint_in_production()
   local root = temp_app({ ["orbit/page.lunar"] = HOME })
   local instance = lunar.app({ root = root, dev = false, version = "spec" })

@@ -235,6 +235,40 @@ function T.serves_a_precompressed_file_to_a_client_that_asked_for_one()
   assert(again.status == 304)
 end
 
+function T.compresses_a_text_file_that_has_no_precompressed_sibling()
+  local fs = require("lunar.core.fs")
+  local util_lib = require("lunar.core.util")
+  local root = fs.join(os.getenv("TMPDIR") or "/tmp",
+    string.format("lunar-squeeze-%d-%d", os.time(), math.random(100000)))
+  fs.mkdirp(fs.join(root, "css"))
+  local source = string.rep(".rule { color: rebeccapurple; }\n", 200)
+  assert(util_lib.write_file(fs.join(root, "css/app.css"), source))
+  local static = static_lib.new({ root = root, version = "v1" })
+
+  local answer = static:serve(
+    make("GET", "/css/app.css", { ["accept-encoding"] = "gzip" }), "/css/app.css")
+  assert(answer.headers["Content-Encoding"] == "gzip", "it squeezed it on the way out")
+  assert(answer.file == nil, "and sent the bytes it holds, not the file")
+  assert(#answer.body < #source, "the body is smaller")
+  assert(answer.content_length == #answer.body, "and the length is of what was sent")
+  assert(answer.headers["ETag"]:find("gzip", 1, true), "the tag names the encoding")
+
+  local again = static:serve(
+    make("GET", "/css/app.css", { ["accept-encoding"] = "gzip" }), "/css/app.css")
+  assert(again.body == answer.body, "the second answer comes from the cache")
+
+  local plain = static:serve(make("GET", "/css/app.css"), "/css/app.css")
+  assert(plain.headers["Content-Encoding"] == nil, "nobody asked")
+  assert(plain.file ~= nil, "so the file is served as a file")
+
+  local off = static_lib.new({ root = root, version = "v1", compress = false })
+  local raw = off:serve(
+    make("GET", "/css/app.css", { ["accept-encoding"] = "gzip" }), "/css/app.css")
+  assert(raw.headers["Content-Encoding"] == nil, "and it can be turned off")
+
+  os.execute("rm -rf " .. root)
+end
+
 function T.hashes_an_inline_script_the_way_a_browser_does()
   assert(security.hash_source("abc")
     == "'sha256-ungWv48Bz+pBQUDeXa4iI7ADYaOWF3qctBD/YfIAFa0='")

@@ -1,3 +1,4 @@
+local compress_lib = require("lunar.http.compress")
 local errors = require("lunar.site.errors")
 local fs = require("lunar.core.fs")
 local html = require("lunar.core.html")
@@ -64,6 +65,7 @@ function app.new(options)
   end
 
   self.minify = minify_setting(pick("minify", nil), self.dev)
+  self.compress = pick("compress", not self.dev) ~= false
 
   package.path = table.concat({
     fs.join(root, "lib") .. "/?.lua",
@@ -85,10 +87,12 @@ function app.new(options)
     version = self.version,
     cache_control = self.dev and "no-store" or nil,
     immutable_patterns = self.dev and {} or { "^fonts/", "^videos/" },
+    compress = self.compress,
   })
   self.framework_static = static_lib.new({
     root = fs.join(self.framework, "static"),
     version = self.version,
+    compress = self.compress,
   })
 
   self.security = security_lib.new(pick("security", {}))
@@ -373,6 +377,7 @@ function App:handler()
       req.headers["if-modified-since"] = nil
     end
     local res = self:handle(req)
+    if self.compress then res = compress_lib.response(req, res) end
     if self.dev then
       local remove = {
         ["cache-control"] = true, ["cdn-cache-control"] = true,
