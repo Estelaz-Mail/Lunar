@@ -26,8 +26,8 @@
     <p class="doc-lead">{data.page.description}</p>
     <div class="doc-body">{@html data.page.body}</div>
     <nav class="doc-pagination" aria-label="Páginas da documentação">
-      {#if data.previous}<a href={"/docs/" .. data.previous.slug}><span>← ANTERIOR</span>{data.previous.title}</a>{/if}
-      {#if data.following}<a href={"/docs/" .. data.following.slug}><span>PRÓXIMO →</span>{data.following.title}</a>{/if}
+      {#if data.previous}<a href={"/docs/" .. data.previous.slug}><span><span class="spaceship spaceship-left" aria-hidden="true"></span> ANTERIOR</span>{data.previous.title}</a>{/if}
+      {#if data.following}<a href={"/docs/" .. data.following.slug}><span>PRÓXIMO <span class="spaceship spaceship-right" aria-hidden="true"></span></span>{data.following.title}</a>{/if}
     </nav>
   </article>
   {#if #data.headings > 1}
