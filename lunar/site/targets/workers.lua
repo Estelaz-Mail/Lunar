@@ -181,6 +181,10 @@ function workers.generate(app, options)
     if not moonlight then return nil, moonlight_error end
     write("public/_lunar/moonlight.lua", moonlight)
 
+    for _, chunk in pairs(bundle.chunks(app) or {}) do
+      write("public/_lunar/chunk/" .. chunk.name, chunk.source)
+    end
+
     for _, file in ipairs({ "boot", "bridge", "lua54.wasm" }) do
       local contents = require("lunar.site.integrity").source(app, file)
       write("public/_lunar/runtime/" .. file, contents)

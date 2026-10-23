@@ -17,6 +17,7 @@ local READ = {
   minify = "boolean",
   compress = "boolean",
   prerender = "boolean|table",
+  split = "boolean",
   stylesheets = "table",
   security = "table",
   rate_limit = "table",

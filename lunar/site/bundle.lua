@@ -6,6 +6,8 @@ local util = require("lunar.core.util")
 
 local bundle = {}
 
+bundle.CHUNKS = "/_lunar/chunk/"
+
 local MODULES = {
   "lunar/core/util.lua",
   "lunar/core/html.lua",
@@ -17,6 +19,7 @@ local MODULES = {
   "lunar/runtime/dom.lua",
   "lunar/runtime/component.lua",
   "lunar/runtime/wasm.lua",
+  "lunar/site/chunks.lua",
   "lunar/site/moonlight.lua",
   "lunar/site/boot.lua",
 }
@@ -63,6 +66,178 @@ local function route_map(app)
   return map
 end
 
+
+local function imports_of(source)
+  local tokens, position = {}, 1
+  while position <= #source do
+    local char = source:sub(position, position)
+    local comment = source:sub(position, position + 1) == "--"
+    local first = comment and position + 2 or position
+    local level = source:match("^%[(=*)%[", first)
+    if comment or level then
+      if level then
+        local closing = "]" .. level .. "]"
+        local stop = source:find(closing, first + #level + 2, true)
+        if not stop then return {}, false end
+        local finish = stop + #closing
+        if not comment then
+          tokens[#tokens + 1] = { kind = "string", literal = source:sub(first, finish - 1) }
+        end
+        position = finish
+      else
+        position = source:find("\n", first, true) or (#source + 1)
+      end
+    elseif char == '"' or char == "'" then
+      local stop = position + 1
+      while stop <= #source do
+        local next_char = source:sub(stop, stop)
+        if next_char == "\\" then stop = stop + 2
+        elseif next_char == char then break
+        else stop = stop + 1 end
+      end
+      tokens[#tokens + 1] = { kind = "string", literal = source:sub(position, stop) }
+      position = stop + 1
+    elseif char:match("[%a_]") then
+      local name = source:match("^[%w_]+", position)
+      tokens[#tokens + 1] = { kind = "name", value = name }
+      position = position + #name
+    else
+      if not char:match("%s") then tokens[#tokens + 1] = { kind = char } end
+      position = position + 1
+    end
+  end
+
+  local literals = {}
+  for index, token in ipairs(tokens) do
+    if token.kind == "name" and token.value == "import" then
+      local argument = tokens[index + 1]
+      if argument and argument.kind == "(" then
+        argument = tokens[index + 2]
+        local closing = tokens[index + 3]
+        if not closing or closing.kind ~= ")" then return {}, false end
+      end
+      if not argument or argument.kind ~= "string" then return {}, false end
+      local literal = load("return " .. argument.literal, "=import", "t", {})
+      if not literal then return {}, false end
+      local ok, request = pcall(literal)
+      if not ok or type(request) ~= "string" then return {}, false end
+      literals[#literals + 1] = request
+    end
+  end
+  return literals, true
+end
+
+local function reachable(app, roots, known)
+  local seen, order = {}, {}
+  local queue = {}
+  for _, path in ipairs(roots) do queue[#queue + 1] = path end
+
+  while #queue > 0 do
+    local path = table.remove(queue)
+    if not seen[path] then
+      seen[path] = true
+      order[#order + 1] = path
+      local _, generated = app.cache:get(path)
+      if type(generated) ~= "string" then return nil, path .. " does not compile" end
+      local literals, certain = imports_of(generated)
+      if not certain then return nil, path .. " imports something that is not a literal" end
+      for _, request in ipairs(literals) do
+        local target = resolve.path(request, path, app.root)
+        if known[target] == nil then target = resolve.normalize(target) end
+        if known[target] == nil then return nil, path .. " imports " .. request end
+        queue[#queue + 1] = target
+      end
+    end
+  end
+  return order
+end
+
+function bundle.plan(app)
+  if app.split_plan ~= nil then return app.split_plan end
+
+  local known = {}
+  for _, path in ipairs(app_components(app)) do known[path] = true end
+
+  local routes = route_map(app)
+  local per_route, counted = {}, {}
+  local refused = nil
+
+  for id, paths in pairs(routes) do
+    local order, err = reachable(app, paths, known)
+    if not order then
+      refused = err
+      break
+    end
+    per_route[id] = order
+    for _, path in ipairs(order) do counted[path] = (counted[path] or 0) + 1 end
+  end
+
+  local plan
+  if refused then
+    plan = { split = false, reason = refused }
+  else
+    local core, chunks = {}, {}
+    for path in pairs(known) do
+      if (counted[path] or 0) ~= 1 then core[#core + 1] = path end
+    end
+    table.sort(core)
+
+    for id, order in pairs(per_route) do
+      local own = {}
+      for _, path in ipairs(order) do
+        if counted[path] == 1 then own[#own + 1] = path end
+      end
+      table.sort(own)
+      if #own > 0 then chunks[id] = own end
+    end
+    plan = { split = true, core = core, chunks = chunks }
+  end
+
+  app.split_plan = plan
+  return plan
+end
+
+local function component_part(app, path)
+  local def, generated = app.cache:get(path)
+  if not def then return nil, generated end
+  return preload(resolve.module_name(path), generated, path)
+end
+
+function bundle.chunks(app)
+  if not app.split then return {} end
+  if app.chunk_cache and not app.dev then return app.chunk_cache end
+
+  local plan = bundle.plan(app)
+  if not plan.split then
+    app.chunk_cache = {}
+    return app.chunk_cache
+  end
+
+  local out = {}
+  for id, paths in pairs(plan.chunks) do
+    local pieces = {}
+    for _, path in ipairs(paths) do
+      local piece, err = component_part(app, path)
+      if not piece then return nil, err end
+      pieces[#pieces + 1] = piece
+    end
+    local source = table.concat(pieces, "\n\n") .. "\n"
+    out[id] = { name = util.hash(source) .. ".lua", source = source, paths = paths }
+  end
+
+  app.chunk_cache = out
+  return out
+end
+
+function bundle.chunk(app, name)
+  local chunks = bundle.chunks(app)
+  if not chunks then return nil end
+  for _, chunk in pairs(chunks) do
+    if chunk.name == name then return chunk.source end
+  end
+  return nil
+end
+
 function bundle.build(app)
   if app.bundle_cache and not app.dev then
     return app.bundle_cache
@@ -83,18 +258,34 @@ function bundle.build(app)
     keep("framework", module_name(relative), preload(module_name(relative), source, relative))
   end
 
+  local plan = app.split and bundle.plan(app) or { split = false }
+  local chunks = plan.split and bundle.chunks(app) or {}
+  if plan.split and not chunks then return nil, "a chunk did not compile" end
+
+  local held = nil
+  if plan.split then
+    held = {}
+    for _, path in ipairs(plan.core) do held[path] = true end
+  end
+
   local components = {}
   for _, path in ipairs(app_components(app)) do
     local def, generated = app.cache:get(path)
     if not def then return nil, generated end
     components[path] = resolve.module_name(path)
-    keep("component", path, preload(resolve.module_name(path), generated, path))
+    if not held or held[path] then
+      keep("component", path, preload(resolve.module_name(path), generated, path))
+    end
   end
+
+  local routed = {}
+  for id, chunk in pairs(chunks) do routed[id] = bundle.CHUNKS .. chunk.name end
 
   local registry = {
     root = app.root,
     components = components,
     routes = route_map(app),
+    chunks = next(routed) ~= nil and routed or nil,
   }
 
   keep("registry", "lunar.app.registry", string.format(
@@ -279,7 +470,13 @@ function bundle.server(app, options)
     parts[#parts + 1] = preload(module.name, source, module.path)
   end
 
+  local chunk_urls = {}
+  for id, chunk in pairs(bundle.chunks(app) or {}) do
+    chunk_urls[id] = bundle.CHUNKS .. chunk.name
+  end
+
   local manifest = {
+    chunks = next(chunk_urls) ~= nil and chunk_urls or nil,
     root = app.root,
     name = app.name,
     lang = app.lang,

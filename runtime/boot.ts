@@ -77,15 +77,20 @@ try {
 		writable: false,
 		configurable: false,
 	});
-	const [runtime, source] = await Promise.all([
+	const page: unknown = JSON.parse(document.getElementById("lunar-data")?.textContent ?? "null");
+	const chunk = record(page) && typeof page.chunk === "string" ? page.chunk : null;
+	const text = (url: string): Promise<string> =>
+		fetchResource(new URL(url, root).href).then((response) => response.text());
+
+	const [runtime, source, piece] = await Promise.all([
 		factory.create({
 			url: new URL(`lua54.wasm${root.search}`, root),
 			integrity: hash("/_lunar/runtime/lua54.wasm"),
 		}),
-		fetchResource(new URL(`../moonlight.lua${root.search}`, root).href).then((response) =>
-			response.text(),
-		),
+		text(`../moonlight.lua${root.search}`),
+		chunk ? text(chunk) : Promise.resolve(null),
 	]);
+	if (piece !== null && chunk !== null) runtime.evaluate(piece, `@${chunk}`);
 	runtime.evaluate(source, "@moonlight.lua");
 } catch (error) {
 	console.error("lunar: the client half did not start", error);

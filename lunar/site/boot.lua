@@ -1,3 +1,4 @@
+local chunks_lib = require("lunar.site.chunks")
 local moonlight = require("lunar.site.moonlight")
 local dom_lib = require("lunar.runtime.dom")
 local wasm_lib = require("lunar.runtime.wasm")
@@ -56,6 +57,16 @@ function boot.start(registry)
 
   local current_page = window.location.pathname .. window.location.search
 
+  local pieces = chunks_lib.loader({
+    warn = function(message) window.console:warn(message) end,
+    fetch_text = function(url, on_text, on_error)
+      local verified = window.lunarFetchVerified
+      if not verified then return on_error() end
+      chain(chain(verified(url), function(res) return res:text() end), on_text, on_error)
+    end,
+  })
+  pieces:hold(payload.chunk)
+
   local function scroll_to_url(url)
     if url.hash ~= "" then
       local ok, id = pcall(function() return window:decodeURIComponent(url.hash:sub(2)) end)
@@ -99,14 +110,17 @@ function boot.start(registry)
         return
       end
 
-      local ok = session:apply(generation, next_payload)
-      if not ok then
-        give_up()
-        return
-      end
-      if push then window.history:pushState(nil, "", path) end
-      current_page = destination.pathname .. destination.search
-      scroll_to_url(destination)
+      pieces:ensure(next_payload.chunk, function()
+        if not session:is_current(generation) then return end
+        local ok = session:apply(generation, next_payload)
+        if not ok then
+          give_up()
+          return
+        end
+        if push then window.history:pushState(nil, "", path) end
+        current_page = destination.pathname .. destination.search
+        scroll_to_url(destination)
+      end, give_up)
     end, give_up)
   end
 

@@ -25,7 +25,11 @@ function integrity.build(app)
     local source = integrity.source(app, name)
     assets["/_lunar/runtime/" .. name] = integrity.hash(source)
   end
-  assets["/_lunar/moonlight.lua"] = integrity.hash(assert(require("lunar.site.bundle").build(app)))
+  local bundle_lib = require("lunar.site.bundle")
+  assets["/_lunar/moonlight.lua"] = integrity.hash(assert(bundle_lib.build(app)))
+  for _, chunk in pairs(bundle_lib.chunks(app) or {}) do
+    assets[bundle_lib.CHUNKS .. chunk.name] = integrity.hash(chunk.source)
+  end
   local wasm = app:wasm_manifest()
   if wasm then
     local wasm_lib = require("lunar.site.wasm")

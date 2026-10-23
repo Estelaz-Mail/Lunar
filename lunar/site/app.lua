@@ -68,6 +68,7 @@ function app.new(options)
   self.minify = minify_setting(pick("minify", nil), self.dev)
   self.compress = pick("compress", not self.dev) ~= false
   self.prerender = pick("prerender", false)
+  self.split = pick("split", not self.dev) ~= false
 
   package.path = table.concat({
     fs.join(root, "lib") .. "/?.lua",
@@ -116,6 +117,8 @@ function App:refresh(force)
   self.modules = {}
   self.bundle_cache = nil
   self.bundle_inventory = nil
+  self.chunk_cache = nil
+  self.split_plan = nil
   self.prerendered = nil
   self.integrity_cache = nil
   return true
@@ -123,6 +126,18 @@ end
 
 function App:generation()
   return self.watcher and self.watcher.generation or 0
+end
+
+function App:chunk_url(route)
+  if self.client == false then return nil end
+  if self.frozen then
+    return self.frozen.chunks and self.frozen.chunks[route] or nil
+  end
+  if not self.split then return nil end
+  local chunks = bundle_lib().chunks(self)
+  local chunk = chunks and chunks[route]
+  if not chunk then return nil end
+  return bundle_lib().CHUNKS .. chunk.name
 end
 
 function App:client_integrity()
@@ -199,9 +214,11 @@ function App:render_page(req, route, params)
     data[index] = level.data
   end
 
+  local chunk = self:chunk_url(route.id)
+
   if req:wants_json() then
-    return response.json({ route = route.id, params = params, data = data }, 200,
-      { ["Vary"] = "Accept", ["Cache-Control"] = "no-store" })
+    return response.json({ route = route.id, params = params, data = data, chunk = chunk },
+      200, { ["Vary"] = "Accept", ["Cache-Control"] = "no-store" })
   end
 
   local body, ctx = render.chain(defs, data, { params = params })
@@ -210,7 +227,8 @@ function App:render_page(req, route, params)
     css = ctx.css,
     body = body,
     title = data[#data] and data[#data].title or nil,
-    data = self.client and { route = route.id, params = params, data = data } or nil,
+    data = self.client and { route = route.id, params = params, data = data,
+      chunk = chunk } or nil,
   })
 
   return response.html(document, 200, {
@@ -279,6 +297,16 @@ function App:framework_response(req)
     if not self.watcher then return nil end
     return response.json({ generation = self:generation(), version = self.version, session = self.dev_session }, 200,
       { ["Cache-Control"] = "no-store" })
+  end
+
+  local chunk_name = path:match("^/_lunar/chunk/([%w%-%.]+)$")
+  if chunk_name then
+    local source = bundle_lib().chunk(self, chunk_name)
+    if not source then return response.text("lunar: no such chunk\n", 404) end
+    return response.new(200, source, {
+      ["Content-Type"] = "text/x-lua; charset=utf-8",
+      ["Cache-Control"] = self.dev and "no-store" or "public, max-age=31536000, immutable",
+    })
   end
 
   if path == "/_lunar/moonlight.lua" then
@@ -420,6 +448,7 @@ function app.frozen(manifest)
     frozen = {
       components = manifest.components or {},
       modules = manifest.modules or {},
+      chunks = manifest.chunks,
     },
   }, App)
 
