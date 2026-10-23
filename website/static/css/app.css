@@ -196,7 +196,7 @@ nav > a {
 nav > a:hover {
 	color: white;
 }
-.github-link span {
+.github-link > span {
 	margin-left: 8px;
 }
 .nav-cta {
@@ -204,7 +204,7 @@ nav > a:hover {
 	padding: 9px 17px;
 	color: white;
 	display: flex;
-	gap: 26px;
+	gap: 8px;
 }
 .menu-toggle {
 	display: none;
@@ -245,7 +245,7 @@ nav > a:hover {
 	margin-bottom: 26px;
 }
 .announcement > span:last-child {
-	margin-left: 10px;
+	margin-left: 0;
 }
 .status-dot {
 	width: 5px;
@@ -283,7 +283,7 @@ nav > a:hover {
 }
 .button {
 	display: inline-flex;
-	gap: 30px;
+	gap: 8px;
 	align-items: center;
 	justify-content: center;
 	min-height: 45px;
@@ -320,7 +320,7 @@ nav > a:hover {
 	font-size: 12px;
 	display: inline-flex;
 	align-items: center;
-	gap: 19px;
+	gap: 8px;
 }
 .text-link span {
 	transition: color 0.2s ease;
@@ -443,8 +443,8 @@ nav > a:hover {
 .hero-baseline a {
 	color: #a6afc0;
 }
-.hero-baseline a span {
-	margin-left: 20px;
+.hero-baseline a > span {
+	margin-left: 8px;
 }
 .intro-section {
 	padding-block: 100px;
@@ -1111,7 +1111,7 @@ nav > a:hover {
 		gap: 18px;
 	}
 	.hero-actions .button {
-		gap: 16px;
+		gap: 8px;
 	}
 	.hero-footnote {
 		font-size: 8px;
@@ -1214,11 +1214,11 @@ nav > a:hover {
 	.hero-actions .button {
 		font-size: 11px;
 		padding: 11px 14px;
-		gap: 18px;
+		gap: 8px;
 	}
 	.text-link {
 		font-size: 11px;
-		gap: 12px;
+		gap: 8px;
 	}
 	.hero-footnote {
 		margin-top: 26px;
@@ -1275,8 +1275,8 @@ nav > a:hover {
 	.baseline-right {
 		display: none;
 	}
-	.hero-baseline a span {
-		margin-left: 9px;
+	.hero-baseline a > span {
+		margin-left: 8px;
 	}
 	.hero-grid {
 		inset: 40% 0 0;
