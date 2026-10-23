@@ -1,0 +1,13 @@
+local lunar = require("lunar")
+local json = require("lunar.core.json")
+local workers = require("lunar.site.targets.workers")
+local handle = assert(io.open("lunar.json", "r"))
+local options = assert(json.decode(handle:read("*a")))
+handle:close()
+options.root = assert(arg[1])
+options.framework = assert(os.getenv("LUNAR_FRAMEWORK_ROOT"))
+options.dev = false
+local app = lunar.app(options)
+local result, err = workers.generate(app, { name = "lunar-website", compatibility_date = "2026-10-22" })
+assert(result, err)
+print(string.format("Lunar: %d routes packaged for Workers in %s", #app.routes, result.out))

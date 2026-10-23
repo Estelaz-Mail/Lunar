@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<url><loc>https://lunar.estelaz.com/</loc></url>
+<url><loc>https://lunar.estelaz.com/docs/introducao</loc></url>
+<url><loc>https://lunar.estelaz.com/docs/instalacao</loc></url>
+<url><loc>https://lunar.estelaz.com/docs/componentes</loc></url>
+<url><loc>https://lunar.estelaz.com/docs/template</loc></url>
+<url><loc>https://lunar.estelaz.com/docs/reatividade</loc></url>
+<url><loc>https://lunar.estelaz.com/docs/rotas</loc></url>
+<url><loc>https://lunar.estelaz.com/docs/dados</loc></url>
+<url><loc>https://lunar.estelaz.com/docs/renderizacao</loc></url>
+<url><loc>https://lunar.estelaz.com/docs/wasm</loc></url>
+<url><loc>https://lunar.estelaz.com/docs/seguranca</loc></url>
+<url><loc>https://lunar.estelaz.com/docs/workers</loc></url>
+<url><loc>https://lunar.estelaz.com/docs/cli</loc></url>
+</urlset>

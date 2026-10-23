@@ -1,0 +1,14 @@
+<script>
+  props { text = "", label = "Copiar comando" }
+  status = ""
+  local function copy()
+    local ok, js = pcall(require, "js")
+    if not ok then return end
+    local clipboard = js.global.navigator.clipboard
+    if clipboard == nil or clipboard == js.null then status = "Selecione o comando para copiar"; return end
+    local promise = clipboard:writeText(text)
+    promise["then"](promise, function() status = "Copiado!" end, function() status = "Selecione o comando para copiar" end)
+  end
+</script>
+<button class="copy-button" on:click={copy} aria-label={label}><span aria-hidden="true">⧉</span> {status == "Copiado!" and "Copiado!" or "Copiar"}</button>
+<span class="sr-only" role="status">{status}</span>

@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://lunar.estelaz.com/sitemap.xml

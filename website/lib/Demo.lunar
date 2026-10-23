@@ -1,0 +1,34 @@
+<script>
+  props { sources = {} }
+  tab = "counter"
+  count = 0
+  name = "Lua"
+  visible = true
+</script>
+<div class="demo-workspace">
+  <div class="demo-tabs" role="group" aria-label="Escolha um exemplo">
+    <button class:active={tab == "counter"} aria-pressed={tab == "counter" and "true" or "false"} on:click={function() tab = "counter" end}>01 <span>Reatividade</span></button>
+    <button class:active={tab == "binding"} aria-pressed={tab == "binding" and "true" or "false"} on:click={function() tab = "binding" end}>02 <span>Binding</span></button>
+    <button class:active={tab == "condition"} aria-pressed={tab == "condition" and "true" or "false"} on:click={function() tab = "condition" end}>03 <span>Condicionais</span></button>
+  </div>
+  <div class="demo-panels">
+    <div class="code-panel"><div class="panel-heading"><span><span class="file-dot"></span> {tab}.lunar</span><span>Lua + HTML</span></div><pre><code>{sources[tab] or ""}</code></pre></div>
+    <div class="preview-panel"><div class="panel-heading"><span>Resultado</span><span class="live-label">● Ao vivo</span></div>
+      <div class="demo-result">
+        {#if tab == "counter"}
+          <span class="eyebrow">UM CLIQUE, UMA ATUALIZAÇÃO</span>
+          <output class="counter-value" aria-live="polite">{count}</output>
+          <div class="counter-actions"><button aria-label="Diminuir contador" on:click={function() count = count - 1 end}>−</button><button class="increment" on:click={function() count = count + 1 end}>Incrementar <span>+</span></button><button aria-label="Zerar contador" on:click={function() count = 0 end}>↺</button></div>
+        {:else if tab == "binding"}
+          <label class="eyebrow" for="demo-name">SEU NOME</label>
+          <input id="demo-name" maxlength="40" placeholder="Digite seu nome" bind:value={name} />
+          <p class="greeting">Olá, {name == "" and "mundo" or name}.</p>
+        {:else}
+          <button class="button primary" on:click={function() visible = not visible end}>{visible and "Esconder mensagem" or "Mostrar mensagem"}</button>
+          {#if visible}<p class="condition-message">Menos código.<br />Mais possibilidades. ✦</p>{:else}<p class="muted">A mensagem saiu do DOM.</p>{/if}
+        {/if}
+      </div>
+      <div class="preview-note">Lua no navegador. Sem virtual DOM.</div>
+    </div>
+  </div>
+</div>

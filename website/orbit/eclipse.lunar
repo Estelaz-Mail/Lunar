@@ -1,0 +1,5 @@
+<script>
+  props { data = {} }
+</script>
+<lunar:head><title>{tostring(data.status or 500) .. " — Lunar"}</title><meta name="robots" content="noindex" /></lunar:head>
+<section class="error-page wrap"><span class="eyebrow">FORA DE ÓRBITA</span><h1>{data.status or 500}</h1><h2>{data.status == 404 and "Esta página não está por aqui." or "Algo interrompeu a viagem."}</h2><p>{data.status == 404 and "Volte ao início ou encontre seu caminho na documentação." or "Tente novamente em alguns instantes."}</p><a class="button primary" href="/">Voltar ao início →</a><a class="text-link" href="/docs/introducao">Documentação ↗</a></section>

@@ -1,0 +1,20 @@
+{
+	"name": "lunar-website",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build": "node scripts/build.mjs",
+		"check": "sh scripts/lunar.sh build .",
+		"dev": "npm run build && wrangler dev --ip 127.0.0.1",
+		"preview": "wrangler dev --ip 127.0.0.1",
+		"deploy:check": "npm run build && wrangler deploy --dry-run",
+		"deploy": "npm run build && wrangler deploy",
+		"test": "npm run build && lua5.4 scripts/verify.lua && node --test worker/*.test.mjs"
+	},
+	"dependencies": {
+		"fengari": "0.1.5"
+	},
+	"devDependencies": {
+		"wrangler": "^4.152.0"
+	}
+}

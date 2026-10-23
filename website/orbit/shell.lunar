@@ -1,0 +1,21 @@
+<script>
+  menu_open = false
+</script>
+<a class="skip-link" href="#main">Pular para o conteúdo</a>
+<header class="site-header">
+  <div class="nav-wrap">
+    <a class="brand" href="/" aria-label="Lunar — início"><img src="/brand/planet.png" width="39" height="34" alt={""} /><span>Lunar<span class="brand-dot">.</span></span></a>
+    <button class="menu-toggle" on:click={function() menu_open = not menu_open end} aria-expanded={menu_open and "true" or "false"} aria-controls="navigation">{menu_open and "Fechar ×" or "Menu +"}</button>
+    <nav id="navigation" class:open={menu_open} aria-label="Navegação principal" on:click={function() menu_open = false end}>
+      <a href="/docs/introducao">Documentação</a>
+      <a href="/#exemplos">Exemplos</a>
+      <a href="https://github.com/Glazastyy/Lunar" target="_blank" rel="noopener noreferrer" class="github-link">GitHub <span aria-hidden="true">↗</span></a>
+      <a class="nav-cta" href="/docs/instalacao">Começar <span aria-hidden="true">↗</span></a>
+    </nav>
+  </div>
+</header>
+<main id="main" tabindex="-1"><slot /></main>
+<footer class="site-footer wrap">
+  <div class="footer-top"><a class="brand" href="/"><img src="/brand/planet.png" width="39" height="34" alt={""} /><span>Lunar.</span></a><p>Feito em Lua. Feito com Lunar.</p><a href="https://github.com/Glazastyy/Lunar" target="_blank" rel="noopener noreferrer">Explore o código ↗</a></div>
+  <div class="footer-bottom"><span>Um projeto aberto. Licença MIT.</span><span>Daqui do Brasil, para a web. <span class="brazil-dot" aria-hidden="true"></span></span><a href="https://estelaz.com">Estelaz ↗</a></div>
+</footer>

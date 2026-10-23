@@ -1,0 +1,16 @@
+<script>
+  props { title = "Lunar", description = "O framework web em Lua.", path = "/" }
+</script>
+<lunar:head>
+  <title>{title}</title>
+  <meta name="description" content={description} />
+  <link rel="canonical" href={"https://lunar.estelaz.com" .. path} />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="pt_BR" />
+  <meta property="og:site_name" content="Lunar" />
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={description} />
+  <meta property="og:url" content={"https://lunar.estelaz.com" .. path} />
+  <meta property="og:image" content="https://lunar.estelaz.com/brand/planet.png" />
+  <meta name="twitter:card" content="summary" />
+</lunar:head>

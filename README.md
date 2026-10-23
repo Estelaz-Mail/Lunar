@@ -354,7 +354,7 @@ The settings are in `.prettierrc`. Lua files are listed in `.prettierignore`, si
 
 The implementation is under `lunar/`. Shared utilities for JSON, HTML escaping, URLs, MIME types, and files are in `lunar/core/`. The parser, CSS scoping, and code generation are in `lunar/compiler/`, while reactivity, server rendering helpers, and DOM handling are in `lunar/runtime/`.
 
-Routing, rendering, the browser bundle, and deployment targets live under `lunar/site/`, with Cloudflare Workers support in `lunar/site/targets/`. The HTTP server, request handling, static files, and security are in `lunar/http/`. Example applications are in `examples/`, tests are in `spec/`, editor integrations are in `editors/`, and the project assets are in `brand/`.
+Routing, rendering, the browser bundle, and deployment targets live under `lunar/site/`, with Cloudflare Workers support in `lunar/site/targets/`. The HTTP server, request handling, static files, and security are in `lunar/http/`, and the WebAssembly compiler is in `lunar/wasm/`. Example applications are in `examples/`, tests are in `spec/`, editor integrations are in `editors/`, and the project assets are in `brand/`. The site published at lunar.estelaz.com is in `website/`: it is a Lunar application like any other, built against the framework beside it rather than a release, so it is also a standing test that the framework works.
 
 ## Versions
 

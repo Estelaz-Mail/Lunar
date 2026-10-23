@@ -1,0 +1,43 @@
+<script>
+  props { data = {} }
+  local Meta = import("/lib/Meta.lunar")
+</script>
+<Meta title={data.page.title .. " — Documentação Lunar"} description={data.page.description} path={"/docs/" .. data.page.slug} />
+<div class="doc-layout wrap">
+  <aside class="doc-sidebar" aria-label="Documentação">
+    <details open>
+      <summary class="doc-mobile-index">Nesta documentação</summary>
+      <div>
+        <span class="eyebrow">DOCUMENTAÇÃO</span>
+        <nav class="doc-navigation" aria-label="Tópicos da documentação">
+          {#each data.groups as group (group.title)}
+            <span class="doc-group">{group.title}</span>
+            {#each group.links as link (link.slug)}
+              <a href={"/docs/" .. link.slug} class:selected={link.slug == data.page.slug} aria-current={link.slug == data.page.slug and "page" or "false"}>{link.title}</a>
+            {/each}
+          {/each}
+        </nav>
+      </div>
+    </details>
+  </aside>
+  <article class="doc-article">
+    <span class="eyebrow muted">LUNAR / DOCUMENTAÇÃO</span>
+    <h1>{data.page.title}</h1>
+    <p class="doc-lead">{data.page.description}</p>
+    <div class="doc-body">{@html data.page.body}</div>
+    <nav class="doc-pagination" aria-label="Páginas da documentação">
+      {#if data.previous}<a href={"/docs/" .. data.previous.slug}><span>← ANTERIOR</span>{data.previous.title}</a>{/if}
+      {#if data.following}<a href={"/docs/" .. data.following.slug}><span>PRÓXIMO →</span>{data.following.title}</a>{/if}
+    </nav>
+  </article>
+  {#if #data.headings > 1}
+    <aside class="doc-outline" aria-label="Nesta página">
+      <span class="eyebrow">NESTA PÁGINA</span>
+      <nav>
+        {#each data.headings as heading (heading.anchor)}
+          <a href={"#" .. heading.anchor}>{heading.text}</a>
+        {/each}
+      </nav>
+    </aside>
+  {/if}
+</div>

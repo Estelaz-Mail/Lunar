@@ -4,6 +4,8 @@ node_modules/
 static/vendor/
 CONVENTIONAL_COMMITS.md
 examples/*/.lunar/
+website/.lunar/
+website/package-lock.json
 *.lunar
 *.svg
 *.lua
