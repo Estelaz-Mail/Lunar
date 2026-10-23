@@ -69,7 +69,7 @@ function record(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null;
 }
 
-async function using(
+async function withRuntime(
 	fn: (runtime: LuaRuntime) => unknown | Promise<unknown>,
 	options: LuaRuntimeOptions = {},
 ) {
@@ -82,7 +82,7 @@ async function using(
 }
 
 test("Lua 5.4 language, standard libraries, integers and bytecode", () =>
-	using((runtime) => {
+	withRuntime((runtime) => {
 		assert.equal(
 			runtime.evaluate(`
 assert(_VERSION == "Lua 5.4")
@@ -102,7 +102,7 @@ return 9223372036854775807
 	}));
 
 test("to-be-closed variables, errors and yielding coroutines", () =>
-	using((runtime) => {
+	withRuntime((runtime) => {
 		assert.equal(
 			runtime.evaluate(`
 local closed = 0
@@ -131,7 +131,7 @@ return closed
 	}));
 
 test("JavaScript identity, Unicode, null, properties, receivers and callbacks", () =>
-	using((runtime) => {
+	withRuntime((runtime) => {
 		const add = runtime.evaluateFunction(`
 local js = require("js")
 assert(js.global.Object == js.global.Object)
@@ -154,7 +154,7 @@ return function(value) return value + 1 end
 	}));
 
 test("promises call Lua after evaluation and preserve listener identity", () =>
-	using(async (runtime) => {
+	withRuntime(async (runtime) => {
 		runtime.evaluate(`
 local js = require("js")
 result = 0
@@ -178,7 +178,7 @@ test("closing releases the VM and prevents stale callbacks", async () => {
 });
 
 test("reactive updates reach every subscriber in Lua 5.4 Wasm", () =>
-	using((runtime) => {
+	withRuntime((runtime) => {
 		const source = readFileSync(new URL("../lunar/runtime/signal.lua", import.meta.url), "utf8");
 		assert.equal(
 			runtime.evaluate(`
@@ -202,7 +202,7 @@ return true
 	}));
 
 test("the frozen application renders identically in native Lua and Wasm", () =>
-	using((runtime) => {
+	withRuntime((runtime) => {
 		const script = `
 local lunar = require("lunar")
 local bundle = require("lunar.site.bundle")
@@ -286,7 +286,7 @@ test("the real browser bootstrap passes verified chunk URLs and applies navigati
 			return new Response("chunk_evaluated = true");
 		},
 	};
-	await using(
+	await withRuntime(
 		async (runtime) => {
 			for (const name of ["lunar/core/json.lua", "lunar/site/chunks.lua", "lunar/site/boot.lua"]) {
 				const source = readFileSync(new URL(`../${name}`, import.meta.url), "utf8");
