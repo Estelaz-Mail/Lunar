@@ -466,7 +466,13 @@ function dom.browser(window, js)
 
   function backend.tag_name(node) return tostring(node.tagName):lower() end
   function backend.text_value(node) return tostring(node.data) end
-  function backend.split_text(node, offset) return node:splitText(offset) end
+  function backend.split_text(node, offset)
+    local units = 0
+    for _, code in utf8.codes(tostring(node.data):sub(1, offset)) do
+      units = units + (code > 65535 and 2 or 1)
+    end
+    return node:splitText(units)
+  end
 
   function backend.markup_of(node)
     local kind = backend.node_kind(node)

@@ -117,11 +117,14 @@ function bench.run(root, options)
 
   io.write("\nwhat the browser downloads\n")
   local moonlight = assert(bundle.build(app))
-  local fengari = util.read_file(fs.join(app.framework, "static", "vendor", "fengari-web.js"))
+  local runtime_size = 0
+  for _, name in ipairs({ "boot.ts", "bridge.ts", "lua54.wasm" }) do
+    runtime_size = runtime_size + #(util.read_file(fs.join(app.framework, "static", "runtime", name)) or "")
+  end
   io.write(string.format("  moonlight bundle   %6.1f KB\n", #moonlight / 1024))
-  io.write(string.format("  fengari            %6.1f KB\n", #(fengari or "") / 1024))
+  io.write(string.format("  Lua 5.4 runtime    %6.1f KB\n", runtime_size / 1024))
   io.write(string.format("  both              %6.1f KB, uncompressed\n",
-    (#moonlight + #(fengari or "")) / 1024))
+    (#moonlight + runtime_size) / 1024))
 
   local server = assert(bundle.server(app))
   io.write(string.format("\nwhat an edge runtime gets\n  frozen app         %6.1f KB\n",

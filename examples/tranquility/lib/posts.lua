@@ -4,7 +4,7 @@ local posts = {
     title = "Why Lua, for both halves",
     date = "2026-02-11",
     body = "<p>One language on the server and in the browser is not a trick: "
-      .. "Fengari is a Lua virtual machine in JavaScript, so the component "
+      .. "Lunar runs the Lua 5.4 virtual machine in WebAssembly, so the component "
       .. "that rendered your HTML is the component that now runs in your tab.</p>",
   },
   {

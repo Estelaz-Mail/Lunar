@@ -119,10 +119,12 @@ function render.document(app, parts)
   end
 
   if app.client ~= false then
-    body[#body + 1] = string.format('<script src="%s" defer></script>',
-      html.escape("/_lunar/fengari.js?v=" .. app.version))
-    body[#body + 1] = string.format('<script type="application/lua" src="%s" async></script>',
-      html.escape("/_lunar/moonlight.lua?v=" .. app.version))
+    local integrity = app:client_integrity()
+    body[#body + 1] = string.format('<script type="application/json" id="lunar-integrity">%s</script>',
+      json.encode(integrity))
+    body[#body + 1] = string.format('<script type="module" src="%s" integrity="%s" crossorigin="anonymous"></script>',
+      html.escape("/_lunar/runtime/boot?v=" .. app.version),
+      html.escape(assert(integrity.assets["/_lunar/runtime/boot"])))
   end
 
   local replacements = {

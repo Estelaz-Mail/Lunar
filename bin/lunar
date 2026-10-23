@@ -21,6 +21,10 @@ LUA_PATH="$root/?.lua;$root/?/init.lua;$modules/share/lua/5.4/?.lua;$modules/sha
 LUA_CPATH="$modules/lib/lua/5.4/?.so;${LUA_CPATH:-;}"
 export LUA_PATH LUA_CPATH
 
+LUNAR_TTY=0
+if [ -t 1 ]; then LUNAR_TTY=1; fi
+export LUNAR_TTY
+
 command="${1:-help}"
 [ $# -gt 0 ] && shift
 

@@ -22,6 +22,10 @@ function boot.start(registry)
   if not has_interop then return nil, "lunar: not running in a browser" end
   local window = js.global
   local document = window.document
+  local function present(value)
+    if value == js.null then return nil end
+    return value
+  end
 
   local target = document:getElementById("lunar")
   if not target then
@@ -94,14 +98,14 @@ function boot.start(registry)
     if event.defaultPrevented or event.button ~= 0 then return end
     if event.metaKey or event.ctrlKey or event.shiftKey or event.altKey then return end
 
-    local node = event.target
-    while node and node ~= nil and node.tagName ~= "A" do node = node.parentElement end
-    if not node or node == nil then return end
-    if node:getAttribute("target") or node:getAttribute("download") then return end
+    local node = present(event.target)
+    while node and node.tagName ~= "A" do node = present(node.parentElement) end
+    if not node then return end
+    if present(node:getAttribute("target")) or present(node:getAttribute("download")) then return end
     if node:hasAttribute("data-lunar-reload") then return end
 
-    local href = node:getAttribute("href")
-    if not href or href == nil then return end
+    local href = present(node:getAttribute("href"))
+    if not href then return end
     local url = js.new(window.URL, node.href)
     if url.origin ~= window.location.origin then return end
     if url.pathname == window.location.pathname and url.hash ~= "" then return end

@@ -86,7 +86,11 @@ function Loader:read_index(on_ready, on_error)
     end
   end
 
-  chain(chain(self.window:fetch(self.base .. "index.json"), function(res)
+  if not self.window.lunarFetchVerified then
+    settle(nil, "lunar: integrity verifier is unavailable")
+    return
+  end
+  chain(chain(self.window:lunarFetchVerified(self.base .. "index.json"), function(res)
     if not res.ok then
       settle(nil, "the wasm index answered " .. tostring(res.status))
       return nil
@@ -131,7 +135,8 @@ function Loader:instantiate(index, name, on_ready, on_error)
     local imports, missing = self:import_object(part)
     if not imports then return settle(nil, missing) end
     local url = self.base .. name .. ".wasm?v=" .. tostring(part.digest or "0")
-    chain(chain(chain(self.window:fetch(url), function(res)
+    if not self.window.lunarFetchVerified then return settle(nil, "lunar: integrity verifier is unavailable") end
+    chain(chain(chain(self.window:lunarFetchVerified(url), function(res)
       if not res.ok then
         settle(nil, name .. ".wasm answered " .. tostring(res.status))
         return nil

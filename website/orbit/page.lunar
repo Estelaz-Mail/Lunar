@@ -15,15 +15,12 @@
       <h2>A web, na sua Lua.</h2>
       <p>Do servidor ao navegador, uma só linguagem.<br class="desktop-break" /> Crie com componentes reativos e a simplicidade de Lua.</p>
       <div class="hero-actions"><a class="button primary" href="/docs/instalacao">Começar a construir <span aria-hidden="true">↗</span></a><a class="text-link" href="/docs/introducao">Conheça o Lunar <span aria-hidden="true">→</span></a></div>
-      <div class="hero-footnote"><span>Lua 5.4</span><span class="tiny-cross">+</span><span>HTML</span><span class="tiny-cross">+</span><span>CSS</span><span class="footnote-divider"></span><span>É tudo que você precisa.</span></div>
     </div>
     <div class="hero-art" aria-hidden="true">
       <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="orbit orbit-three"></div>
-      <span class="orbit-label orbit-label-top">23° 26′ · FEITO NO BRASIL</span>
       <img class="hero-planet" src="/brand/planet.png" width="600" height="500" alt={""} fetchpriority="high" />
       <span class="coordinate coord-one">+</span><span class="coordinate coord-two">+</span>
       <span class="orbit-tag">.lua <span>→</span> .lunar</span>
-      <span class="orbit-label orbit-label-bottom">UMA LINGUAGEM. OS DOIS LADOS.</span>
     </div>
   </div>
   <div class="hero-baseline wrap"><span>UM FRAMEWORK WEB EM LUA</span><a href="#conceito">Explore a órbita <span aria-hidden="true">↓</span></a><span class="baseline-right">SERVER → BROWSER</span></div>
@@ -37,11 +34,11 @@
   <div class="section-kicker"><span class="section-number">02 /</span> POUCAS LINHAS. ALGO ACONTECE.</div>
   <div class="section-title-row"><h2>É Lua. E está vivo.</h2><p>Leia o código. Experimente o resultado.</p></div>
   <Demo sources={data.sources} />
-  <p class="under-demo"><span class="small-star" aria-hidden="true">✦</span> Este site também é feito com Lunar. Inclusive este exemplo.</p>
+  <p class="under-demo"><span class="small-star" aria-hidden="true">✦</span> Este site também é feito com Lunar.</p>
 </div></section>
 <section class="architecture-section wrap">
   <div class="section-kicker"><span class="section-number">03 /</span> DO PRIMEIRO REQUEST AO PRÓXIMO CLIQUE</div>
-  <div class="architecture-layout"><div><h2>Dois ambientes.<br /><span class="muted">A mesma Lua.</span></h2><p>O Lunar renderiza no servidor e leva seus componentes ao navegador com Fengari. O runtime moonlight conecta estado, eventos e DOM.</p><p>E quando uma função precisa correr, o Lunar compila Lua para WebAssembly e o navegador busca essa parte só quando alguém a chama.</p><a class="text-link" href="/docs/renderizacao">Entenda como funciona <span aria-hidden="true">↗</span></a> <a class="text-link" href="/docs/wasm">Lua em wasm <span aria-hidden="true">↗</span></a></div><div class="flow"><div class="flow-source"><span class="file-dot"></span> componente.lunar</div><div class="flow-line"></div><div class="flow-targets"><div><span class="eyebrow">SERVIDOR</span><strong>HTML pronto.</strong><span>Renderização em Lua</span></div><span class="flow-arrow" aria-hidden="true">→</span><div><span class="eyebrow">NAVEGADOR</span><strong>Interface viva.</strong><span>Fengari + moonlight</span></div></div><div class="flow-caption">O navegador assume o HTML que já chegou.</div></div></div>
+  <div class="architecture-layout"><div><h2>Dois ambientes.<br /><span class="muted">A mesma Lua.</span></h2><p>O Lunar renderiza no servidor e leva seus componentes ao navegador com Lua 5.4 em WebAssembly. O runtime moonlight conecta estado, eventos e DOM.</p><p>E quando uma função precisa correr, o Lunar compila Lua para WebAssembly e o navegador busca essa parte só quando alguém a chama.</p><a class="text-link" href="/docs/renderizacao">Entenda como funciona <span aria-hidden="true">↗</span></a> <a class="text-link" href="/docs/wasm">Lua em wasm <span aria-hidden="true">↗</span></a></div><div class="flow"><div class="flow-source"><span class="file-dot"></span> componente.lunar</div><div class="flow-line"></div><div class="flow-targets"><div><span class="eyebrow">SERVIDOR</span><strong>HTML pronto.</strong><span>Renderização em Lua</span></div><span class="flow-arrow" aria-hidden="true">→</span><div><span class="eyebrow">NAVEGADOR</span><strong>Interface viva.</strong><span>Lua 5.4 + moonlight</span></div></div></div></div>
 </section>
 <section class="start-section" id="comecar"><div class="wrap start-layout"><div><div class="section-kicker"><span class="section-number">04 /</span> SUA PRÓXIMA IDEIA COMEÇA AQUI</div><h2>Entre em órbita.</h2><p>Um terminal aberto. Lua na cabeça. Vamos construir.</p><a class="button light" href="/docs/instalacao">Guia de instalação <span aria-hidden="true">↗</span></a></div><div class="install-terminal"><div class="terminal-heading"><span>TERMINAL</span><Copy text={install_command} /></div><pre><code><span class="code-comment"># Instale o Lunar</span>
 <span class="code-prompt">$</span> {install_command}

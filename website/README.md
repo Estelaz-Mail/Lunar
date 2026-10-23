@@ -6,23 +6,23 @@ Ele mora dentro do repositório do framework e usa o framework que está ao lado
 
 ## Desenvolvimento
 
-Requisitos: Lua 5.4 (`lua5.4`), Node.js 22+ e npm. LuaSocket não é necessário, porque o Wrangler é quem serve.
+Requisitos: Lua 5.4 (`lua5.4`), Bun 1.3.14+. LuaSocket não é necessário, porque o Wrangler é quem serve.
 
 ```sh
-npm ci
-npm run dev
+bun install --frozen-lockfile
+bun run dev
 ```
 
-Abra o endereço local impresso pelo Wrangler, normalmente `http://127.0.0.1:8787`. Após editar componentes ou a documentação, execute `npm run build` em outro terminal; o Wrangler recarrega o pacote. Alterações apenas em CSS também precisam do build para copiar os assets.
+Abra o endereço local impresso pelo Wrangler, normalmente `http://127.0.0.1:8787`. Após editar componentes ou a documentação, execute `bun run build` em outro terminal; o Wrangler recarrega o pacote. Alterações apenas em CSS também precisam do build para copiar os assets.
 
 `scripts/lunar.sh` usa o diretório acima deste como framework, que é a raiz do repositório. `LUNAR_FRAMEWORK_DIR` aponta para outro checkout quando for preciso, e `LUA` escolhe o interpretador da etapa de build.
 
 ## Validação
 
 ```sh
-npm run check
-npm test
-npm run deploy:check
+bun run check
+bun run test
+bun run deploy:check
 ```
 
 `check` compila os componentes. `test` gera o pacote e verifica HTML, idioma, metadados, CSP, redirecionamento, erros 404 e múltiplos assinantes reativos. `deploy:check` valida o bundle com `wrangler deploy --dry-run`, sem publicar.
@@ -30,17 +30,17 @@ npm run deploy:check
 ## Publicação no Workers
 
 ```sh
-npx wrangler login
-CLOUDFLARE_ACCOUNT_ID=<id> npm run deploy
+bunx wrangler login
+CLOUDFLARE_ACCOUNT_ID=<id> bun run deploy
 ```
 
-A conta não está escrita no `wrangler.jsonc`: ela vem do ambiente, porque a chave OAuth do Wrangler alcança mais de uma e o repositório não carrega identificadores de ninguém. `npx wrangler whoami` lista as contas disponíveis.
+A conta não está escrita no `wrangler.jsonc`: ela vem do ambiente, porque a chave OAuth do Wrangler alcança mais de uma e o repositório não carrega identificadores de ninguém. `bunx wrangler whoami` lista as contas disponíveis.
 
 O arquivo `wrangler.jsonc` da raiz é a configuração permanente. Define o Worker `lunar-website`, o binding `ASSETS`, observabilidade e o Custom Domain `lunar.estelaz.com`. A zona `estelaz.com` deve estar ativa na conta Cloudflare utilizada e o usuário deve ter permissão para gerenciar o Worker e o domínio. A rota é `lunar.estelaz.com/*` na zona `baioneta.com`, para onde `lunar.estelaz.com` aponta por CNAME.
 
 O build usa o gerador nativo do Lunar, que produz `.lunar/workers/`. Esse diretório é descartável: não edite sua configuração manualmente nem use o deploy do package.json gerado; use os comandos da raiz para preservar o domínio e os ajustes de compatibilidade.
 
-Para Workers Builds: instalação `npm ci`, build `npm run build`, deploy `npx wrangler deploy`. O ambiente de build precisa fornecer Lua 5.4; se não fornecer, use um runner com Lua instalado. A aplicação não precisa de banco, secrets nem filesystem em runtime.
+Para Workers Builds: instalação `bun install --frozen-lockfile`, build `bun run build`, deploy `bunx wrangler deploy`. O ambiente de build precisa fornecer Lua 5.4; se não fornecer, use um runner com Lua instalado. A aplicação não precisa de banco, secrets nem filesystem em runtime.
 
 ## Estrutura
 
@@ -58,14 +58,7 @@ O conteúdo está baseado no código e README da revisão fixada do framework. A
 
 O empacotamento declara as opções de `lunar.json` explicitamente, pois a revisão fixada ainda não carrega esse manifesto automaticamente. Usa a raiz absoluta da aplicação para que os imports coincidam com o registro de componentes congelado.
 
-O script `scripts/build.mjs` aplica dois ajustes exclusivamente aos arquivos gerados, sem editar o checkout do Lunar:
-
-1. Substitui dois construtores `Function` estáticos do Fengari por closures equivalentes. Isso permite hidratar com a CSP padrão, sem liberar `unsafe-eval`. O loader opcional de módulos JavaScript dinâmicos do Fengari continua sujeito à CSP e não é usado pelo site.
-2. Copia os assinantes de um sinal antes de disparar os efeitos. O runtime original modifica a tabela de assinantes durante a iteração, deixando atualizações de múltiplas dependências inconsistentes. A verificação em `scripts/verify.lua` cobre esse caso.
-
-Os patches verificam a quantidade esperada de correspondências e falham se uma atualização do framework alterar os trechos. Ao atualizar a revisão, revise os ajustes e repita os testes no navegador.
-
-`npm audit` reporta um aviso moderado em `sprintf-js`, transitivo do Fengari, sem correção publicada: [GHSA-hp3w-g68c-fv3c](https://github.com/advisories/GHSA-hp3w-g68c-fv3c). O site não aceita formatos Lua nem código do visitante; os formatos executados são os do código empacotado. Acompanhe a correção no upstream antes de introduzir execução de conteúdo externo.
+O site usa a VM oficial Lua 5.4 em WebAssembly e a ponte do Lunar, tanto no navegador quanto no Worker. O empacotamento copia os artefatos de `static/runtime/`; não aplica patches ao runtime. A CSP permite `wasm-unsafe-eval` e continua bloqueando geração de JavaScript a partir de strings.
 
 ## Licenças
 
@@ -73,7 +66,7 @@ Código do site: MIT. Marca: assets originais do projeto [Lunar](https://github.
 
 ## Proxy do instalador
 
-`/install.sh` é atendido por `worker/index.mjs` antes da aplicação Lunar. O proxy em `worker/install.mjs` transmite sem alterar os bytes de `https://raw.githubusercontent.com/Glazastyy/Lunar/refs/heads/main/install.sh` e guarda respostas HTTP 200 na Cache API do Workers por **300 segundos**. O cache é local ao datacenter; não usa banco ou KV. Query strings compartilham a mesma chave, sem encaminhar headers do visitante ao GitHub.
+`/install.sh` é atendido por `worker/index.ts` antes da aplicação Lunar. O proxy em `worker/install.ts` transmite sem alterar os bytes de `https://raw.githubusercontent.com/Glazastyy/Lunar/refs/heads/main/install.sh` e guarda respostas HTTP 200 na Cache API do Workers por **300 segundos**. O cache é local ao datacenter; não usa banco ou KV. Query strings compartilham a mesma chave, sem encaminhar headers do visitante ao GitHub.
 
 Aceita GET e HEAD. O header `X-Cache` indica `MISS` ou `HIT`. Falhas do upstream retornam 502 com `Cache-Control: no-store`; os demais métodos retornam 405. O timeout do fetch é de 10 segundos. A documentação usa o endereço do site para instalar:
 

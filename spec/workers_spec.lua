@@ -131,15 +131,14 @@ function T.writes_a_wrangler_config_that_parses_and_says_what_it_must()
   local without_comments = config:gsub("\n%s*//[^\n]*", "")
   local parsed = assert(json.decode(without_comments))
 
-  assert(parsed.main == "src/worker.mjs")
+  assert(parsed.main == "src/worker.ts")
   assert(parsed.compatibility_date == "2026-10-21")
   assert(parsed.assets.directory == "./public/")
   assert(parsed.assets.binding == "ASSETS")
   assert(parsed.rules[1].type == "Text")
   assert(parsed.rules[1].globs[1] == "**/*.lua")
-  assert(parsed.alias.fs:find("fs%-stub"))
-  assert(parsed.alias.tmp:find("tmp%-stub"))
-  assert(parsed.alias["readline-sync"]:find("absent"))
+  assert(parsed.rules[2].type == "CompiledWasm")
+  assert(parsed.alias == nil)
 end
 
 function T.generates_every_file_the_deploy_needs()
@@ -150,14 +149,18 @@ function T.generates_every_file_the_deploy_needs()
 
   local written = {}
   for _, file in ipairs(result.files) do written[file.path] = true end
-  for _, wanted in ipairs({ "src/app.lua", "src/worker.mjs", "src/fs-stub.cjs",
-    "src/tmp-stub.cjs", "src/absent.cjs", "wrangler.jsonc", "package.json",
-    "public/_lunar/moonlight.lua", "public/_lunar/fengari.js" }) do
+  for _, wanted in ipairs({ "src/app.lua", "src/worker.ts", "src/bridge.ts",
+    "src/lua54.wasm", "wrangler.jsonc", "package.json",
+    "public/_lunar/moonlight.lua", "public/_lunar/runtime/boot",
+    "public/_lunar/runtime/bridge", "public/_lunar/runtime/lua54.wasm" }) do
     assert(written[wanted], wanted .. " was not written")
   end
 
   local util = require("lunar.core.util")
   local app_lua = assert(util.read_file(out .. "/src/app.lua"))
+  local headers = assert(util.read_file(out .. "/public/_headers"))
+  assert(headers:find("/_lunar/runtime/boot", 1, true))
+  assert(headers:find("Content-Type: text/javascript; charset=utf-8", 1, true))
   assert(load(app_lua, "@app.lua"), "the bundle is not valid Lua")
   assert(not app_lua:find('package.preload%["lunar%.compiler%.parser"%]'))
   assert(not app_lua:find('package.preload%["lunar%.http%.server"%]'),

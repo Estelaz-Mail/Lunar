@@ -10,7 +10,7 @@ local TYPES = {
   md = "text/markdown; charset=utf-8", mjs = "text/javascript; charset=utf-8",
   mp3 = "audio/mpeg", mp4 = "video/mp4", otf = "font/otf", pdf = "application/pdf",
   png = "image/png", svg = "image/svg+xml", txt = "text/plain; charset=utf-8",
-  ttf = "font/ttf", wasm = "application/wasm", wav = "audio/wav",
+  ts = "text/javascript; charset=utf-8", ttf = "font/ttf", wasm = "application/wasm", wav = "audio/wav",
   webm = "video/webm", webp = "image/webp", woff = "font/woff", woff2 = "font/woff2",
   xml = "application/xml", zip = "application/zip",
 }

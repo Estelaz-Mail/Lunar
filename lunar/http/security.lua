@@ -37,7 +37,7 @@ local function document_policy(self)
     "form-action " .. table.concat(sources({ "'self'" }, extra["form-action"]), " "),
     "frame-ancestors " .. table.concat(sources({ self.frame_ancestors }, nil), " "),
     "script-src " .. table.concat(
-      sources({ "'self'" }, sources(self.script_hashes, extra["script-src"])), " "),
+      sources({ "'self'", "'wasm-unsafe-eval'" }, sources(self.script_hashes, extra["script-src"])), " "),
     "style-src " .. table.concat(sources({ "'self'", "'unsafe-inline'" }, extra["style-src"]), " "),
     "img-src " .. table.concat(sources({ "'self'", "data:" }, extra["img-src"]), " "),
     "font-src " .. table.concat(sources({ "'self'" }, extra["font-src"]), " "),

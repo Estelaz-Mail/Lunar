@@ -15,7 +15,7 @@
 <p>
   This page was rendered on the server and is now running in your browser,
   from the same source. Both halves are Lua; the browser's copy runs under
-  Fengari.
+  Lua 5.4 in WebAssembly.
 </p>
 
 <h2>State is a global in a component script</h2>

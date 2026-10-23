@@ -104,11 +104,21 @@ function App:refresh(force)
   self.shell = util.read_file(fs.join(self.root, "app.html"))
   self.modules = {}
   self.bundle_cache = nil
+  self.integrity_cache = nil
   return true
 end
 
 function App:generation()
   return self.watcher and self.watcher.generation or 0
+end
+
+function App:client_integrity()
+  if self.client == false then return nil end
+  if self.frozen then return assert(self.integrity_cache, "lunar: frozen app has no integrity manifest") end
+  if not self.integrity_cache then
+    self.integrity_cache = require("lunar.site.integrity").build(self)
+  end
+  return self.integrity_cache
 end
 
 function App:wasm_manifest()
@@ -273,13 +283,21 @@ function App:framework_response(req)
   local part = wasm_lib.respond(self:wasm_manifest(), path, not self.dev)
   if part then return part end
 
-  if path == "/_lunar/fengari.js" then
-    local res = self.framework_static:serve(req, "/vendor/fengari-web.js")
+  local runtime_file = path:match("^/_lunar/runtime/([%w%-%.]+)$")
+  if runtime_file == "boot" or runtime_file == "bridge" then
+    local source = require("lunar.site.integrity").source(self, runtime_file)
+    return response.new(200, source, {
+      ["Content-Type"] = "text/javascript; charset=utf-8",
+      ["Cache-Control"] = "public, max-age=31536000, immutable",
+    })
+  end
+  if runtime_file == "lua54.wasm" then
+    local res = self.framework_static:serve(req, "/runtime/" .. runtime_file)
     if res then
       res.headers["Cache-Control"] = "public, max-age=31536000, immutable"
       return res
     end
-    return response.text("lunar: fengari-web.js is missing from the framework's static/vendor\n", 500)
+    return response.text("lunar: " .. runtime_file .. " is missing from the framework's static/runtime\n", 500)
   end
 
   return nil
@@ -354,6 +372,7 @@ function app.frozen(manifest)
     name = manifest.name or "lunar",
     lang = manifest.lang or "en",
     client = manifest.client ~= false,
+    integrity_cache = manifest.integrity,
     version = tostring(manifest.version or "0"),
     shell = manifest.shell,
     stylesheets = manifest.stylesheets or {},

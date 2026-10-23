@@ -1,11 +1,12 @@
 .dev/
 .lunar/
+.wrangler/
 node_modules/
-static/vendor/
+static/runtime/*.ts
 CONVENTIONAL_COMMITS.md
 examples/*/.lunar/
 website/.lunar/
-website/package-lock.json
+website/bun.lock
 *.lunar
 *.svg
 *.lua

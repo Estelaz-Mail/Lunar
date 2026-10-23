@@ -1,0 +1,23 @@
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"lib": ["ES2022", "DOM", "DOM.Iterable"],
+		"types": ["bun"],
+		"typeRoots": ["./website/node_modules/@types"],
+		"strict": true,
+		"noUncheckedIndexedAccess": true,
+		"allowImportingTsExtensions": true,
+		"skipLibCheck": true,
+		"noEmit": true
+	},
+	"include": [
+		"runtime/**/*.ts",
+		"lunar/site/targets/workers/worker.ts",
+		"spec/**/*.ts",
+		"website/scripts/**/*.ts",
+		"website/worker/**/*.ts",
+		"types/**/*.d.ts"
+	]
+}

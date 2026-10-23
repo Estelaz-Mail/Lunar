@@ -100,5 +100,5 @@ O servidor compila as partes sob demanda e as serve em `/_lunar/wasm/`, com um `
 `wasm:preload={"area"}` inicia o carregamento da parte antes do clique, no pointerenter, no foco ou no toque, uma vez só. A diretiva não produz markup.
 
 :::note
-Uma função que recebe `...` não pode ser exportada por uma parte, porque a chamada externa não tem como passar os extras: deixe-a `local` e exporte outra que a chame. Corrotinas não existem no wasm; permanecem no Lua executado pelo Fengari, que pode chamar a parte.
+Uma função que recebe `...` não pode ser exportada por uma parte, porque a chamada externa não tem como passar os extras: deixe-a `local` e exporte outra que a chame. As partes compiladas pelo Lunar não suportam corrotinas. Elas continuam disponíveis na VM Lua 5.4 do navegador, que também é executada em WebAssembly e pode chamar essas partes.
 :::

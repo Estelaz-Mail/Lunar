@@ -14,7 +14,7 @@ jobs:
       matrix:
         lua: ["5.4"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Lua
         run: sudo apt-get update && sudo apt-get install -y lua${{ matrix.lua }}
@@ -31,11 +31,33 @@ jobs:
       - name: Nothing was generated into the repository
         run: git diff --exit-code && git status --porcelain --untracked-files=all | tee /dev/stderr | (! grep .)
 
+  browser-runtime:
+    name: Browser runtime CSP
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "lts/*"
+      - name: Install Lua
+        run: sudo apt-get update && sudo apt-get install -y lua5.4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install site tooling
+        run: bun install --frozen-lockfile --cwd website
+      - name: Package the site
+        run: bun run --cwd website build
+      - name: Strict TypeScript
+        run: bun run --cwd website typecheck
+      - name: Lua, host bridge and installer tests
+        run: bun test spec/lua54.test.ts website/worker/install.test.ts
+
   benchmarks:
     name: Benchmarks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install Lua
         run: sudo apt-get update && sudo apt-get install -y lua5.4
       - name: Measure
@@ -45,7 +67,7 @@ jobs:
     name: Installer
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Lua, without LuaSocket
         run: sudo apt-get update && sudo apt-get install -y lua5.4 liblua5.4-dev
       - name: Install from this checkout
@@ -80,26 +102,32 @@ jobs:
     name: Formatting
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "lts/*"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
       - name: Prettier
-        run: npx --yes prettier@3.9.10 --check .
+        run: bunx prettier@3.9.10 --check .
 
   editor:
     name: VS Code extension
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "lts/*"
       - name: Install Lua
         run: sudo apt-get update && sudo apt-get install -y lua5.4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
       - name: Install
         working-directory: editors/vscode
-        run: npm install --no-audit --no-fund
+        run: bun install
       - name: Grammar, manifest and tokens
         working-directory: editors/vscode
-        run: npm run check
+        run: bun run check

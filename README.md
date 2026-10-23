@@ -15,19 +15,20 @@ Lunar is a web framework for Lua, with reactive components, server rendering, an
 curl --proto '=https' --tlsv1.2 -sSf https://lunar.estelaz.com/install.sh | sh
 ```
 
-The same script is in this repository, and `https://raw.githubusercontent.com/Glazastyy/Lunar/main/install.sh` serves it too, which is the URL to use while the site is being built.
+The same script is in this repository, and `https://raw.githubusercontent.com/Glazastyy/Lunar/main/install.sh` serves it too.
 
 The installer puts a checkout under `~/.lunar`, links a `lunar` launcher into `~/.local/bin`, and builds LuaSocket when the Lua on your machine has none. It installs the newest release, which it asks GitHub for; `--ref` takes a branch, a tag or a commit instead, and a machine that cannot reach the release list falls back to `main` and says so. It writes nothing outside your home directory and never asks for root. `sh install.sh --help` lists the options: `--ref` for a branch or tag, `--prefix` and `--bin-dir` for where things go, `--lua` for an interpreter of your choosing, `--with-lua` to build Lua 5.4 into the prefix as well, `--no-modify-path` to leave your shell profile alone, and `--uninstall` to take it all out again. Lua and LuaSocket are downloaded from their own sites and checked against pinned SHA-256 sums.
 
-From a clone, there is nothing to install: Lunar requires Lua 5.4, and LuaSocket only to serve.
+From a clone, Lunar requires Lua 5.4, and LuaSocket only to serve. Run this once from the repository root to install its launcher locally:
 
 ```sh
-bin/lunar dev examples/tranquility
+sh install.sh --from .
+lunar dev examples/tranquility
 ```
 
 The development server listens on port 3000. It compiles components when they are requested and caches them by their own bytes, so an edit is live on the next request; it also notices files that appear or disappear, so a new route works without a restart. Pages opened from it reload themselves when anything in the application changes: the browser half polls `/_lunar/dev` for a counter the server moves when it sees a difference, and that endpoint and the script that polls it exist only in development.
 
-The development server listens on port 3000. Components are compiled when requested and cached until their source changes, so development does not require a separate build step.
+Interactive terminals display a lunar theme, and the installer animates download and compilation progress. Set `NO_COLOR=1` for plain output, or `LUNAR_ANIMATIONS=0` to disable installer animations while keeping colors. Redirected output and CI logs stay plain; `--quiet` silences installer progress.
 
 ## Components
 
@@ -63,7 +64,7 @@ Styles are scoped to their component. Lunar generates a class for the rendered e
 
 A `.lunar` file compiles to a Lua module with separate functions for server rendering and browser DOM creation. The compiler parses the script, template, and styles, and reports errors against the original file and line numbers. Compiled components are cached by their source contents.
 
-On the server, Lunar renders the requested route to HTML and includes its data in a JSON script element. In the browser, [Fengari](https://github.com/fengari-lua/fengari) executes the Lua application and Lunar's browser runtime, called _moonlight_, handles reactivity and navigation. Application components do not need to be translated into JavaScript.
+On the server, Lunar renders the requested route to HTML and includes its data in a JSON script element. In the browser, the official Lua 5.4 virtual machine compiled to WebAssembly executes the Lua application and Lunar's browser runtime, called _moonlight_, handles reactivity and navigation. Application components do not need to be translated into JavaScript.
 
 Updates are applied directly to text nodes and attributes. Conditional blocks and unkeyed iteration blocks render again when their dependencies change. Lunar does not use a virtual DOM.
 
@@ -74,6 +75,8 @@ When the browser runtime takes over, it claims the nodes the server sent rather 
 A container that does not match what the page would have built is not patched into shape. The runtime reports the first difference it found, clears the container, and renders into it, which is the behaviour it had before it could claim nodes at all. The usual cause is a probe that returns different data on two consecutive renders.
 
 Links between application routes load route data and update the page without a full reload. Navigations are numbered, so a response that arrives for a navigation the visitor has already left is discarded instead of replacing a newer page. Ordinary page loads continue to work without client-side navigation.
+
+The document supplies SHA-256 hashes for all executable browser runtime resources. Bootstrap and bridge use Subresource Integrity; the VM, moonlight bundle, Wasm index and application Wasm parts are checked before use. The trust boundary and limits are documented in [runtime/README.md](runtime/README.md).
 
 ## The manifest
 
@@ -115,7 +118,7 @@ A third-party script or an API on another origin is declared in `security.extra`
 }
 ```
 
-An inline script is allowed by the SHA-256 of its bytes through `security.script_hashes`, never by a nonce and never by `unsafe-eval`. Nothing Lunar ships needs either: the vendored Fengari contains no `eval` and no `new Function`, and the document's own data is an `application/json` block a browser does not run.
+An inline script is allowed by the SHA-256 of its bytes through `security.script_hashes`, never by a nonce and never by `unsafe-eval`. Lunar's bridge interprets Lua through the Lua 5.4 WebAssembly VM without generating JavaScript. The document policy allows `'wasm-unsafe-eval'` for WebAssembly compilation while keeping JavaScript string evaluation blocked. The document's own data is an `application/json` block a browser does not run.
 
 `description`, `author`, `license`, `repository`, `homepage`, `keywords` and `private` are allowed and ignored, so a manifest can carry what a package registry would want. Any other key is an error naming the key, as is a field of the wrong type: a manifest that does not do what it says is worse than no manifest.
 
@@ -123,15 +126,15 @@ There are no `scripts`. Running arbitrary commands would mean shelling out, whic
 
 ## Performance
 
-`bin/lunar bench [app]` measures the framework against the application given to it: how long its components take to compile, how many pages a second one process renders along with the latency spread and the memory each page allocates, what the takeover costs, and how many bytes the browser downloads. The numbers depend on the machine, which the output names. On one core of an ordinary x86-64 Linux machine, the example application renders between 5,500 and 8,000 pages a second, at a median of 0.12 to 0.16 ms and a 99th percentile under 0.5 ms, allocating 42 to 58 KB per page. A page here is every probe, every component, and the whole document, rendered from nothing with no cache in front of it.
+`lunar bench [app]` measures the framework against the application given to it: how long its components take to compile, how many pages a second one process renders along with the latency spread and the memory each page allocates, what the takeover costs, and how many bytes the browser downloads. The numbers depend on the machine, which the output names. On one core of an ordinary x86-64 Linux machine, the example application renders between 5,500 and 8,000 pages a second, at a median of 0.12 to 0.16 ms and a 99th percentile under 0.5 ms, allocating 42 to 58 KB per page. A page here is every probe, every component, and the whole document, rendered from nothing with no cache in front of it.
 
-The browser downloads about 302 KB uncompressed for the example application: 215 KB of Fengari and 88 KB of application bundle. That is the cost of running Lua in the browser rather than compiling it to JavaScript, and it is paid once per version, after the server-rendered page is already visible. The same application frozen for an edge runtime is 143 KB.
+The browser fetches a small module bootstrap, the TypeScript host bridge, the Lua 5.4 Wasm VM and the moonlight application bundle as separate versioned resources. Applications with `client = false` emit none of them. The VM includes the Lua parser and standard libraries; those are currently one Wasm module, not separately loaded libraries. `lunar bench examples/tranquility` reports the current uncompressed sizes.
 
 Outside development the framework's own modules are minified on their way into both bundles: comments, indentation and blank lines go, strings and line breaks stay. `minify` in the manifest, `MINIFY=0` in the environment, or `minify = false` passed to `lunar.app` turns it off. It is worth about 5%, because this source carries no comments to drop — 88 KB becomes 83 KB, and the frozen application 145 KB becomes 136 KB. The generated component modules are left alone on purpose: minifying them saves another 1.4 KB and costs the line numbers that make a runtime error point back at the `.lunar` file.
 
-The honest comparison is that the same bundle is 17 KB gzipped, and Fengari 68 KB. Compression is four times the win minification is, and Lunar does not compress anything itself: that would mean an implementation of DEFLATE in Lua, since the rule about dependencies rules out zlib. What it does instead is serve what someone else compressed. A static file is served from the precompressed file beside it when the request accepts that encoding: `app.js.br` for `br` and `app.js.gz` for `gzip`, preferred in that order, with the original's content type, the compressed length, its own entity tag, and `Content-Encoding` set. Nothing generates those files, so they are the operator's to produce and to keep in step with the source; without them the file is served as it is, and `Vary: Accept-Encoding` is on the response either way. A proxy in front that compresses works as well, and an edge runtime compresses on its own.
+Compression changes the comparison: the Lua 5.4 VM is about 196 KiB uncompressed and 90 KiB with gzip, while the bridge adds about 3 KiB with gzip. This replacement is larger with gzip than the previous runtime; modular resources do not by themselves reduce the bytes needed to start the VM. Lunar does not compress anything itself. A static file is served from the precompressed file beside it when the request accepts that encoding: `app.js.br` for `br` and `app.js.gz` for `gzip`, preferred in that order, with the original's content type, the compressed length, its own entity tag, and `Content-Encoding` set. Nothing generates those files, so they are the operator's to produce and to keep in step with the source; without them the file is served as it is, and `Vary: Accept-Encoding` is on the response either way. A proxy in front that compresses works as well, and an edge runtime compresses on its own.
 
-`bin/lunar bench --http URL` drives a running server over keep-alive connections and reports requests a second and the latency spread. On the same machine as the server, with 32 keep-alive connections and the client in one process of its own, the example application answers about 4,200 requests a second at a median of 7.5 ms, 8.7 ms at the 95th percentile and 11.4 ms at the 99th. Both sides are competing for the same cores, so that is a floor rather than a ceiling. Run the server with `RATE_LIMIT=0` for a load test, since the rate limiter exists to stop exactly what a load test does.
+`lunar bench --http URL` drives a running server over keep-alive connections and reports requests a second and the latency spread. On the same machine as the server, with 32 keep-alive connections and the client in one process of its own, the example application answers about 4,200 requests a second at a median of 7.5 ms, 8.7 ms at the 95th percentile and 11.4 ms at the 99th. Both sides are competing for the same cores, so that is a floor rather than a ceiling. Run the server with `RATE_LIMIT=0` for a load test, since the rate limiter exists to stop exactly what a load test does.
 
 The takeover is also measured, against the table DOM the tests use rather than a browser. Claiming is not faster than rebuilding there, and is not meant to look like it: in a table DOM a node costs a table. What claiming buys is the node itself, and in a browser a created node also costs layout and paint, which that measurement cannot capture.
 
@@ -206,7 +209,7 @@ function churn(rounds)
 end
 ```
 
-A tracing collector would need to find the live values, and they sit in WebAssembly locals, which a module cannot look at. Giving it roots means moving every value that might be a reference into a shadow stack in the memory, which costs every function something, numeric ones included; that is the price, and it has not been paid here. Coroutines are a harder no: the MVP WebAssembly this compiles to cannot switch stacks at all, so they would mean either a transform of every function into a state machine or a toolchain pass, and the honest place for a coroutine is still the Lua that runs on Fengari, which may call into a part.
+A tracing collector would need to find the live values, and they sit in WebAssembly locals, which a module cannot look at. Giving it roots means moving every value that might be a reference into a shadow stack in the memory, which costs every function something, numeric ones included; that is the price, and it has not been paid here. Coroutines are a harder no: the MVP WebAssembly this compiles to cannot switch stacks at all, so they would mean either a transform of every function into a state machine or a toolchain pass, and the honest place for a coroutine is still the Lua that runs in the Lua 5.4 VM, which may call into a part.
 
 The memory itself comes from the host: the loader makes one `WebAssembly.Memory`, hands it to every part, and the heap grows into it. A part that needs strings or tables imports Lunar's own runtime part, which carries the allocator, the string and the table operations, and is itself compiled from Lua by the same compiler. It is emitted only when something needs it, loaded before the parts that do, and its exports are not names an application can ask for.
 
@@ -295,16 +298,16 @@ The HTTP server applies token-bucket rate limiting per client address, with sepa
 Lunar can package an application for deployment to Cloudflare Workers:
 
 ```sh
-bin/lunar workers examples/tranquility
+lunar workers examples/tranquility
 cd examples/tranquility/.lunar/workers
-npm install
-npx wrangler dev
-npx wrangler deploy
+bun install
+bunx wrangler dev
+bunx wrangler deploy
 ```
 
-The generated deployment contains the application and its compiled routes in `src/app.lua`, the JavaScript entry point in `src/worker.mjs`, compatibility modules in `src/fs-stub.cjs` and `src/absent.cjs`, static assets in `public/`, and the Worker configuration in `wrangler.jsonc`.
+The generated deployment contains the application and its compiled routes in `src/app.lua`, the JavaScript entry point in `src/worker.ts`, compatibility modules in `src/fs-stub.cjs` and `src/absent.cjs`, static assets in `public/`, and the Worker configuration in `wrangler.jsonc`.
 
-The packaged Lua application does not read files or open sockets at runtime. Cloudflare handles incoming requests and static assets, while Fengari executes the compiled application. The bridge exchanges requests and responses as JSON, so responses are buffered as strings. Rate limiting is scoped to each Worker isolate.
+The packaged Lua application does not read files or open sockets at runtime. Cloudflare handles incoming requests and static assets, while the Lua 5.4 WebAssembly runtime executes the compiled application. The bridge exchanges requests and responses as JSON, so responses are buffered as strings. Rate limiting is scoped to each Worker isolate.
 
 The Workers bundle is tested separately from the normal server, including execution with filesystem access removed, to check that both targets produce the same page output.
 
@@ -316,25 +319,25 @@ To validate and package the extension:
 
 ```sh
 cd editors/vscode
-npm run check
-npx @vscode/vsce package
+bun run check
+bunx @vscode/vsce package
 code --install-extension lunar-lang-0.1.0.vsix
 ```
 
 ## CLI
 
-The command-line interface is available through `bin/lunar`:
+The command-line interface is available through `lunar`:
 
 ```sh
-bin/lunar dev [app]
-bin/lunar build [app]
-bin/lunar map [app]
-bin/lunar compile file
-bin/lunar wasm file...
-bin/lunar bench [app]
-bin/lunar bench --http URL
-bin/lunar workers [app]
-bin/lunar spec
+lunar dev [app]
+lunar build [app]
+lunar map [app]
+lunar compile file
+lunar wasm file...
+lunar bench [app]
+lunar bench --http URL
+lunar workers [app]
+lunar spec
 ```
 
 `dev` starts the development server, `build` compiles the application's components to check for errors, and `map` prints the discovered routes. `compile` writes the generated Lua for a component to standard output and `wasm` compiles Lua files into wasm parts, reporting what each one exports and needs, writing them to `WASM_OUT` when that is set. `bench` measures compiling, rendering, the takeover, and the download, `workers` creates a Cloudflare Workers deployment, and `spec` runs the test suite.
@@ -344,8 +347,8 @@ bin/lunar spec
 Everything in the repository that is not Lua is formatted with Prettier: Markdown, YAML, JSON, CSS, HTML, and JavaScript. There is no package manifest at the root and nothing to install, since the version is named at the point of use:
 
 ```sh
-npx prettier@3.9.10 --write .
-npx prettier@3.9.10 --check .
+bunx prettier@3.9.10 --write .
+bunx prettier@3.9.10 --check .
 ```
 
 The settings are in `.prettierrc`. Lua files are listed in `.prettierignore`, since Prettier has no Lua support; Lua in this repository uses two-space indentation, `snake_case` names, and no comments. The continuous integration workflow runs the check alongside the test suite.

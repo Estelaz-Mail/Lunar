@@ -25,7 +25,7 @@ for _, path in ipairs(paths) do
   assert(result.body:find('<link rel="canonical"'), path .. " has no canonical URL")
   assert(result.body:find('<title>'), path .. " has no title")
   assert(result.headers["Content-Security-Policy"]:find("script%-src 'self'"), "CSP missing")
-  assert(not result.headers["Content-Security-Policy"]:find("unsafe%-eval"), "CSP permits unsafe eval")
+  assert(not result.headers["Content-Security-Policy"]:find("'unsafe-eval'", 1, true), "CSP permits unsafe eval")
   print("ok " .. path)
 end
 local redirect = request("/docs")

@@ -47,12 +47,16 @@ function signal.set(self, value)
   local previous = self.value
   if previous == value and type(value) ~= "table" then return value end
   self.value = value
-  for effect in pairs(self.subscribers) do schedule(effect) end
+  local subscribers = {}
+  for effect in pairs(self.subscribers) do subscribers[#subscribers + 1] = effect end
+  for _, effect in ipairs(subscribers) do schedule(effect) end
   return value
 end
 
 function signal.invalidate(self)
-  for effect in pairs(self.subscribers) do schedule(effect) end
+  local subscribers = {}
+  for effect in pairs(self.subscribers) do subscribers[#subscribers + 1] = effect end
+  for _, effect in ipairs(subscribers) do schedule(effect) end
 end
 
 local function clear_dependencies(effect)

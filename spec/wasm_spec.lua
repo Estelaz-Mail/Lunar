@@ -408,8 +408,20 @@ local function fake_browser(manifest)
       arrayBuffer = function() return promise({ part = name }) end })
   end
 
+  window.lunarFetchVerified = window.fetch
   local js = { new = function() return {} end }
   return window, js, log
+end
+
+function T.refuses_to_fetch_without_an_integrity_verifier()
+  local window, js = fake_browser({ parts = {} })
+  window.lunarFetchVerified = nil
+  window.fetch = function() error("an unchecked fetch must never run") end
+  local loader = wasm_runtime.browser(window, js)
+  local failure
+  loader:read_index(function() error("an unchecked index must never load") end,
+    function(message) failure = message end)
+  assert(failure and failure:find("integrity verifier", 1, true))
 end
 
 function T.loads_a_part_and_everything_it_needs_once()

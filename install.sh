@@ -18,6 +18,44 @@ WANT_SOCKET=1
 MODIFY_PATH=1
 ACTION=install
 QUIET=0
+STYLE=0
+SPINNER_PID=
+
+spinner_stop() {
+	[ -n "$SPINNER_PID" ] || return 0
+	kill "$SPINNER_PID" 2>/dev/null || true
+	wait "$SPINNER_PID" 2>/dev/null || true
+	SPINNER_PID=
+	printf '\r\033[2K' >&2
+}
+
+spinner_start() {
+	[ "$STYLE" = 1 ] && [ "$QUIET" = 0 ] && [ "${LUNAR_ANIMATIONS:-1}" != 0 ] || return 0
+	spinner_stop
+	(
+		trap 'exit 0' TERM INT HUP
+		while :; do
+			for frame in '·    ' ' ·   ' '  ●  ' '   · ' '    ·' '   · ' '  ●  ' ' ·   '; do
+				printf '\r\033[2K  \033[94m%s\033[0m  %s' "$frame" "$1" >&2
+				sleep 0.12
+			done
+		done
+	) &
+	SPINNER_PID=$!
+}
+
+presentation() {
+	if [ -t 2 ] && [ "${TERM:-dumb}" != dumb ] && [ "${NO_COLOR+x}" != x ] && [ "${CI+x}" != x ]; then
+		STYLE=1
+	fi
+	trap 'spinner_stop' EXIT
+	trap 'spinner_stop; exit 130' INT
+	trap 'spinner_stop; exit 143' TERM
+	[ "$QUIET" = 0 ] || return 0
+	if [ "$STYLE" = 1 ]; then
+		printf '\n  \033[94m◐\033[0m \033[1mlunar\033[0m  \033[90mflight preparation\033[0m\n\n' >&2
+	fi
+}
 
 usage() {
 	cat <<EOF
@@ -46,13 +84,23 @@ Lunar's home is https://lunar.estelaz.com; the source is
 https://github.com/$REPO, which is where this fetches from.
 
 Environment: LUNAR_HOME, LUNAR_BIN_DIR, LUNAR_REF, LUNAR_REPO, CC.
+Presentation: NO_COLOR disables styling; LUNAR_ANIMATIONS=0 disables animations.
 EOF
 }
 
-say() { [ "$QUIET" = 1 ] || printf 'lunar: %s\n' "$1" >&2; }
-warn() { printf 'lunar: %s\n' "$1" >&2; }
+say() {
+	[ "$QUIET" = 1 ] && return 0
+	spinner_stop
+	if [ "$STYLE" = 1 ]; then printf '  \033[94m·\033[0m %s\n' "$1" >&2
+	else printf 'lunar: %s\n' "$1" >&2; fi
+}
+warn() {
+	spinner_stop
+	if [ "$STYLE" = 1 ]; then printf '  \033[93m!\033[0m %s\n' "$1" >&2
+	else printf 'lunar: %s\n' "$1" >&2; fi
+}
 die() {
-	printf 'lunar: %s\n' "$1" >&2
+	warn "$1"
 	exit 1
 }
 have() { command -v "$1" >/dev/null 2>&1; }
@@ -110,13 +158,17 @@ parse() {
 }
 
 fetch() {
+	spinner_start "Receiving from Earth..."
+	fetch_status=0
 	if have curl; then
-		curl --proto '=https' --tlsv1.2 -fsSL "$1" -o "$2"
+		curl --proto '=https' --tlsv1.2 -fsSL "$1" -o "$2" || fetch_status=$?
 	elif have wget; then
-		wget -q -O "$2" "$1"
+		wget -q -O "$2" "$1" || fetch_status=$?
 	else
 		die "this needs curl or wget"
 	fi
+	spinner_stop
+	return "$fetch_status"
 }
 
 newest_release() {
@@ -203,6 +255,7 @@ build_lua() {
 	mkdir -p "$work/lua"
 	tar xzf "$work/lua.tar.gz" -C "$work/lua" --strip-components=1
 	say "building Lua $LUA_VERSION"
+	spinner_start "Assembling the Lua engine..."
 	if ! (cd "$work/lua" && make "$(lua_plat)" >"$work/log" 2>&1); then
 		(cd "$work/lua" && make all >"$work/log" 2>&1) || {
 			tail -20 "$work/log" >&2
@@ -212,6 +265,7 @@ build_lua() {
 	(cd "$work/lua" && make install INSTALL_TOP="$PREFIX/toolchain" >>"$work/log" 2>&1) ||
 		die "Lua built but would not install into $PREFIX/toolchain"
 	rm -rf "$work"
+	spinner_stop
 	printf '%s' "$PREFIX/toolchain/bin/lua"
 }
 
@@ -265,6 +319,7 @@ build_luasocket() {
 	esac
 
 	say "building LuaSocket $LUASOCKET_VERSION"
+	spinner_start "Connecting the communications module..."
 	(
 		cd "$work/luasocket/src" &&
 			$compiler -O2 -fPIC $link "-I$include" -o "$lib/socket/core.so" \
@@ -279,6 +334,7 @@ build_luasocket() {
 		return 1
 	}
 	rm -rf "$work"
+	spinner_stop
 
 	has_socket "$lua" || {
 		warn "LuaSocket built but $lua cannot load it"
@@ -374,7 +430,8 @@ install() {
 		[ -n "$lua" ] || say "no Lua 5.4 on this machine"
 		lua=$(build_lua)
 	fi
-	say "lua: $lua ($("$lua" -v 2>&1 | head -1))"
+	lua_release=$("$lua" -v 2>&1 | head -1 | sed 's/  Copyright.*//')
+	say "$lua_release  $lua"
 
 	install_tree
 
@@ -403,6 +460,9 @@ install() {
 		say "  . \"$PREFIX/env\""
 	fi
 	say "try: lunar dev $PREFIX/current/examples/tranquility"
+	if [ "$STYLE" = 1 ] && [ "$QUIET" = 0 ]; then
+		printf '\n  \033[94m●\033[0m \033[1mReady for orbit.\033[0m\n\n' >&2
+	fi
 }
 
 uninstall() {
@@ -419,6 +479,7 @@ uninstall() {
 }
 
 parse "$@"
+presentation
 case $ACTION in
 install) install ;;
 uninstall) uninstall ;;

@@ -11,7 +11,7 @@ Texto no template é escapado por padrão, no corpo, em atributos e em strings i
 
 ## Content Security Policy {#csp}
 
-A política é gerada a partir da resposta, com `default-src 'none'` como ponto de partida para documentos. Um script embutido é autorizado pelo SHA-256 dos seus bytes, nunca por nonce e nunca com `unsafe-eval`. O Fengari vendorizado não contém `eval` nem `new Function`.
+A política é gerada a partir da resposta, com `default-src 'none'` como ponto de partida para documentos. Um script embutido é autorizado pelo SHA-256 dos seus bytes, nunca por nonce e nunca com `unsafe-eval`. A VM Lua 5.4 executa WebAssembly e a ponte do Lunar não gera JavaScript a partir de strings. A diretiva `wasm-unsafe-eval` permite compilar Wasm; `unsafe-eval` permanece bloqueado.
 
 Respostas que não são documentos usam uma política mais fechada, com `frame-ancestors 'none'` e `sandbox`.
 

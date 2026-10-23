@@ -28,7 +28,6 @@
           {#if visible}<p class="condition-message">Menos código.<br />Mais possibilidades. ✦</p>{:else}<p class="muted">A mensagem saiu do DOM.</p>{/if}
         {/if}
       </div>
-      <div class="preview-note">Lua no navegador. Sem virtual DOM.</div>
     </div>
   </div>
 </div>

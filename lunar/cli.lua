@@ -45,14 +45,19 @@ function cli.dev(argument)
   if #app.routes == 0 then
     fail(string.format("%s has no orbit/ tree (looked in %s/orbit)", root, root))
   end
-  io.write(string.format("lunar %s — %d routes in %s/orbit\n",
-    lunar.VERSION, #app.routes, root))
+  local terminal = require("lunar.core.terminal").new()
+  local host, port = lunar.listen_options(app, { default_host = "127.0.0.1" })
   lunar.serve({
     root = root,
     dev = true,
     host = os.getenv("HOST"),
     port = tonumber(os.getenv("PORT")),
     default_host = "127.0.0.1",
+    on_ready = function()
+      terminal.ready({ version = lunar.VERSION, root = root, routes = #app.routes,
+        url = string.format("http://%s:%d", host, port) })
+    end,
+    on_interrupt = terminal.stopped,
   })
 end
 
@@ -153,9 +158,9 @@ function cli.workers(argument)
 %d routes, %.1f KB in all, in %s
 
   cd %s
-  npm install
-  npx wrangler dev        # http://localhost:8787
-  npx wrangler deploy
+  bun install
+  bunx wrangler dev        # http://localhost:8787
+  bunx wrangler deploy
 ]], #app.routes, total / 1024, result.out, result.out))
 end
 

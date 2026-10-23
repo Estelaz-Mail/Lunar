@@ -14,7 +14,7 @@ O comando grava o diretório `.lunar/workers/`, pronto para publicar.
 | Caminho          | O que é                                                                 |
 | ---------------- | ----------------------------------------------------------------------- |
 | `src/app.lua`    | o runtime, os componentes, os probes e a tabela de rotas num arquivo só |
-| `src/worker.mjs` | o ponto de entrada em JavaScript                                        |
+| `src/worker.ts`  | o ponto de entrada em TypeScript                                        |
 | `public/`        | os arquivos públicos, servidos pela plataforma antes do Worker          |
 | `wrangler.jsonc` | a configuração do Worker                                                |
 
@@ -29,8 +29,8 @@ O comando grava o diretório `.lunar/workers/`, pronto para publicar.
 
 ```
 cd .lunar/workers
-npm install
-npx wrangler deploy
+bun install
+bunx wrangler deploy
 ```
 
 :::note

@@ -4,6 +4,6 @@
 node_modules/**
 scripts/**
 jsconfig.json
-package-lock.json
+bun.lock
 bun.lock
 test/**

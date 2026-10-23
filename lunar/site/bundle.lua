@@ -262,6 +262,7 @@ function bundle.server(app, options)
     lang = app.lang,
     version = app.version,
     client = app.client,
+    integrity = app:client_integrity(),
     shell = app.shell,
     stylesheets = app.stylesheets,
     routes = route_manifest(app),

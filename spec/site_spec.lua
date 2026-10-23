@@ -234,15 +234,20 @@ function T.will_not_serve_a_file_outside_the_static_root()
   assert(get("/.env").status == 404)
 end
 
-function T.serves_the_moonlight_bundle_and_fengari()
+function T.serves_the_moonlight_bundle_and_lua54_runtime()
   local bundle = get("/_lunar/moonlight.lua")
   assert(bundle.status == 200)
   assert(bundle.headers["Content-Type"] == "text/x-lua; charset=utf-8")
   assert(bundle.body:find("package.preload", 1, true))
 
-  local fengari = get("/_lunar/fengari.js")
-  assert(fengari.status == 200)
-  assert(fengari.headers["Cache-Control"]:find("immutable", 1, true))
+  for _, name in ipairs({ "boot", "bridge", "lua54.wasm" }) do
+    local runtime = get("/_lunar/runtime/" .. name)
+    assert(runtime.status == 200, name)
+    assert(runtime.headers["Cache-Control"]:find("immutable", 1, true))
+    assert(runtime.headers["Content-Type"]:find(name:match("%.wasm$")
+      and "application/wasm" or "text/javascript", 1, true))
+  end
+  assert(get("/_lunar/runtime/../bridge.c").status == 404)
 end
 
 function T.a_head_request_has_the_length_but_no_body()
@@ -274,8 +279,12 @@ function T.the_document_needs_no_exception_to_its_own_policy()
   local res = get("/")
   local policy = res.headers["Content-Security-Policy"]
   assert(policy:find("script%-src 'self'"))
+  assert(policy:find("'wasm-unsafe-eval'", 1, true))
+  assert(not policy:find("'unsafe-eval'", 1, true))
   assert(not policy:find("unsafe%-inline.-script"))
   assert(not policy:find("nonce", 1, true))
+  assert(res.body:find('id="lunar%-integrity"'))
+  assert(res.body:find('integrity="sha256%-'))
 
   for attributes in res.body:gmatch("<script([^>]*)>") do
     assert(attributes:find("src=", 1, true)

@@ -1,6 +1,24 @@
 const UPSTREAM = "https://raw.githubusercontent.com/Glazastyy/Lunar/refs/heads/main/install.sh";
 
-function failure(status, message, headers = {}) {
+export interface InstallerCache {
+	match(request: Request): Promise<Response | undefined>;
+	put(request: Request, response: Response): Promise<void>;
+}
+
+export interface InstallerContext {
+	waitUntil(promise: Promise<unknown>): void;
+}
+
+export type FetchUpstream = (
+	input: string | URL | Request,
+	init?: RequestInit,
+) => Promise<Response>;
+
+function failure(
+	status: number,
+	message: string | null,
+	headers: Record<string, string> = {},
+): Response {
 	return new Response(message, {
 		status,
 		headers: {
@@ -12,16 +30,20 @@ function failure(status, message, headers = {}) {
 	});
 }
 
-export async function proxyInstaller(request, ctx, cache, fetchUpstream = fetch) {
+export async function proxyInstaller(
+	request: Request,
+	ctx: InstallerContext,
+	cache: InstallerCache,
+	fetchUpstream: FetchUpstream = fetch,
+): Promise<Response> {
 	if (request.method !== "GET" && request.method !== "HEAD") {
 		return failure(405, "Method not allowed\n", { Allow: "GET, HEAD" });
 	}
 
-	// Query strings and client headers must not fragment the shared script cache.
 	const key = new Request(new URL("/install.sh", request.url), {
 		method: "GET",
 	});
-	let response;
+	let response: Response | undefined;
 	try {
 		response = await cache.match(key);
 	} catch (error) {
@@ -30,7 +52,7 @@ export async function proxyInstaller(request, ctx, cache, fetchUpstream = fetch)
 	const hit = Boolean(response);
 
 	if (!response) {
-		let upstream;
+		let upstream: Response;
 		try {
 			upstream = await fetchUpstream(UPSTREAM, {
 				method: "GET",
@@ -52,7 +74,8 @@ export async function proxyInstaller(request, ctx, cache, fetchUpstream = fetch)
 			"X-Content-Type-Options": "nosniff",
 		});
 		for (const name of ["ETag", "Last-Modified"]) {
-			if (upstream.headers.has(name)) headers.set(name, upstream.headers.get(name));
+			const value = upstream.headers.get(name);
+			if (value !== null) headers.set(name, value);
 		}
 		response = new Response(upstream.body, { headers });
 		ctx.waitUntil(

@@ -1,12 +1,12 @@
-import test from "node:test";
+import { test } from "bun:test";
 import assert from "node:assert/strict";
-import { proxyInstaller } from "./install.mjs";
+import { proxyInstaller, type InstallerCache, type FetchUpstream } from "./install.ts";
 
-function fixture(fetchUpstream) {
-	const stored = new Map();
-	const pending = [];
-	const keys = [];
-	const cache = {
+function fixture(fetchUpstream: FetchUpstream) {
+	const stored = new Map<string, { bytes: ArrayBuffer; headers: Headers }>();
+	const pending: Promise<unknown>[] = [];
+	const keys: string[] = [];
+	const cache: InstallerCache = {
 		async match(request) {
 			keys.push(request.url);
 			const cached = stored.get(request.url);
@@ -27,7 +27,7 @@ function fixture(fetchUpstream) {
 			const response = await proxyInstaller(
 				new Request(`https://lunar.estelaz.com/install.sh${query}`, { method }),
 				{
-					waitUntil(promise) {
+					waitUntil(promise: Promise<unknown>) {
 						pending.push(promise);
 					},
 				},
@@ -50,6 +50,7 @@ test("streams unchanged bytes, caches success and shares query-string variants",
 			url,
 			"https://raw.githubusercontent.com/Glazastyy/Lunar/refs/heads/main/install.sh",
 		);
+		assert.ok(options);
 		assert.equal(options.method, "GET");
 		assert.equal(options.headers, undefined);
 		assert.equal(options.redirect, "manual");
@@ -102,8 +103,7 @@ test("upstream errors are not cached and the next request retries", async () => 
 	assert.equal(calls, 2);
 });
 
-test("network failures return an uncached 502, also for HEAD", async (t) => {
-	t.mock.method(console, "error", () => {});
+test("network failures return an uncached 502, also for HEAD", async () => {
 	const app = fixture(async () => {
 		throw new Error("upstream timeout");
 	});
@@ -126,13 +126,12 @@ test("unsupported methods do not fetch or cache", async () => {
 	assert.equal(app.keys.length, 0);
 });
 
-test("cache failure still delivers the upstream script", async (t) => {
-	t.mock.method(console, "error", () => {});
-	const pending = [];
+test("cache failure still delivers the upstream script", async () => {
+	const pending: Promise<unknown>[] = [];
 	const response = await proxyInstaller(
 		new Request("https://lunar.estelaz.com/install.sh"),
 		{
-			waitUntil(promise) {
+			waitUntil(promise: Promise<unknown>) {
 				pending.push(promise);
 			},
 		},

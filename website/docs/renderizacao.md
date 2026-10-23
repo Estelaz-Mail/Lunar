@@ -13,9 +13,9 @@ O compilador gera, a partir da mesma árvore, um módulo Lua com duas funções:
 
 O servidor resolve a rota, executa os probes e renderiza a página. Os dados seguem num bloco `application/json`, que o navegador não executa. O conteúdo já está visível antes de qualquer Lua no cliente.
 
-## Fengari e moonlight {#moonlight}
+## Lua 5.4 e moonlight {#moonlight}
 
-O Fengari executa Lua no navegador. O moonlight é o pacote da aplicação no cliente, com componentes, estado e DOM num arquivo só.
+A VM oficial Lua 5.4, compilada para WebAssembly, executa Lua no navegador. A ponte JavaScript é do Lunar. O moonlight é o pacote da aplicação no cliente, com componentes, estado e DOM num arquivo só.
 
 ## A tomada de controle {#hidratacao}
 
@@ -31,8 +31,11 @@ Textos e atributos são escritos no DOM diretamente, sem árvore virtual. Blocos
 
 | Peça                        | Sem compressão | Com gzip |
 | --------------------------- | -------------- | -------- |
-| Fengari                     | 219 KB         | 68 KB    |
+| VM Lua 5.4                  | 196 KiB        | 90 KiB   |
+| Ponte JavaScript            | 10 KiB         | 3 KiB    |
 | Pacote moonlight do exemplo | 88 KB          | 18 KB    |
+
+A VM, a ponte, o bootstrap e o moonlight são arquivos separados. A VM ainda inclui o parser e as bibliotecas padrão em um módulo único; carregamento separado de cada biblioteca ainda não foi implementado.
 
 Esses números são o tamanho de executar Lua no navegador em vez de gerar JavaScript, pagos uma vez por versão, depois que a página já está visível. Lunar não comprime por conta própria, porque isso exigiria DEFLATE em Lua; serve o arquivo `.br` ou `.gz` ao lado do original, e um proxy ou uma borda na frente fazem o mesmo.
 
