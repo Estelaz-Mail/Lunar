@@ -109,6 +109,8 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+      - name: Install Lua
+        run: sudo apt-get update && sudo apt-get install -y lua5.4
       - name: Prettier
         run: bin/lunar fmt --check .
 

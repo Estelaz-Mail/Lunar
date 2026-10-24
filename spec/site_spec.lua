@@ -313,6 +313,7 @@ function T.rate_limits_a_flood_from_one_address()
       asset = { capacity = 2, per_second = 1 },
       write = { capacity = 1, per_second = 1 },
     },
+    now = function() return 1000 end,
   } })
 
   assert(send(instance, "GET", "/").status == 200)
