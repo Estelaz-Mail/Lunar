@@ -21,7 +21,7 @@
 
 {#if count >= 10}
   <p class="note">Ten already. The effect that patched that number never
-  touched the rest of this page.</p>
+    touched the rest of this page.</p>
 {/if}
 
 <style>

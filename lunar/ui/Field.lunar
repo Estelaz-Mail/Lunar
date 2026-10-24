@@ -4,8 +4,8 @@
 
 <label class="lunar-field">
   {#if label ~= ""}<span>{label}{required and " *" or ""}</span>{/if}
-  <input name={name} type={type} value={value} placeholder={placeholder} required={required} disabled={disabled} aria-invalid={error ~= ""} on:input={onchange} />
-  {#if error ~= ""}<small>{error}</small>{/if}
+<input name={name} type={type} value={value} placeholder={placeholder} required={required} disabled={disabled} aria-invalid={error ~= ""} on:input={onchange} />
+{#if error ~= ""}<small>{error}</small>{/if}
 </label>
 
 <style>

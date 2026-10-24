@@ -4,7 +4,7 @@
 
 <div class="lunar-alert lunar-alert-{tone}" role="status">
   {#if title ~= ""}<strong>{title}</strong>{/if}
-  <div><slot /></div>
+<div><slot /></div>
 </div>
 
 <style>

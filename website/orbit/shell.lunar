@@ -12,10 +12,10 @@
       <a href="https://github.com/Estelaz-Mail/Lunar" target="_blank" rel="noopener noreferrer" class="github-link">GitHub <span aria-hidden="true"><span class="spaceship spaceship-up-right" aria-hidden="true"></span></span></a>
       <a class="nav-cta" href="/docs/instalacao">Começar <span aria-hidden="true"><span class="spaceship spaceship-up-right" aria-hidden="true"></span></span></a>
     </nav>
-  </div>
+</div>
 </header>
 <main id="main" tabindex="-1"><slot /></main>
 <footer class="site-footer wrap">
   <div class="footer-top"><a class="brand" href="/"><img src="/brand/planet.png" width="39" height="34" alt={""} /><span>Lunar.</span></a><p>Feito em Lua. Feito com Lunar.</p><a href="https://github.com/Estelaz-Mail/Lunar" target="_blank" rel="noopener noreferrer">Explore o código <span class="spaceship spaceship-up-right" aria-hidden="true"></span></a></div>
-  <div class="footer-bottom"><span>Um projeto aberto. Licença MIT.</span><span>Daqui do Brasil, para a web. <span class="brazil-dot" aria-hidden="true"></span></span><a href="https://estelaz.com">Estelaz <span class="spaceship spaceship-up-right" aria-hidden="true"></span></a></div>
-</footer>
+        <div class="footer-bottom"><span>Um projeto aberto. Licença MIT.</span><span>Daqui do Brasil, para a web. <span class="brazil-dot" aria-hidden="true"></span></span><a href="https://estelaz.com">Estelaz <span class="spaceship spaceship-up-right" aria-hidden="true"></span></a></div>
+            </footer>

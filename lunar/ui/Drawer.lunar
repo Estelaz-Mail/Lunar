@@ -4,7 +4,7 @@
 
 {#if open}<div class="lunaris-drawer-layer" on:click={close}><aside class="lunaris-drawer lunaris-drawer-{side}" role="dialog" aria-modal="true" on:click|stop={function() end}><header><h2>{title}</h2><button type="button" aria-label="Fechar" on:click={close}>×</button></header><div><slot /></div></aside></div>{/if}
 
-<style>
+    <style>
   .lunaris-drawer-layer { background: #00000099; inset: 0; position: fixed; z-index: 100; }
   .lunaris-drawer { background: var(--lunar-surface); color: var(--lunar-text); height: 100%; max-width: 26rem; position: absolute; width: min(90vw, 26rem); }
   .lunaris-drawer-left { left: 0; }
@@ -13,4 +13,4 @@
   .lunaris-drawer h2 { font-size: 1.1rem; margin: 0; }
   .lunaris-drawer header button { background: transparent; border: 0; color: var(--lunar-muted); font-size: 1.5rem; line-height: 1; }
   .lunaris-drawer > div { padding: var(--lunar-space-5); }
-</style>
+    </style>

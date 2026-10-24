@@ -21,11 +21,11 @@
     <button class="theme" on:click={toggle}>{theme == "day" and "☾" or "☀"}</button>
   </header>
 
-  <main><slot /></main>
+<main><slot /></main>
 
-  <footer>
-    <p>Rendered by Lunar {data.version or ""} — the same Lua on both sides.</p>
-  </footer>
+<footer>
+  <p>Rendered by Lunar {data.version or ""} — the same Lua on both sides.</p>
+</footer>
 </div>
 
 <style>

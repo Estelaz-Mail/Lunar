@@ -64,9 +64,9 @@ function T.renders_feedback_and_overlay_components_only_when_active()
 end
 
 function T.formats_lunar_sources_without_external_formatters()
-  local source = "<div>\n<span>Lua</span>\n</div>\n"
+  local source = "{#if enabled}\n<span>Lua</span>\n{:else}\n<button\nclass=\"secondary\"\n>Off</button>\n{/if}\n"
   local formatted = formatter.format(source)
-  assert(formatted == "<div>\n  <span>Lua</span>\n</div>\n")
+  assert(formatted == "{#if enabled}\n  <span>Lua</span>\n{:else}\n  <button\n    class=\"secondary\"\n  >Off</button>\n{/if}\n")
   assert(formatter.format(formatted) == formatted)
 end
 

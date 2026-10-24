@@ -19,7 +19,7 @@
     {#each data.parts or {} as part}
       <li><code>{part.path}</code> — {part.what}</li>
     {/each}
-  </ul>
+</ul>
 {/if}
 
 <style>

@@ -22,9 +22,9 @@
       <a href={"/blog/" .. post.slug}>{post.title}</a>
       <time>{post.date}</time>
     </li>
-  {:else}
-    <li class="none">Nothing matches “{query}”.</li>
-  {/each}
+{:else}
+  <li class="none">Nothing matches “{query}”.</li>
+{/each}
 </ul>
 
 <style>

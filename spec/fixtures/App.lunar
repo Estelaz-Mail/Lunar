@@ -17,8 +17,8 @@
     <p>{@html markup}</p>
     <Counter start={2} label="taps" />
   </Card>
-  <Card />
-  <label><input type="checkbox" bind:checked={agreed} /> agreed: {agreed and "yes" or "no"}</label>
-  <input class="name" bind:value={name} />
-  <p class="greeting">Hi {name}, 5 &lt; 6 \{literal\}</p>
+<Card />
+<label><input type="checkbox" bind:checked={agreed} /> agreed: {agreed and "yes" or "no"}</label>
+<input class="name" bind:value={name} />
+<p class="greeting">Hi {name}, 5 &lt; 6 \{literal\}</p>
 </main>
