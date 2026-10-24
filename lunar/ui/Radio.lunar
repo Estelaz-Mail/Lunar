@@ -1,0 +1,10 @@
+<script>
+  props { label = "", name = "", value = "", checked = false, disabled = false, onchange = nil }
+</script>
+
+<label class="lunaris-radio"><input type="radio" name={name} value={value} checked={checked} disabled={disabled} on:change={onchange} /><span>{label}<slot /></span></label>
+
+<style>
+  .lunaris-radio { align-items: center; color: var(--lunar-text); display: inline-flex; gap: var(--lunar-space-2); }
+  .lunaris-radio input { accent-color: var(--lunar-brand); height: 1rem; width: 1rem; }
+</style>

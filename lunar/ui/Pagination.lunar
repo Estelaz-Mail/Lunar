@@ -1,0 +1,12 @@
+<script>
+  props { page = 1, pages = 1, previous = nil, next = nil }
+</script>
+
+<nav class="lunaris-pagination" aria-label="Paginação"><button type="button" disabled={page <= 1} on:click={previous}>Anterior</button><span>Página {page} de {pages}</span><button type="button" disabled={page >= pages} on:click={next}>Próxima</button></nav>
+
+<style>
+  .lunaris-pagination { align-items: center; display: flex; flex-wrap: wrap; gap: var(--lunar-space-3); justify-content: center; }
+  .lunaris-pagination button { background: var(--lunar-surface); border: 1px solid var(--lunar-border-strong); border-radius: var(--lunar-radius-control); color: var(--lunar-text); padding: var(--lunar-space-2) var(--lunar-space-3); }
+  .lunaris-pagination button:disabled { opacity: .5; }
+  .lunaris-pagination span { color: var(--lunar-muted); font-size: .875rem; }
+</style>

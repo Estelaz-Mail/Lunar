@@ -1,0 +1,14 @@
+<script>
+  props { label = "Menu", items = {}, onclick = nil }
+</script>
+
+<details class="lunaris-menu"><summary>{label}</summary><div class="lunaris-menu-list">{#each items as item}<button type="button" disabled={item.disabled or false} on:click={function() if onclick then onclick(item.id) end end}>{item.label}</button>{/each}</div></details>
+
+<style>
+  .lunaris-menu { display: inline-block; position: relative; }
+  .lunaris-menu summary { background: var(--lunar-surface); border: 1px solid var(--lunar-border-strong); border-radius: var(--lunar-radius-control); cursor: pointer; list-style: none; padding: var(--lunar-space-2) var(--lunar-space-3); }
+  .lunaris-menu summary::-webkit-details-marker { display: none; }
+  .lunaris-menu-list { background: var(--lunar-surface); border: 1px solid var(--lunar-border); border-radius: var(--lunar-radius-control); box-shadow: var(--lunar-shadow-card); display: grid; min-width: 12rem; padding: var(--lunar-space-1); position: absolute; right: 0; top: calc(100% + var(--lunar-space-1)); z-index: 30; }
+  .lunaris-menu-list button { background: transparent; border: 0; color: var(--lunar-text); padding: var(--lunar-space-2) var(--lunar-space-3); text-align: left; }
+  .lunaris-menu-list button:hover:not(:disabled) { background: var(--lunar-surface-raised); }
+</style>

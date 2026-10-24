@@ -1,0 +1,13 @@
+<script>
+  props { visible = false, message = "", tone = "info", close = nil }
+</script>
+
+{#if visible}<div class="lunaris-toast lunaris-toast-{tone}" role="status"><span>{message}<slot /></span>{#if close}<button type="button" aria-label="Fechar" on:click={close}>×</button>{/if}</div>{/if}
+
+<style>
+  .lunaris-toast { align-items: center; border: 1px solid; border-radius: var(--lunar-radius-control); bottom: var(--lunar-space-5); box-shadow: var(--lunar-shadow-card); display: flex; gap: var(--lunar-space-4); justify-content: space-between; max-width: min(28rem, calc(100vw - 2rem)); padding: var(--lunar-space-4); position: fixed; right: var(--lunar-space-5); z-index: 120; }
+  .lunaris-toast button { background: transparent; border: 0; color: currentColor; font-size: 1.25rem; }
+  .lunaris-toast-info { background: var(--lunar-info-soft); border-color: var(--lunar-info-border); color: var(--lunar-info); }
+  .lunaris-toast-success { background: var(--lunar-success-soft); border-color: var(--lunar-success-border); color: var(--lunar-success); }
+  .lunaris-toast-danger { background: var(--lunar-danger-soft); border-color: var(--lunar-danger-border); color: var(--lunar-danger); }
+</style>

@@ -1,0 +1,14 @@
+<script>
+  props { label = "", name = "", checked = false, disabled = false, onchange = nil }
+</script>
+
+<label class="lunaris-switch"><input type="checkbox" role="switch" name={name} checked={checked} disabled={disabled} on:change={onchange} /><span>{label}<slot /></span></label>
+
+<style>
+  .lunaris-switch { align-items: center; color: var(--lunar-text); display: inline-flex; gap: var(--lunar-space-2); }
+  .lunaris-switch input { appearance: none; background: var(--lunar-border-strong); border-radius: 999px; height: 1.5rem; margin: 0; position: relative; transition: background-color 160ms ease; width: 2.75rem; }
+  .lunaris-switch input::after { background: white; border-radius: 50%; content: ""; height: 1.1rem; left: .2rem; position: absolute; top: .2rem; transition: transform 160ms ease; width: 1.1rem; }
+  .lunaris-switch input:checked { background: var(--lunar-brand); }
+  .lunaris-switch input:checked::after { transform: translateX(1.25rem); }
+  .lunaris-switch input:focus-visible { outline: 2px solid var(--lunar-accent); outline-offset: 3px; }
+</style>

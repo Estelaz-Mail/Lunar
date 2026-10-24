@@ -1,0 +1,11 @@
+<script>
+  props { items = {}, active = "", onclick = nil }
+</script>
+
+<nav class="lunaris-tabs" role="tablist">{#each items as item}<button type="button" role="tab" aria-selected={item.id == active} class:lunaris-tab-active={item.id == active} on:click={function() if onclick then onclick(item.id) end end}>{item.label}</button>{/each}</nav>
+
+<style>
+  .lunaris-tabs { border-bottom: 1px solid var(--lunar-border); display: flex; gap: var(--lunar-space-2); overflow-x: auto; }
+  .lunaris-tabs button { background: transparent; border: 0; border-bottom: 2px solid transparent; color: var(--lunar-muted); padding: var(--lunar-space-3) var(--lunar-space-4); white-space: nowrap; }
+  .lunaris-tabs button:hover, .lunaris-tabs .lunaris-tab-active { border-bottom-color: var(--lunar-brand); color: var(--lunar-text); }
+</style>

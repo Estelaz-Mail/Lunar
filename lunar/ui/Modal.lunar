@@ -1,0 +1,15 @@
+<script>
+  props { open = false, title = "", close = nil, labelledby = "" }
+</script>
+
+{#if open}<div class="lunaris-overlay" role="presentation" on:click={close}><section class="lunaris-modal" role="dialog" aria-modal="true" aria-labelledby={labelledby} on:click|stop={function() end}><header><h2>{title}</h2><button type="button" aria-label="Fechar" on:click={close}>×</button></header><div class="lunaris-modal-body"><slot /></div><footer><slot name="footer" /></footer></section></div>{/if}
+
+<style>
+  .lunaris-overlay { align-items: center; background: #00000099; display: flex; inset: 0; justify-content: center; padding: var(--lunar-space-4); position: fixed; z-index: 100; }
+  .lunaris-modal { background: var(--lunar-surface); border: 1px solid var(--lunar-border); border-radius: var(--lunar-radius-card); box-shadow: 0 24px 80px #00000066; color: var(--lunar-text); max-height: calc(100vh - 2rem); max-width: 36rem; overflow: auto; width: 100%; }
+  .lunaris-modal header { align-items: center; border-bottom: 1px solid var(--lunar-border); display: flex; justify-content: space-between; padding: var(--lunar-space-5); }
+  .lunaris-modal h2 { font-size: 1.1rem; margin: 0; }
+  .lunaris-modal header button { background: transparent; border: 0; color: var(--lunar-muted); font-size: 1.5rem; line-height: 1; }
+  .lunaris-modal-body, .lunaris-modal footer { padding: var(--lunar-space-5); }
+  .lunaris-modal footer:empty { display: none; }
+</style>

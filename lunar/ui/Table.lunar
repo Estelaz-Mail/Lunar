@@ -1,0 +1,13 @@
+<script>
+  props { headers = {}, rows = {}, empty = "Nenhum resultado" }
+</script>
+
+<div class="lunaris-table-wrap"><table><thead><tr>{#each headers as header}<th scope="col">{header.label}</th>{/each}</tr></thead><tbody>{#each rows as row}<tr>{#each headers as header}<td>{row[header.key]}</td>{/each}</tr>{:else}<tr><td colspan={#headers}>{empty}</td></tr>{/each}</tbody></table></div>
+
+<style>
+  .lunaris-table-wrap { border: 1px solid var(--lunar-border); border-radius: var(--lunar-radius-card); overflow-x: auto; }
+  .lunaris-table-wrap table { border-collapse: collapse; min-width: 100%; text-align: left; }
+  .lunaris-table-wrap th, .lunaris-table-wrap td { border-bottom: 1px solid var(--lunar-border); padding: var(--lunar-space-3) var(--lunar-space-4); white-space: nowrap; }
+  .lunaris-table-wrap th { background: var(--lunar-surface-raised); color: var(--lunar-muted); font-size: .75rem; letter-spacing: .04em; text-transform: uppercase; }
+  .lunaris-table-wrap tr:last-child td { border-bottom: 0; }
+</style>

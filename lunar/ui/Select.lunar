@@ -1,0 +1,11 @@
+<script>
+  props { label = "", name = "", value = "", options = {}, disabled = false, required = false, onchange = nil }
+</script>
+
+<label class="lunaris-field"><span>{label}</span><select name={name} value={value} disabled={disabled} required={required} on:change={onchange}>{#each options as option}<option value={option.value}>{option.label}</option>{/each}</select></label>
+
+<style>
+  .lunaris-field { display: grid; gap: var(--lunar-space-2); }
+  .lunaris-field span { color: var(--lunar-text); font-size: .875rem; font-weight: 650; }
+  .lunaris-field select { background: var(--lunar-surface); border: 1px solid var(--lunar-border-strong); border-radius: var(--lunar-radius-control); color: var(--lunar-text); min-height: 2.75rem; padding: 0 var(--lunar-space-3); width: 100%; }
+</style>

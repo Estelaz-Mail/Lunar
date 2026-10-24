@@ -1,0 +1,10 @@
+<script>
+  props { vertical = false }
+</script>
+
+<hr class:lunaris-divider-vertical={vertical} />
+
+<style>
+  .lunaris-divider-vertical { border-left: 1px solid var(--lunar-border); border-top: 0; height: 100%; width: 0; }
+  hr:not(.lunaris-divider-vertical) { border: 0; border-top: 1px solid var(--lunar-border); margin: var(--lunar-space-4) 0; }
+</style>

@@ -1,0 +1,11 @@
+<script>
+  props { label = "", name = "", value = "", placeholder = "", rows = 5, required = false, disabled = false, onchange = nil }
+</script>
+
+<label class="lunaris-field"><span>{label}</span><textarea name={name} placeholder={placeholder} rows={rows} required={required} disabled={disabled} on:input={onchange}>{value}</textarea></label>
+
+<style>
+  .lunaris-field { display: grid; gap: var(--lunar-space-2); }
+  .lunaris-field span { color: var(--lunar-text); font-size: .875rem; font-weight: 650; }
+  .lunaris-field textarea { background: var(--lunar-surface); border: 1px solid var(--lunar-border-strong); border-radius: var(--lunar-radius-control); color: var(--lunar-text); font: inherit; min-height: 7rem; padding: var(--lunar-space-3); resize: vertical; width: 100%; }
+</style>

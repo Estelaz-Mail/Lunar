@@ -1,0 +1,11 @@
+<script>
+  props { label = "", name = "", checked = false, disabled = false, required = false, onchange = nil }
+</script>
+
+<label class="lunaris-check"><input type="checkbox" name={name} checked={checked} disabled={disabled} required={required} on:change={onchange} /><span>{label}<slot /></span></label>
+
+<style>
+  .lunaris-check { align-items: center; color: var(--lunar-text); display: inline-flex; gap: var(--lunar-space-2); }
+  .lunaris-check input { accent-color: var(--lunar-brand); height: 1rem; width: 1rem; }
+  .lunaris-check input:focus-visible { outline: 2px solid var(--lunar-accent); outline-offset: 3px; }
+</style>

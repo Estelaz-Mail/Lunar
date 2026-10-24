@@ -33,4 +33,23 @@ function T.compiles_every_first_wave_ui_component()
   end
 end
 
+function T.compiles_the_second_wave_ui_components()
+  for _, name in ipairs({ "Checkbox", "Switch", "Select", "Textarea", "Progress", "Skeleton", "Modal", "Drawer", "Tabs", "Tooltip", "Table", "Toast", "Menu", "Radio", "Pagination", "Container", "Divider" }) do
+    assert(framework_component(name), name .. " did not compile")
+  end
+end
+
+function T.renders_feedback_and_overlay_components_only_when_active()
+  local modal = framework_component("Modal")
+  local toast = framework_component("Toast")
+  local closed = component.render(modal, { open = false, title = "Confirmar" })
+  local visible = component.render(modal, { open = true, title = "Confirmar" })
+  local hidden_toast = component.render(toast, { visible = false, message = "Pronto" })
+  local visible_toast = component.render(toast, { visible = true, message = "Pronto" })
+  assert(not closed:find('role="dialog"', 1, true))
+  assert(visible:find('role="dialog"', 1, true))
+  assert(not hidden_toast:find("Pronto", 1, true))
+  assert(visible_toast:find("Pronto", 1, true))
+end
+
 return T

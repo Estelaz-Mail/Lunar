@@ -1,0 +1,11 @@
+<script>
+  props { width = "100%", height = "1rem", radius = "var(--lunar-radius-control)" }
+</script>
+
+<span class="lunaris-skeleton" aria-hidden="true" style:width={width} style:height={height} style:border-radius={radius}></span>
+
+<style>
+  .lunaris-skeleton { animation: lunaris-pulse 1.4s ease-in-out infinite; background: linear-gradient(90deg, var(--lunar-surface-raised), var(--lunar-border), var(--lunar-surface-raised)); background-size: 200% 100%; display: block; }
+  @keyframes lunaris-pulse { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+  @media (prefers-reduced-motion: reduce) { .lunaris-skeleton { animation: none; } }
+</style>

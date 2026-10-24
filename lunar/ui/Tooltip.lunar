@@ -1,0 +1,12 @@
+<script>
+  props { label = "" }
+</script>
+
+<span class="lunaris-tooltip"><slot /><span role="tooltip">{label}</span></span>
+
+<style>
+  .lunaris-tooltip { display: inline-flex; position: relative; }
+  .lunaris-tooltip > [role="tooltip"] { background: var(--lunar-text); border-radius: var(--lunar-radius-control); bottom: calc(100% + .5rem); color: var(--lunar-bg); font-size: .75rem; left: 50%; opacity: 0; padding: .35rem .5rem; pointer-events: none; position: absolute; transform: translate(-50%, .25rem); transition: opacity 160ms ease, transform 160ms ease; white-space: nowrap; }
+  .lunaris-tooltip:hover > [role="tooltip"], .lunaris-tooltip:focus-within > [role="tooltip"] { opacity: 1; transform: translate(-50%, 0); }
+  @media (prefers-reduced-motion: reduce) { .lunaris-tooltip > [role="tooltip"] { transition: none; } }
+</style>

@@ -62,9 +62,9 @@ Attributes can contain expressions or interpolated strings, and tables can be sp
 
 Styles are scoped to their component. Lunar generates a class for the rendered elements and adjusts selectors during compilation. The `:global(...)` selector can be used for styles that should remain global.
 
-## Lunar UI
+## Lunaris UI
 
-The framework includes a small visual library under the `lunar/ui` namespace. Applications can import `Button`, `Card`, `Stack`, `Badge`, `Alert`, `Field`, `Spinner` and `Icon` without installing a JavaScript UI runtime:
+The framework includes Lunaris UI, its visual library under the `lunar/ui` namespace. Applications can import buttons, cards, fields, overlays, tabs, tables, feedback components and SVG icons without installing a JavaScript UI runtime:
 
 ```html
 <script>

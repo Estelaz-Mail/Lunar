@@ -1,0 +1,13 @@
+<script>
+  props { size = "lg" }
+</script>
+
+<div class="lunaris-container lunaris-container-{size}"><slot /></div>
+
+<style>
+  .lunaris-container { margin-inline: auto; padding-inline: var(--lunar-space-4); width: 100%; }
+  .lunaris-container-sm { max-width: 40rem; }
+  .lunaris-container-md { max-width: 56rem; }
+  .lunaris-container-lg { max-width: 75rem; }
+  .lunaris-container-xl { max-width: 90rem; }
+</style>

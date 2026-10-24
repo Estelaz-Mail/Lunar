@@ -1,6 +1,6 @@
-# Lunar UI
+# Lunaris UI
 
-Lunar UI é a biblioteca visual oficial do framework. Ela fornece componentes `.lunar`, ícones SVG e tokens CSS para aplicações que precisam de uma base consistente sem Chakra UI, Emotion ou React.
+Lunaris UI é a biblioteca visual oficial do Lunar. Ela fornece componentes `.lunar`, ícones SVG e tokens CSS para aplicações que precisam de uma base consistente sem Chakra UI, Emotion ou React.
 
 ## Importar componentes
 
@@ -35,4 +35,4 @@ Aplicações congeladas também podem copiar esses arquivos para `static/css` e 
 
 ## Estado atual
 
-A primeira versão cobre botões, cartões, stacks, badges, alertas, campos, spinners e ícones. Componentes de navegação, modal, drawer, tabelas, abas, tooltips, tema persistido e adaptadores de serviços externos continuam no roadmap registrado no `platform`.
+A primeira versão cobre botões, cartões, stacks, badges, alertas, campos, spinners, ícones, controles de formulário, progresso, skeletons, modais, drawers, abas, menus, tooltips, tabelas, paginação, toasts, containers e divisores. Tema persistido e adaptadores de serviços externos continuam no roadmap registrado no `platform`.
