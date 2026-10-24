@@ -27,6 +27,14 @@ function T.renders_ui_components_with_server_and_browser_markup_in_agreement()
   assert(markup:find("Conta", 1, true))
 end
 
+function T.renders_the_icons_used_by_the_estelaz_public_home()
+  local icon = framework_component("Icon")
+  for _, name in ipairs({ "cloud", "rocket", "headset", "mobile" }) do
+    local markup = component.render(icon, { name = name })
+    assert(markup:find("<path", 1, true) or markup:find("<rect", 1, true), name)
+  end
+end
+
 function T.compiles_every_first_wave_ui_component()
   for _, name in ipairs({ "Button", "Card", "Stack", "Badge", "Alert", "Field", "Spinner", "Icon" }) do
     assert(framework_component(name), name .. " did not compile")
