@@ -7,6 +7,7 @@ local T = {}
 
 local function framework_component(name)
   local cache = compiler.cache({ root = "spec/fixtures", framework = "." })
+  cache:install()
   local def, err = cache:resolve("lunar/ui/" .. name, "spec/fixtures/App.lunar")
   assert(def, err)
   return def
@@ -36,10 +37,15 @@ function T.renders_the_icons_used_by_the_estelaz_public_home()
   end
   local shield = component.render(icon, { name = "shield" })
   assert(shield:find('viewBox="0 0 512 512"', 1, true))
+  local react_icon = framework_component("ReactIcon")
+  local cloud = component.render(react_icon, { name = "FaCloud" })
+  local alert = component.render(react_icon, { name = "FiAlertTriangle" })
+  assert(cloud:find('viewBox="0 0 640 512"', 1, true))
+  assert(alert:find('viewBox="0 0 24 24"', 1, true))
 end
 
 function T.compiles_every_first_wave_ui_component()
-  for _, name in ipairs({ "Button", "Card", "Stack", "Badge", "Alert", "Field", "Spinner", "Icon", "LinkButton", "Avatar" }) do
+  for _, name in ipairs({ "Button", "Card", "Stack", "Badge", "Alert", "Field", "Spinner", "Icon", "ReactIcon", "LinkButton", "Avatar" }) do
     assert(framework_component(name), name .. " did not compile")
   end
 end
