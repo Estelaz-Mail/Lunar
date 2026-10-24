@@ -30,10 +30,12 @@ end
 
 function T.renders_the_icons_used_by_the_estelaz_public_home()
   local icon = framework_component("Icon")
-  for _, name in ipairs({ "cloud", "rocket", "headset", "mobile" }) do
+  for _, name in ipairs({ "shield", "cloud", "rocket", "headset", "mobile", "lock" }) do
     local markup = component.render(icon, { name = name })
     assert(markup:find("<path", 1, true) or markup:find("<rect", 1, true), name)
   end
+  local shield = component.render(icon, { name = "shield" })
+  assert(shield:find('viewBox="0 0 512 512"', 1, true))
 end
 
 function T.compiles_every_first_wave_ui_component()
