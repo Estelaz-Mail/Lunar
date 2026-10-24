@@ -1,0 +1,43 @@
+<script>
+  props { label = "", variant = "primary", size = "md", type = "button", disabled = false, loading = false, onclick = nil }
+</script>
+
+<button
+  class="lunar-button lunar-button-{variant} lunar-button-{size}"
+  type={type}
+  disabled={disabled or loading}
+  aria-busy={loading}
+  on:click={onclick}
+>
+  {loading and "Carregando…" or label}
+  <slot />
+</button>
+
+<style>
+  .lunar-button {
+    align-items: center;
+    border: 1px solid transparent;
+    border-radius: var(--lunar-radius-control);
+    display: inline-flex;
+    font: inherit;
+    font-weight: 650;
+    gap: var(--lunar-space-2);
+    justify-content: center;
+    line-height: 1.2;
+    min-height: 2.75rem;
+    padding: 0 var(--lunar-space-4);
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
+  }
+  .lunar-button:hover:not(:disabled) { transform: translateY(-1px); }
+  .lunar-button:focus-visible { outline: 2px solid var(--lunar-accent); outline-offset: 3px; }
+  .lunar-button:disabled { cursor: not-allowed; opacity: 0.55; }
+  .lunar-button-primary { background: var(--lunar-brand); color: white; }
+  .lunar-button-primary:hover:not(:disabled) { background: var(--lunar-brand-strong); }
+  .lunar-button-secondary { background: var(--lunar-surface-raised); border-color: var(--lunar-border-strong); color: var(--lunar-text); }
+  .lunar-button-secondary:hover:not(:disabled) { border-color: var(--lunar-accent); }
+  .lunar-button-ghost { background: transparent; color: var(--lunar-text); }
+  .lunar-button-ghost:hover:not(:disabled) { background: var(--lunar-surface-raised); }
+  .lunar-button-danger { background: var(--lunar-danger); color: white; }
+  .lunar-button-sm { min-height: 2.25rem; padding-inline: var(--lunar-space-3); }
+  .lunar-button-lg { min-height: 3.25rem; padding-inline: var(--lunar-space-5); }
+</style>

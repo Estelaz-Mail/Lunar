@@ -62,6 +62,20 @@ Attributes can contain expressions or interpolated strings, and tables can be sp
 
 Styles are scoped to their component. Lunar generates a class for the rendered elements and adjusts selectors during compilation. The `:global(...)` selector can be used for styles that should remain global.
 
+## Lunar UI
+
+The framework includes a small visual library under the `lunar/ui` namespace. Applications can import `Button`, `Card`, `Stack`, `Badge`, `Alert`, `Field`, `Spinner` and `Icon` without installing a JavaScript UI runtime:
+
+```html
+<script>
+  local Button = import("lunar/ui/Button")
+</script>
+
+<Button label="Continue" />
+```
+
+The same directory contains the Lunar tokens and reset stylesheet. They are served at `/_lunar/ui/` and copied into generated Workers deployments.
+
 ## Compilation and rendering
 
 A `.lunar` file compiles to a Lua module with separate functions for server rendering and browser DOM creation. The compiler parses the script, template, and styles, and reports errors against the original file and line numbers. Compiled components are cached by their source contents.

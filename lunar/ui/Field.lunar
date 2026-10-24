@@ -1,0 +1,18 @@
+<script>
+  props { label = "", name = "", type = "text", value = "", placeholder = "", required = false, disabled = false, error = "", onchange = nil }
+</script>
+
+<label class="lunar-field">
+  {#if label ~= ""}<span>{label}{required and " *" or ""}</span>{/if}
+  <input name={name} type={type} value={value} placeholder={placeholder} required={required} disabled={disabled} aria-invalid={error ~= ""} on:input={onchange} />
+  {#if error ~= ""}<small>{error}</small>{/if}
+</label>
+
+<style>
+  .lunar-field { display: grid; gap: var(--lunar-space-2); }
+  .lunar-field > span { color: var(--lunar-text); font-size: .875rem; font-weight: 650; }
+  .lunar-field input { background: var(--lunar-surface); border: 1px solid var(--lunar-border-strong); border-radius: var(--lunar-radius-control); color: var(--lunar-text); font: inherit; min-height: 2.75rem; outline: 0; padding: 0 var(--lunar-space-3); width: 100%; }
+  .lunar-field input:focus { border-color: var(--lunar-accent); box-shadow: 0 0 0 3px var(--lunar-accent-soft); }
+  .lunar-field input:disabled { cursor: not-allowed; opacity: .55; }
+  .lunar-field small { color: var(--lunar-danger); }
+</style>

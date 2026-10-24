@@ -1,0 +1,16 @@
+<script>
+  props { title = "", tone = "info" }
+</script>
+
+<div class="lunar-alert lunar-alert-{tone}" role="status">
+  {#if title ~= ""}<strong>{title}</strong>{/if}
+  <div><slot /></div>
+</div>
+
+<style>
+  .lunar-alert { border: 1px solid; border-radius: var(--lunar-radius-control); display: grid; gap: var(--lunar-space-1); padding: var(--lunar-space-4); }
+  .lunar-alert-info { background: var(--lunar-info-soft); border-color: var(--lunar-info-border); color: var(--lunar-info); }
+  .lunar-alert-success { background: var(--lunar-success-soft); border-color: var(--lunar-success-border); color: var(--lunar-success); }
+  .lunar-alert-warning { background: var(--lunar-warning-soft); border-color: var(--lunar-warning-border); color: var(--lunar-warning); }
+  .lunar-alert-danger { background: var(--lunar-danger-soft); border-color: var(--lunar-danger-border); color: var(--lunar-danger); }
+</style>

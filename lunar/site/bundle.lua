@@ -51,6 +51,12 @@ local function app_components(app)
       out[#out + 1] = fs.join(app.root, relative)
     end
   end
+  local ui_root = fs.join(app.framework, "lunar/ui")
+  for _, relative in ipairs(fs.files(ui_root)) do
+    if relative:match("%.lunar$") then
+      out[#out + 1] = "lunar/ui/" .. relative
+    end
+  end
   table.sort(out)
   return out
 end

@@ -1,0 +1,13 @@
+<script>
+  props { direction = "column", gap = "4", align = "stretch", justify = "start" }
+  local gaps = { ["1"] = "var(--lunar-space-1)", ["2"] = "var(--lunar-space-2)", ["3"] = "var(--lunar-space-3)", ["4"] = "var(--lunar-space-4)", ["5"] = "var(--lunar-space-5)", ["6"] = "var(--lunar-space-6)", ["8"] = "var(--lunar-space-8)" }
+</script>
+
+<div class="lunar-stack lunar-stack-{direction}" style:gap={gaps[gap] or gap} style:align-items={align} style:justify-content={justify}><slot /></div>
+
+<style>
+  .lunar-stack { display: flex; }
+  .lunar-stack-row { flex-direction: row; }
+  .lunar-stack-column { flex-direction: column; }
+  @media (max-width: 40rem) { .lunar-stack-row { flex-wrap: wrap; } }
+</style>

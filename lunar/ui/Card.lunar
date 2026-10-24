@@ -1,0 +1,17 @@
+<script>
+  props { title = "", tone = "default" }
+</script>
+
+<section class="lunar-card lunar-card-{tone}">
+  {#if title ~= ""}<header class="lunar-card-header"><h2>{title}</h2><slot name="header" /></header>{/if}
+  <div class="lunar-card-body"><slot /></div>
+</section>
+
+<style>
+  .lunar-card { background: var(--lunar-surface); border: 1px solid var(--lunar-border); border-radius: var(--lunar-radius-card); box-shadow: var(--lunar-shadow-card); color: var(--lunar-text); }
+  .lunar-card-header { align-items: center; border-bottom: 1px solid var(--lunar-border); display: flex; gap: var(--lunar-space-3); justify-content: space-between; padding: var(--lunar-space-5); }
+  .lunar-card-header h2 { font-size: 1.05rem; line-height: 1.25; margin: 0; }
+  .lunar-card-body { padding: var(--lunar-space-5); }
+  .lunar-card-muted { background: var(--lunar-surface-raised); }
+  .lunar-card-accent { border-color: var(--lunar-accent); }
+</style>

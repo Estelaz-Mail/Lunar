@@ -78,7 +78,7 @@ function app.new(options)
     package.path,
   }, ";")
 
-  self.cache = compiler_lib().cache({ root = root, watch = self.dev })
+  self.cache = compiler_lib().cache({ root = root, framework = self.framework, watch = self.dev })
   self.cache:install()
   self.routes = routes_lib.discover(fs.join(root, "orbit"))
 
@@ -95,6 +95,11 @@ function app.new(options)
   })
   self.framework_static = static_lib.new({
     root = fs.join(self.framework, "static"),
+    version = self.version,
+    compress = self.compress,
+  })
+  self.framework_ui_static = static_lib.new({
+    root = fs.join(self.framework, "ui", "styles"),
     version = self.version,
     compress = self.compress,
   })
@@ -384,6 +389,11 @@ function App:framework_response(req)
       return res
     end
     return response.text("lunar: " .. runtime_file .. " is missing from the framework's static/runtime\n", 500)
+  end
+
+  local ui_file = path:match("^/_lunar/ui/(.+)$")
+  if ui_file then
+    return self.framework_ui_static:serve(req, "/" .. ui_file:gsub("^styles/", ""))
   end
 
   return nil

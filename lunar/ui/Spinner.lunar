@@ -1,0 +1,13 @@
+<script>
+  props { label = "Carregando", size = "md" }
+</script>
+
+<span class="lunar-spinner lunar-spinner-{size}" role="status" aria-label={label}></span>
+
+<style>
+  .lunar-spinner { animation: lunar-spin 700ms linear infinite; border: 3px solid var(--lunar-border-strong); border-right-color: var(--lunar-accent); border-radius: 50%; display: inline-block; }
+  .lunar-spinner-sm { height: 1rem; width: 1rem; }
+  .lunar-spinner-md { height: 1.5rem; width: 1.5rem; }
+  .lunar-spinner-lg { height: 2.5rem; width: 2.5rem; }
+  @keyframes lunar-spin { to { transform: rotate(360deg); } }
+</style>

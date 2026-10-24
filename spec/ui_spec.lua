@@ -1,0 +1,36 @@
+local compiler = require("lunar.compiler")
+local component = require("lunar.runtime.component")
+local mockdom = require("mockdom")
+
+local T = {}
+
+local function framework_component(name)
+  local cache = compiler.cache({ root = "spec/fixtures", framework = "." })
+  local def, err = cache:resolve("lunar/ui/" .. name, "spec/fixtures/App.lunar")
+  assert(def, err)
+  return def
+end
+
+function T.resolves_the_lunar_ui_library_from_the_framework()
+  local button = framework_component("Button")
+  local markup = component.render(button, { label = "Salvar", variant = "primary" })
+  assert(markup:find("Salvar", 1, true))
+  assert(markup:find("lunar%-button", 1))
+  assert(markup:find("lunar%-button%-primary", 1))
+end
+
+function T.renders_ui_components_with_server_and_browser_markup_in_agreement()
+  local card = framework_component("Card")
+  local markup = component.render(card, { title = "Conta" })
+  local dom = mockdom.new()
+  component.mount(card, dom.body, { title = "Conta" }, { dom = dom })
+  assert(markup:find("Conta", 1, true))
+end
+
+function T.compiles_every_first_wave_ui_component()
+  for _, name in ipairs({ "Button", "Card", "Stack", "Badge", "Alert", "Field", "Spinner", "Icon" }) do
+    assert(framework_component(name), name .. " did not compile")
+  end
+end
+
+return T

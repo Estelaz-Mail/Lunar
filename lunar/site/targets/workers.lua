@@ -176,6 +176,11 @@ function workers.generate(app, options)
     written[#written + 1] = { path = "public/", bytes = 0, files = count }
   end
 
+  local ui_root = fs.join(app.framework, "ui", "styles")
+  local ui_count, ui_error = copy_tree(ui_root, fs.join(public, "_lunar", "ui", "styles"))
+  if not ui_count then return nil, ui_error end
+  written[#written + 1] = { path = "public/_lunar/ui/", bytes = 0, files = ui_count }
+
   if app.client ~= false then
     local moonlight, moonlight_error = bundle.build(app)
     if not moonlight then return nil, moonlight_error end

@@ -64,11 +64,22 @@ function compiler.cache(options)
     watch = options.watch ~= false,
     entries = {},
     root = options.root or ".",
+    framework = options.framework or ".",
   }, Cache)
 end
 
-function Cache:get(path)
+function Cache:source_path(path)
   local source = util.read_file(path)
+  if source then return path, source end
+  if path:match("^lunar/ui/") then
+    local framework_path = self.framework .. "/" .. path
+    return framework_path, util.read_file(framework_path)
+  end
+  return path, nil
+end
+
+function Cache:get(path)
+  local source_path, source = self:source_path(path)
   if not source then return nil, path .. ": no such file" end
 
   local entry = self.entries[path]
@@ -76,7 +87,7 @@ function Cache:get(path)
     return entry.component, entry.generated
   end
 
-  local ok, component, generated = pcall(compiler.load, source, { path = path, filename = path })
+  local ok, component, generated = pcall(compiler.load, source, { path = path, filename = source_path })
   if not ok then return nil, component end
 
   self.entries[path] = { source = source, component = component, generated = generated }
