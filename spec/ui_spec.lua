@@ -1,4 +1,5 @@
 local compiler = require("lunar.compiler")
+local formatter = require("lunar.compiler.format")
 local component = require("lunar.runtime.component")
 local mockdom = require("mockdom")
 
@@ -58,6 +59,13 @@ function T.renders_feedback_and_overlay_components_only_when_active()
   assert(visible:find('role="dialog"', 1, true))
   assert(not hidden_toast:find("Pronto", 1, true))
   assert(visible_toast:find("Pronto", 1, true))
+end
+
+function T.formats_lunar_sources_without_external_formatters()
+  local source = "<div>\n<span>Lua</span>\n</div>\n"
+  local formatted = formatter.format(source)
+  assert(formatted == "<div>\n  <span>Lua</span>\n</div>\n")
+  assert(formatter.format(formatted) == formatted)
 end
 
 return T

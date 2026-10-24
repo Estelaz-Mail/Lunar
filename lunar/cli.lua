@@ -36,10 +36,6 @@ function cli.help()
   io.write(USAGE)
 end
 
-local function shell_quote(value)
-  return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
-end
-
 function cli.fmt(...)
   local arguments = { ... }
   local check = false
@@ -61,16 +57,38 @@ function cli.fmt(...)
     end
   end
 
-  local command = { "bunx", "prettier@3.9.10", check and "--check" or "--write" }
+  local fs = fs_lib()
+  local formatter = require("lunar.compiler.format")
+  local files = {}
+
   if #paths == 0 then
-    command[#command + 1] = "."
+    for _, path in ipairs(fs.files(".")) do
+      if path:match("%.lunar$") then files[#files + 1] = path end
+    end
   else
-    for _, path in ipairs(paths) do command[#command + 1] = shell_quote(path) end
+    for _, path in ipairs(paths) do
+      if path:match("%.lunar$") then
+        files[#files + 1] = path
+      elseif fs.is_directory(path) then
+        for _, relative in ipairs(fs.files(path)) do
+          if relative:match("%.lunar$") then files[#files + 1] = fs.join(path, relative) end
+        end
+      else
+        fail("fmt only formats .lunar files: " .. path)
+      end
+    end
   end
 
-  local ok, reason, code = os.execute(table.concat(command, " "))
-  if ok ~= true and ok ~= 0 then
-    fail(string.format("fmt failed (%s %s)", tostring(reason), tostring(code)))
+  table.sort(files)
+  for _, path in ipairs(files) do
+    local source = fs.read(path)
+    if not source then fail(path .. ": no such file") end
+    local formatted = formatter.format(source)
+    if check then
+      if formatted ~= source then fail(path .. ": formatting required") end
+    elseif formatted ~= source and not fs.write(path, formatted) then
+      fail(path .. ": could not write formatted source")
+    end
   end
 end
 
