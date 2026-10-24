@@ -1,0 +1,14 @@
+<script>
+  props { label = "", size = "md", tone = "brand" }
+</script>
+
+<span class="lunar-avatar lunar-avatar-{size} lunar-avatar-{tone}" aria-hidden="true">{label}</span>
+
+<style>
+  .lunar-avatar { align-items: center; border-radius: 50%; display: inline-flex; flex: 0 0 auto; font-weight: 700; justify-content: center; }
+  .lunar-avatar-sm { font-size: .75rem; height: 2rem; width: 2rem; }
+  .lunar-avatar-md { font-size: 1rem; height: 3rem; width: 3rem; }
+  .lunar-avatar-lg { font-size: 1.25rem; height: 4rem; width: 4rem; }
+  .lunar-avatar-brand { background: var(--lunar-brand); color: white; }
+  .lunar-avatar-neutral { background: var(--lunar-surface-raised); color: var(--lunar-text); }
+</style>

@@ -39,7 +39,7 @@ function T.renders_the_icons_used_by_the_estelaz_public_home()
 end
 
 function T.compiles_every_first_wave_ui_component()
-  for _, name in ipairs({ "Button", "Card", "Stack", "Badge", "Alert", "Field", "Spinner", "Icon" }) do
+  for _, name in ipairs({ "Button", "Card", "Stack", "Badge", "Alert", "Field", "Spinner", "Icon", "LinkButton", "Avatar" }) do
     assert(framework_component(name), name .. " did not compile")
   end
 end
@@ -48,6 +48,16 @@ function T.compiles_the_second_wave_ui_components()
   for _, name in ipairs({ "Checkbox", "Switch", "Select", "Textarea", "Progress", "Skeleton", "Modal", "Drawer", "Tabs", "Tooltip", "Table", "Toast", "Menu", "Radio", "Pagination", "Container", "Divider" }) do
     assert(framework_component(name), name .. " did not compile")
   end
+end
+
+function T.renders_navigation_and_identity_primitives()
+  local link_button = framework_component("LinkButton")
+  local avatar = framework_component("Avatar")
+  local link_markup = component.render(link_button, { href = "/register", label = "Criar conta", size = "sm" })
+  local avatar_markup = component.render(avatar, { label = "A" })
+  assert(link_markup:find('href="/register"', 1, true))
+  assert(link_markup:find("lunar-link-button-sm", 1, true))
+  assert(avatar_markup:find("lunar-avatar-md", 1, true))
 end
 
 function T.renders_feedback_and_overlay_components_only_when_active()
