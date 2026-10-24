@@ -93,10 +93,15 @@ local function sort_attributes(node, scope_class)
       names[attribute.name] = true
       local value
       if kind == "parts" then
-        value = { dynamic = #attribute.parts > 1 or attribute.parts[1].kind ~= "text",
-          code = parts_expression(attribute.parts),
-          literal = (#attribute.parts == 1 and attribute.parts[1].kind == "text")
-            and attribute.parts[1].value or nil }
+        local first = attribute.parts[1]
+        if not first then
+          value = { dynamic = false, literal = "" }
+        else
+          value = { dynamic = #attribute.parts > 1 or first.kind ~= "text",
+            code = parts_expression(attribute.parts),
+            literal = (#attribute.parts == 1 and first.kind == "text")
+              and first.value or nil }
+        end
       elseif kind == "expr" then
         value = { dynamic = true, code = attribute.code }
       else

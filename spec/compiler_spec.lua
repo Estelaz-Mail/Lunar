@@ -30,6 +30,11 @@ function T.a_component_without_a_script_or_a_style_still_compiles()
   assert(def.scope_class == nil)
 end
 
+function T.preserves_empty_attributes_without_crashing_codegen()
+  local def = support.source('<img src="/icon.svg" alt="" />', "EmptyAttribute.lunar")
+  assert(component.render(def, {}) == '<img src="/icon.svg" alt="">')
+end
+
 function T.refuses_a_second_script()
   assert(compile_error("<script>a=1</script><p/><script>b=2</script>")
     :find("one <script>", 1, true))

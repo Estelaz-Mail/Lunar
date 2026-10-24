@@ -110,7 +110,7 @@ jobs:
         with:
           bun-version: latest
       - name: Prettier
-        run: bunx prettier@3.9.10 --check .
+        run: bin/lunar fmt --check .
 
   editor:
     name: VS Code extension

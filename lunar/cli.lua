@@ -25,6 +25,7 @@ lunar ]] .. lunar.VERSION .. [[ — a framework in Lua
   lunar bench [app]        measure compiling, rendering, the takeover, the download
   lunar bench --http <url> measure a running server over keep-alive sockets
   lunar workers [app]      generate a Cloudflare Workers deploy directory
+  lunar fmt [--check]      format repository files
   lunar spec [name...]     run the tests
 
 `app` is a directory with an orbit/ tree in it; it defaults to the working
@@ -33,6 +34,44 @@ directory. PORT and HOST are read from the environment.
 
 function cli.help()
   io.write(USAGE)
+end
+
+local function shell_quote(value)
+  return "'" .. tostring(value):gsub("'", "'\\''") .. "'"
+end
+
+function cli.fmt(...)
+  local arguments = { ... }
+  local check = false
+  local paths = {}
+  local paths_only = false
+
+  for _, argument in ipairs(arguments) do
+    if argument == "--" then
+      paths_only = true
+    elseif not paths_only and argument == "--check" then
+      check = true
+    elseif not paths_only and (argument == "--help" or argument == "-h") then
+      io.write("lunar fmt [--check] [path...]\n")
+      return
+    elseif not paths_only and argument:sub(1, 1) == "-" then
+      fail("fmt: unknown option " .. argument)
+    else
+      paths[#paths + 1] = argument
+    end
+  end
+
+  local command = { "bunx", "prettier@3.9.10", check and "--check" or "--write" }
+  if #paths == 0 then
+    command[#command + 1] = "."
+  else
+    for _, path in ipairs(paths) do command[#command + 1] = shell_quote(path) end
+  end
+
+  local ok, reason, code = os.execute(table.concat(command, " "))
+  if ok ~= true and ok ~= 0 then
+    fail(string.format("fmt failed (%s %s)", tostring(reason), tostring(code)))
+  end
 end
 
 local function app_root(argument)

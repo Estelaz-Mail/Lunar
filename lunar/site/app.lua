@@ -417,6 +417,11 @@ function App:handle(req)
     if held then return held end
   end
 
+  local file = self.static and self.static:serve(req, req.path)
+  if file then
+    return file
+  end
+
   local route, params = routes_lib.match(self.routes, req.path)
 
   local ok, result = pcall(function()
@@ -448,11 +453,6 @@ function App:handle(req)
 
   if result then
     return result
-  end
-
-  local file = self.static and self.static:serve(req, req.path)
-  if file then
-    return file
   end
 
   if req.method ~= "GET" and req.method ~= "HEAD" then

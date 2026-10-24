@@ -9,6 +9,7 @@
 #   lunar bench [app]      measure compiling, rendering, the takeover, the download
 #   lunar bench --http <url>   measure a running server over keep-alive sockets
 #   lunar workers [app]    generate a Cloudflare Workers deploy directory
+#   lunar fmt [--check]    format repository files
 #   lunar spec [name...]   run the tests
 #
 # LuaSocket is needed to serve; everything else runs on a bare Lua 5.4. If a
@@ -32,7 +33,7 @@ command="${1:-help}"
 
 case "$command" in
 	spec) exec "${LUA:-lua5.4}" "$root/spec/runner.lua" "$@" ;;
-	dev|build|map|compile|wasm|serve|workers|bench|analyze|prerender|help|--help|-h)
+	dev|build|map|compile|wasm|serve|workers|bench|analyze|prerender|fmt|help|--help|-h)
 		exec "${LUA:-lua5.4}" "$root/lunar/cli.lua" "$command" "$@" ;;
 	*)
 		echo "lunar: unknown command '$command'" >&2

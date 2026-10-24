@@ -6,7 +6,7 @@ Lunaris UI é a biblioteca visual oficial do Lunar. Ela fornece componentes `.lu
 
 Componentes da biblioteca podem ser importados diretamente pelo namespace do framework:
 
-```html
+```lunar
 <script>
   local Button = import("lunar/ui/Button")
   local Card = import("lunar/ui/Card")
@@ -24,10 +24,7 @@ Os tokens e o reset são arquivos públicos do framework e podem ser adicionados
 
 ```json
 {
-  "stylesheets": [
-    "/_lunar/ui/tokens.css",
-    "/_lunar/ui/reset.css"
-  ]
+  "stylesheets": ["/_lunar/ui/tokens.css", "/_lunar/ui/reset.css"]
 }
 ```
 

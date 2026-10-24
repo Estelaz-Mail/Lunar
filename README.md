@@ -36,7 +36,7 @@ Interactive terminals display a lunar theme, and the installer animates download
 
 Lunar components use the `.lunar` extension. Each file contains an HTML template, with an optional Lua `<script>` and a scoped `<style>` block.
 
-```html
+```lunar
 <script>
   props { title = "Lunar" }
   count = 0
@@ -71,7 +71,7 @@ The framework includes Lunaris UI, its visual library under the `lunar/ui` names
   local Button = import("lunar/ui/Button")
 </script>
 
-<Button label="Continue" />
+<button label="Continue" />
 ```
 
 The same directory contains the Lunar tokens and reset stylesheet. They are served at `/_lunar/ui/` and copied into generated Workers deployments.
@@ -373,18 +373,19 @@ lunar wasm file...
 lunar bench [app]
 lunar bench --http URL
 lunar workers [app]
+lunar fmt [--check] [path...]
 lunar spec
 ```
 
-`dev` starts the development server, `build` compiles the application's components to check for errors, and `map` prints the discovered routes. `compile` writes the generated Lua for a component to standard output and `wasm` compiles Lua files into wasm parts, reporting what each one exports and needs, writing them to `WASM_OUT` when that is set. `analyze` reports what a browser downloads for the application and what is inside the bundle, `prerender` writes the fixed routes to HTML, `bench` measures compiling, rendering, the takeover, and the download, `workers` creates a Cloudflare Workers deployment, and `spec` runs the test suite.
+`dev` starts the development server, `build` compiles the application's components to check for errors, and `map` prints the discovered routes. `compile` writes the generated Lua for a component to standard output and `wasm` compiles Lua files into wasm parts, reporting what each one exports and needs, writing them to `WASM_OUT` when that is set. `analyze` reports what a browser downloads for the application and what is inside the bundle, `prerender` writes the fixed routes to HTML, `bench` measures compiling, rendering, the takeover, and the download, `workers` creates a Cloudflare Workers deployment, `fmt` formats repository files with the project's Prettier configuration, and `spec` runs the test suite.
 
 ## Formatting
 
 Everything in the repository that is not Lua is formatted with Prettier: Markdown, YAML, JSON, CSS, HTML, and JavaScript. There is no package manifest at the root and nothing to install, since the version is named at the point of use:
 
 ```sh
-bunx prettier@3.9.10 --write .
-bunx prettier@3.9.10 --check .
+lunar fmt
+lunar fmt --check
 ```
 
 The settings are in `.prettierrc`. Lua files are listed in `.prettierignore`, since Prettier has no Lua support; Lua in this repository uses two-space indentation, `snake_case` names, and no comments. The continuous integration workflow runs the check alongside the test suite.

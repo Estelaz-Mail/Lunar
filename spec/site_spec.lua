@@ -56,6 +56,17 @@ function T.matches_a_literal_route_before_a_dynamic_one()
   assert(routes_lib.match(discovered, "/nope") == nil)
 end
 
+function T.serves_a_static_asset_before_a_dynamic_route_can_capture_it()
+  local instance = app()
+  instance.routes[#instance.routes + 1] = {
+    id = "/[slug]", page = APP .. "/orbit/page.lunar",
+    segments = routes_lib.compile("/[slug]"), levels = {},
+  }
+  local res = get("/favicon.png", nil, instance)
+  assert(res.status == 200)
+  assert(res.headers["Content-Type"]:find("image/png", 1, true))
+end
+
 function T.matches_a_catch_all_and_hands_over_the_rest_of_the_path()
   local segments = routes_lib.compile("/files/[...path]")
   local params = routes_lib.match_segments(segments, { "files", "a", "b", "c.txt" })
